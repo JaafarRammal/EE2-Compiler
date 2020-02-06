@@ -51,11 +51,11 @@ statement_list
 	;
 
 statement
-        : compound_statement
+	: compound_statement
 	| selection_statement
 	| iteration_statement
 	| assignment_statement
-        | RETURN expression ';'
+	| RETURN expression ';'
 	;
 
 assignment_statement
@@ -117,13 +117,13 @@ primary_expression
 	;
 
 l_expression
-        : IDENTIFIER
-        | l_expression '[' expression ']' 
-        ;
+	: IDENTIFIER
+	| l_expression '[' expression ']' 
+	;
 expression_list
-        : expression
-        | expression_list ',' expression
-				;
+	: expression
+	| expression_list ',' expression
+	;
 
 unary_operator
 	: SUB_OP
@@ -131,7 +131,7 @@ unary_operator
 	;
 
 selection_statement
-        : IF '(' expression ')' statement ELSE statement
+	: IF '(' expression ')' statement (ELSE statement)?
 	;
 
 iteration_statement
