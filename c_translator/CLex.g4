@@ -1,6 +1,6 @@
 lexer grammar CLex;
 
-WHITESPACES: [\t\n\r ];
+WHITESPACES: [\t\n\r ] -> skip;
 
 /* keywords */
 VOID: 'void';
@@ -19,6 +19,7 @@ STRING_LITERAL: '"(\\.|[^"\\])*"';
 
 
 /* Operators */
+ASS_OP: '=';
 NOT_OP: '!';
 ADD_OP: '+';
 SUB_OP: '-';
@@ -35,4 +36,6 @@ OR_OP:  '||';
 INC_OP: '++';
 
 //others
-OTHERS: '('|')'|'['|']'|';'|','|'{'|'}';
+OP_CR:  '{';
+CL_CR:  '}';
+OTHERS: '('|')'|'['|']'|';'|',';
