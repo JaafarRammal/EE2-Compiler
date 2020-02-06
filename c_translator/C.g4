@@ -2,7 +2,9 @@ grammar C;
 
 prog	:	block+;
 
-block	:	(('int'|'void') ID '('prms?')')?'{'	stmt*	'}';
+block	:	(('int'|'void') ID '('prms?')')?'{'	stmt*	'}'
+			|	 decl
+			;
 
 prms	:	'int' ID
 			|	('int' ID ',')+ 'int' ID
@@ -14,19 +16,26 @@ stmt	:	expr ';'	// expression
 			|	'return' expr? ';'
 			;
 
-expr	: 'int' ID ('='(expr|term))?
-			|	expr	('*'|'+'|'-'|'<'|'==') term
-			| expr	('&&'|'||') expr // required aside so that < and == are executed first
+expr	: decl
+			| asgn
+			|	expr '*'	expr
+			|	expr	('+'|'-'|'<'|'==') expr
+			| expr	('&&'|'||') expr
 			|	ID	'('expr?')'
 			|	ID	'('(expr',')+expr')'
-			| term
+			| ('+'|'-')?term
+			|	'(' expr ')'
 			;
+
+decl	:	'int' ID ('='(expr|term))?	;
+
+asgn	:	ID ('='(expr|term));
 
 term	:	INT
 			| ID
 			;
 
 INT	:	[0-9]+	;	// decimal integer constant
-ID	:	[a-zA-Z]+[0-9a-zA-Z]*	;	// identifier
+ID	:	[a-zA-Z_]+[0-9a-zA-Z_]*	;	// identifier
 WS	: [ \t]+ -> skip ;	// skip whitespaces
 NL	:	'\r'? '\n' -> skip ;	// skip new lines
