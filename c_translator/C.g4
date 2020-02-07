@@ -61,8 +61,8 @@ statement
 	;
 
 assignment_statement
-	: ';'																							#assgnEmpty
-	|  left=l_expression ASS_OP right=expression ';'	#assgnOp
+	:	left=l_expression ASS_OP right=expression	#assgnOp
+	| ''																				#assgnEmpty
 	;
 
 expression
@@ -146,11 +146,24 @@ declaration_list
 	;
 
 declaration
-	: type=type_specifier decl_l=declarator_list';'		#decl
-	|	type=type_specifier	assgn=assignment_statement	#assgn
+	: type=type_specifier decl_l=declarator_list';'			#decl
+	|	type=type_specifier	assgn=assignment_statement';'	#assgn
 	;
 
 declarator_list
 	: decl=declarator															#singleDeclarator
 	| decl_l=declarator_list ',' decl=declarator	#multipleDeclarator
 	;
+
+/*
+
+TO BE ADDED / ANY BUGS NOTICED:
+
+- Add support for nested function definitions:
+
+int main(){
+	void a(){}	// this is not being parsed
+	a();
+}
+
+ */
