@@ -33,8 +33,52 @@ public class CTranslator extends CBaseListener {
   }
 
   @Override public void enterFunction_definition(CParser.Function_definitionContext ctx) { 
-    tabulate();System.out.println("def " + ctx.func_dec.getText() + ":");
+    int a = ctx.func_dec.start.getStartIndex();
+    int b = ctx.func_dec.stop.getStopIndex();
+    Interval interval = new Interval(a,b);
+    String definition = ctx.start.getInputStream().getText(interval);
+    tabulate();System.out.println("def " + definition + ":");
+    if(ctx.func_dec.getChild(0).getText().toString().equals("main")){
+      include_main = true;
+    };
   }
+
+  @Override public void enterIfStat(CParser.IfStatContext ctx) {
+    int a = ctx.condition.start.getStartIndex();
+    int b = ctx.condition.stop.getStopIndex();
+    Interval interval = new Interval(a,b);
+    String condition = ctx.start.getInputStream().getText(interval);
+    tabulate();System.out.println("if(" + condition + "):");
+  }
+
+  @Override public void enterAssignementStatement(CParser.AssignementStatementContext ctx) {
+    int a = ctx.stmt.start.getStartIndex();
+    int b = ctx.stmt.stop.getStopIndex();
+    Interval interval = new Interval(a,b);
+    String operation = ctx.stmt.start.getInputStream().getText(interval);
+    tabulate();System.out.println(operation);
+  }
+
+  @Override public void enterReturnStatement(CParser.ReturnStatementContext ctx) {
+    String ret = "";
+    if(ctx.expr != null){
+      int a = ctx.expr.start.getStartIndex();
+      int b = ctx.expr.stop.getStopIndex();
+      Interval interval = new Interval(a,b);
+      ret = ctx.expr.start.getInputStream().getText(interval);
+    }
+    tabulate();System.out.println("return " + ret);
+  }
+
+  @Override public void enterWhileStat(CParser.WhileStatContext ctx) {
+    int a = ctx.condition.start.getStartIndex();
+    int b = ctx.condition.stop.getStopIndex();
+    Interval interval = new Interval(a,b);
+    String condition = ctx.start.getInputStream().getText(interval);
+    tabulate();System.out.println("while(" + condition + "):");
+  }
+
+
 
   @Override public void enterCmpStatementEmpty(CParser.CmpStatementEmptyContext ctx) { current_scope += 1 ;}
   @Override public void exitCmpStatementEmpty(CParser.CmpStatementEmptyContext ctx) { current_scope -= 1 ;}
@@ -50,7 +94,11 @@ public class CTranslator extends CBaseListener {
     ParseTree tree = parser.translation_unit(); // begin parsing at init rule
     ParseTreeWalker walker = new ParseTreeWalker();
     System.out.println("Equivalent python is:\n");
-    walker.walk(new CTranslator(), tree);
+    CTranslator CtoPython = new CTranslator();
+    walker.walk(CtoPython, tree);
+    if(CtoPython.include_main){
+      System.out.println("if __name__ == \"__main__\":\n\timport sys\n\tret=main()\n\tsys.exit(ret)");
+    }
     System.out.println();
   }
 

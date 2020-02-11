@@ -55,14 +55,13 @@ statement
 	: stmt=compound_statement									#compoundStatement
 	| stmt=selection_statement								#selectionStatement
 	| stmt=iteration_statement								#iterationStatement
-	| stmt=assignment_statement								#assignementStatement
+	| stmt=assignment_statement	';'						#assignementStatement
 	|	(l_expr=l_expression | expr=expression)	#exprStatement
 	| RETURN expr=expression? ';'							#returnStatement
 	;
 
 assignment_statement
 	:	left=l_expression ASS_OP right=expression	#assgnOp
-	| ''																				#assgnEmpty
 	;
 
 expression
@@ -119,7 +118,7 @@ primary_expression
 	;
 
 l_expression
-	: id=IDENTIFIER											#exprId
+	: id=IDENTIFIER																#exprId
 	| left=l_expression '[' right=expression ']' 	#exprBrackets
 	;
 expression_list
@@ -141,13 +140,13 @@ iteration_statement
 	;
 
 declaration_list
-	: decl=declaration									#singleDecl
+	: decl=declaration	';'							#singleDecl
 	| declaration_list decl=declaration	#multipleDecl
 	;
 
 declaration
-	: type=type_specifier decl_l=declarator_list';'			#decl
-	|	type=type_specifier	assgn=assignment_statement';'	#assgn
+	: type=type_specifier decl_l=declarator_list					#decl
+	|	type=type_specifier	assgn=assignment_statement ';'	#assgn
 	;
 
 declarator_list
@@ -165,5 +164,10 @@ int main(){
 	void a(){}	// this is not being parsed
 	a();
 }
+
+UPDATE: THIS IS NOT A THING haha
+
+
+- problem with declaration outside a scope (rest is not parsed)
 
  */
