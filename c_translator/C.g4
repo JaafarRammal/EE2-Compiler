@@ -145,7 +145,7 @@ declaration_list
 	;
 
 declaration
-	: type=type_specifier decl_l=declarator_list					#decl
+	: type=type_specifier decl_l=declarator_list	';'     #decl
 	|	type=type_specifier	assgn=assignment_statement ';'	#assgn
 	;
 
