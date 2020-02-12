@@ -140,7 +140,7 @@ iteration_statement
 	;
 
 declaration_list
-	: decl=declaration	';'							#singleDecl
+	: decl=declaration									#singleDecl
 	| declaration_list decl=declaration	#multipleDecl
 	;
 

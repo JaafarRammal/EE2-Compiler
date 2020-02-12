@@ -14,20 +14,23 @@ public class CTranslator extends CBaseListener {
   Boolean include_main;
 
   CTranslator(){
-    current_scope = 0;
-    include_main = false;
+    current_scope = 0; // keep track of the scop count to tabulate correctly
+    include_main = false; // keep track if we need to include a main
     // Set<String> global_variables = new Set<String>();
   }
 
+  // function to add tabs correctly for the python generation
   public void tabulate(){
     for(int i=0; i<current_scope; i++)
       System.out.print("\t");
   }
 
+  // variable declaration is similar with a compulsory assignemnt (=0) and remove type
   @Override public void enterDecl(CParser.DeclContext ctx) {
     tabulate();System.out.println(ctx.decl_l.getText()+"=0");
   }
 
+  // copy the assignement
   @Override public void enterAssgn(CParser.AssgnContext ctx) {
     tabulate();System.out.println(ctx.assgn.getText());
   }
@@ -49,6 +52,9 @@ public class CTranslator extends CBaseListener {
     Interval interval = new Interval(a,b);
     String condition = ctx.start.getInputStream().getText(interval);
     tabulate();System.out.println("if(" + condition + "):");
+    if(ctx.false_exec != null){
+      tabulate();System.out.println("else:");
+    }
   }
 
   @Override public void enterAssignementStatement(CParser.AssignementStatementContext ctx) {
