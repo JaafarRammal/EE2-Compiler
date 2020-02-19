@@ -165,26 +165,6 @@ public class CTranslator extends CBaseListener {
     current_scope -= 1;
   }
 
-  @Override
-  public void enterCmpStatementEmpty(CParser.CmpStatementEmptyContext ctx) {
-    //current_scope += 1;
-  }
-
-  @Override
-  public void exitCmpStatementEmpty(CParser.CmpStatementEmptyContext ctx) {
-    //current_scope -= 1;
-  }
-
-  @Override
-  public void enterCmpStatementNonEmpty(CParser.CmpStatementNonEmptyContext ctx) {
-    //current_scope += 1;
-  }
-
-  @Override
-  public void exitCmpStatementNonEmpty(CParser.CmpStatementNonEmptyContext ctx) {
-    //current_scope -= 1;
-  }
-
   public static void main(String[] args) throws Exception {
     // create a CharStream that reads from standard input
     ANTLRInputStream input = new ANTLRInputStream(System.in); // create a lexer that feeds off of input CharStream
