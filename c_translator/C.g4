@@ -52,12 +52,13 @@ statement_list
 	;
 
 statement
-	: stmt=compound_statement									#compoundStatement
-	| stmt=selection_statement								#selectionStatement
-	| stmt=iteration_statement								#iterationStatement
-	| stmt=assignment_statement	 ';'   				#assignmentStatement
-	|	(l_expr=l_expression | expr=expression)	#exprStatement
-	| RETURN expr=expression? ';'							#returnStatement
+	: stmt=compound_statement											#compoundStatement
+	| stmt=selection_statement										#selectionStatement
+	| stmt=iteration_statement										#iterationStatement
+	| stmt=assignment_statement	 ';'   						#assignmentStatement
+	|	stmt=expression	';'													#exprStatement
+	|	stmt=l_expression	';'												#lexprStatement
+	| RETURN expr=expression? ';'									#returnStatement
 	;
 
 assignment_statement
