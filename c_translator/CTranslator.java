@@ -61,7 +61,6 @@ public class CTranslator extends CBaseListener {
 
   // copy the assignment
   @Override public void enterSingleDeclarator(CParser.SingleDeclaratorContext ctx) {
-    tabulate();
     if(current_scope==0){
       global_variables.add(ctx.decl.getText());
     }
@@ -76,11 +75,11 @@ public class CTranslator extends CBaseListener {
     Interval interval = new Interval(a, b);
     String definition = ctx.start.getInputStream().getText(interval);
     System.out.println("def " + definition + ":");
+    for(String gVar : global_variables){
+      tabulate();System.out.println("global "+gVar);
+    }
     if (ctx.func_dec.getChild(0).getText().toString().equals("main")) {
       include_main = true;
-      for(String gVar : global_variables){
-        tabulate();System.out.println("global "+gVar);
-      }
     }
     ;
   }
@@ -93,17 +92,13 @@ public class CTranslator extends CBaseListener {
 
   @Override
   public void enterIfStat(CParser.IfStatContext ctx) {
-    current_scope += 1;
     int a = ctx.condition.start.getStartIndex();
     int b = ctx.condition.stop.getStopIndex();
     Interval interval = new Interval(a, b);
     String condition = ctx.start.getInputStream().getText(interval);
     tabulate();
     System.out.println("if(" + condition + "):");
-    if (ctx.false_exec != null) {
-      tabulate();
-      System.out.println("else:");
-    }
+    current_scope += 1;
   }
 
   @Override
@@ -111,6 +106,18 @@ public class CTranslator extends CBaseListener {
     current_scope -= 1;
   }
 
+  @Override
+  public void enterElseStat(CParser.ElseStatContext ctx) {
+    // because in the grammar, the else is within the ifStat context, it is getting an extra tabulation
+    // decrement the scope by one. An elseStat is ALWAYS part of an ifStat anyway
+    current_scope -= 1; 
+    tabulate();
+    System.out.println("else:");
+    current_scope += 1;
+    // do not decrement scope when leaving an elseStat context because we are also leaving an ifStat context
+    // which will already decrement the scope
+  }
+  
   @Override public void enterReturnStatement(CParser.ReturnStatementContext ctx) {
     String ret = "";
     if (ctx.expr != null) {
@@ -125,13 +132,13 @@ public class CTranslator extends CBaseListener {
 
   @Override
   public void enterWhileStat(CParser.WhileStatContext ctx) {
-    current_scope += 1;
     int a = ctx.condition.start.getStartIndex();
     int b = ctx.condition.stop.getStopIndex();
     Interval interval = new Interval(a, b);
     String condition = ctx.start.getInputStream().getText(interval);
     tabulate();
     System.out.println("while(" + condition + "):");
+    current_scope += 1;
   }
 
   @Override
@@ -167,7 +174,7 @@ public class CTranslator extends CBaseListener {
     CParser parser = new CParser(tokens);
     ParseTree tree = parser.translation_unit(); // begin parsing at init rule
     ParseTreeWalker walker = new ParseTreeWalker();
-    System.out.println("Equivalent python is:\n");
+    System.err.println("Equivalent python is:\n");
     CTranslator CtoPython = new CTranslator();
     walker.walk(CtoPython, tree);
     // if (CtoPython.include_main) {
