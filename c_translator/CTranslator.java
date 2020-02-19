@@ -44,7 +44,6 @@ public class CTranslator extends CBaseListener {
 
   // copy the assignment
   @Override public void enterAssgnOp(CParser.AssgnOpContext ctx) {
-    tabulate();
     if(current_scope==0){
       global_variables.add(ctx.left.getText());
     }
@@ -75,11 +74,11 @@ public class CTranslator extends CBaseListener {
     Interval interval = new Interval(a, b);
     String definition = ctx.start.getInputStream().getText(interval);
     System.out.println("def " + definition + ":");
+    for(String gVar : global_variables){
+      tabulate();System.out.println("global "+gVar);
+    }
     if (ctx.func_dec.getChild(0).getText().toString().equals("main")) {
       include_main = true;
-      for(String gVar : global_variables){
-        tabulate();System.out.println("global "+gVar);
-      }
     }
     ;
   }
@@ -132,13 +131,13 @@ public class CTranslator extends CBaseListener {
 
   @Override
   public void enterWhileStat(CParser.WhileStatContext ctx) {
-    current_scope += 1;
     int a = ctx.condition.start.getStartIndex();
     int b = ctx.condition.stop.getStopIndex();
     Interval interval = new Interval(a, b);
     String condition = ctx.start.getInputStream().getText(interval);
     tabulate();
     System.out.println("while(" + condition + "):");
+    current_scope += 1;
   }
 
   @Override
