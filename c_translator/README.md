@@ -8,6 +8,7 @@ From the /EE2-Compiler/c_translator directory:
 
 ```
 antlr4 C.g4 -package c_translator.antlr -o antlr
+javac ./antlr/*.java
 ```
 
 ### Visualize the tree

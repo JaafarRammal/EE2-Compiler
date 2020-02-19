@@ -66,6 +66,7 @@ public class CTranslator extends CBaseListener {
     }
   }
 
+  // function declartion with some params manipulation
   @Override
   public void enterFunction_definition(CParser.Function_definitionContext ctx) {
     current_scope += 1;
@@ -80,11 +81,15 @@ public class CTranslator extends CBaseListener {
 
   // very ugly solution but if this is the last param, close function definition
   // else place a comma for the next param
+  // put closing parentheses (check twice unfortunatly)
+  // could also directly put that in the grammar
+  // please open an issue later if this needs to be resolved for a better implementation
+
   @Override
   public void enterParameter_declaration(CParser.Parameter_declarationContext ctx) {
     System.out.print(ctx.decl.getText());
     if(ctx.getParent().getParent().getChild(1).getText().equals("(")){
-      System.out.println("):"); // need to make general [THIS NEEDS TO BE FIXEDß]
+      System.out.println("):");
     }else{
       System.out.print(", ");
     }
@@ -95,6 +100,13 @@ public class CTranslator extends CBaseListener {
     tabulate();System.out.println("pass"); // for empty functions, python will not compile
     current_scope -= 1;
   }
+
+  @Override
+  public void exitFuncDecl(CParser.FuncDeclContext ctx){
+    if(ctx.getChild(3) == null) {System.out.println("):");}
+  }
+
+  // end of function declaration
 
 
   @Override
