@@ -69,22 +69,31 @@ public class CTranslator extends CBaseListener {
   @Override
   public void enterFunction_definition(CParser.Function_definitionContext ctx) {
     current_scope += 1;
-    int a = ctx.func_dec.start.getStartIndex();
-    int b = ctx.func_dec.stop.getStopIndex();
-    Interval interval = new Interval(a, b);
-    String definition = ctx.start.getInputStream().getText(interval);
-    System.out.println("def " + definition + ":");
+    System.out.println("def " + funcDecPrint(ctx.func_dec) + ":");
     for(String gVar : global_variables){
       tabulate();System.out.println("global "+gVar);
     }
     if (ctx.func_dec.getChild(0).getText().toString().equals("main")) {
       include_main = true;
     }
-    ;
+  }
+
+  public String funcDecPrint(CParser.Fun_declaratorContext ctx){
+    if(ctx.getChild(3) != null){
+      return ctx.getChild(0)+"(" + paramsPrint(ctx.getChild(2)) + ")";
+    }
+    return ctx.getChild(0)+"()";
+  }
+
+  public String paramsPrint(ParseTree ctx){
+    // System.out.println("The tree is: " + ctx.getChild(0));
+    // need to recurse down the parameter list until it's one child then print the ID only
+    return "";
   }
 
   @Override
   public void exitFunction_definition(CParser.Function_definitionContext ctx) {
+    tabulate();System.out.println("pass"); // for empty functions, python will not compile
     current_scope -= 1;
   }
 

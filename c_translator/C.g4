@@ -17,8 +17,8 @@ type_specifier
 	;
 
 fun_declarator
-	: id=IDENTIFIER '(' params=parameter_list ')'	#funcDecl
-	| id=IDENTIFIER '(' ')'												#funcDeclParam
+	: id=IDENTIFIER '(' params=parameter_list ')'	#funcDeclParam
+	| id=IDENTIFIER '(' ')'												#funcDecl
 	;
 
 parameter_list
