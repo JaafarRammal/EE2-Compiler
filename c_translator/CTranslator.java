@@ -44,7 +44,6 @@ public class CTranslator extends CBaseListener {
 
   // copy the assignment
   @Override public void enterAssgnOp(CParser.AssgnOpContext ctx) {
-    tabulate();
     if(current_scope==0){
       global_variables.add(ctx.left.getText());
     }
@@ -52,7 +51,6 @@ public class CTranslator extends CBaseListener {
 
   @Override
   public void enterAssignmentStatement(CParser.AssignmentStatementContext ctx) {
-    System.out.println("assignment statement");
     int a = ctx.stmt.start.getStartIndex();
     int b = ctx.stmt.stop.getStopIndex();
     Interval interval = new Interval(a, b);
@@ -71,6 +69,7 @@ public class CTranslator extends CBaseListener {
 
   @Override
   public void enterFunction_definition(CParser.Function_definitionContext ctx) {
+    tabulate();
     current_scope += 1;
     int a = ctx.func_dec.start.getStartIndex();
     int b = ctx.func_dec.stop.getStopIndex();
@@ -171,9 +170,9 @@ public class CTranslator extends CBaseListener {
     System.out.println("Equivalent python is:\n");
     CTranslator CtoPython = new CTranslator();
     walker.walk(CtoPython, tree);
-    if (CtoPython.include_main) {
-      System.out.println("if __name__ == \"__main__\":\n\timport sys\n\tret=main()\n\tsys.exit(ret)");
-    }
+    // if (CtoPython.include_main) {
+    //   System.out.println("if __name__ == \"__main__\":\n\timport sys\n\tret=main()\n\tsys.exit(ret)");
+    // }
     System.out.println();
   }
 

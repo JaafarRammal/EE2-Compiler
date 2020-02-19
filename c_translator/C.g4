@@ -55,7 +55,7 @@ statement
 	: stmt=compound_statement									#compoundStatement
 	| stmt=selection_statement								#selectionStatement
 	| stmt=iteration_statement								#iterationStatement
-	| stmt=assignment_statement	    					#assignmentStatement
+	| stmt=assignment_statement ';'   				#assignmentStatement
 	|	(l_expr=l_expression | expr=expression)	#exprStatement
 	| RETURN expr=expression? ';'							#returnStatement
 	;
@@ -163,6 +163,10 @@ TO BE ADDED / ANY BUGS NOTICED:
 int main(){
 	void a(){}	// this is not being parsed
 	a();
+}
+
+if(1){
+
 }
 
 UPDATE: THIS IS NOT A THING haha
