@@ -69,7 +69,7 @@ public class CTranslator extends CBaseListener {
   @Override
   public void enterFunction_definition(CParser.Function_definitionContext ctx) {
     current_scope += 1;
-    System.out.println("def " + funcDecPrint(ctx.func_dec) + ":");
+    System.out.print("def " + ctx.func_dec.getChild(0) + "(");
     for(String gVar : global_variables){
       tabulate();System.out.println("global "+gVar);
     }
@@ -78,17 +78,16 @@ public class CTranslator extends CBaseListener {
     }
   }
 
-  public String funcDecPrint(CParser.Fun_declaratorContext ctx){
-    if(ctx.getChild(3) != null){
-      return ctx.getChild(0)+"(" + paramsPrint(ctx.getChild(2)) + ")";
+  // very ugly solution but if this is the last param, close function definition
+  // else place a comma for the next param
+  @Override
+  public void enterParameter_declaration(CParser.Parameter_declarationContext ctx) {
+    System.out.print(ctx.decl.getText());
+    if(ctx.getParent().getParent().getChild(1).getText().equals("(")){
+      System.out.println("):"); // need to make general [THIS NEEDS TO BE FIXEDß]
+    }else{
+      System.out.print(", ");
     }
-    return ctx.getChild(0)+"()";
-  }
-
-  public String paramsPrint(ParseTree ctx){
-    // System.out.println("The tree is: " + ctx.getChild(0));
-    // need to recurse down the parameter list until it's one child then print the ID only
-    return "";
   }
 
   @Override
