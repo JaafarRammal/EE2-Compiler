@@ -55,7 +55,7 @@ statement
 	: stmt=compound_statement									#compoundStatement
 	| stmt=selection_statement								#selectionStatement
 	| stmt=iteration_statement								#iterationStatement
-	| stmt=assignment_statement	    					#assignmentStatement
+	| stmt=assignment_statement	 ';'   				#assignmentStatement
 	|	(l_expr=l_expression | expr=expression)	#exprStatement
 	| RETURN expr=expression? ';'							#returnStatement
 	;
@@ -132,7 +132,11 @@ unary_operator
 	;
 
 selection_statement
-	: IF '(' condition=expression ')' true_exec=statement (ELSE false_exec=statement)?	#ifStat
+	: IF '(' condition=expression ')' true_exec=statement (false_exec=else_statement)?	#ifStat
+	;
+
+else_statement
+	:	ELSE false_exec=statement	#elseStat
 	;
 
 iteration_statement
