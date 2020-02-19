@@ -1,6 +1,6 @@
-package c_translator;
+package src;
 
-import c_translator.antlr.*;
+import src.antlr.*;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.TokenStream;
@@ -8,6 +8,8 @@ import org.antlr.v4.runtime.misc.Interval;
 
 import java.util.Set; // for the global variables tracking
 import java.util.HashSet; // for the global variables tracking
+
+// antlr listeners are by default depth-first walk (therefore a full in depth anticlockwise circle)
 
 public class CTranslator extends CBaseListener {
 
