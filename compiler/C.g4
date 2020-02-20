@@ -59,6 +59,7 @@ statement
 	|	stmt=expression	';'													#exprStatement
 	|	stmt=l_expression	';'												#lexprStatement
 	| RETURN expr=expression? ';'									#returnStatement
+	|	';'																					#emptyStatement
 	;
 
 assignment_statement
@@ -66,7 +67,8 @@ assignment_statement
 	;
 
 expression
-	: expr=logical_and_expression														#logicalExpr
+	:	expr=assignment_statement															#assgnExpr
+	| expr=logical_and_expression														#logicalExpr
 	| left=expression op=OR_OP right=logical_and_expression	#orOp
 	;
 
