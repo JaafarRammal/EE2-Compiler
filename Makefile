@@ -1,5 +1,10 @@
 #place translator bytecode & compiler bash script in same folder
-bin/c_compiler: 
+java:
+	make clean
+	javac ./compiler/antlr/*.java
+	javac ./compiler/*.java
+bin/c_compiler:
+	make java
 	rm -rf ./bin
 	mkdir bin
 	cp ./c_compiler.sh ./bin
@@ -15,4 +20,5 @@ grammar:
 
 clean:
 	rm -rf ./bin
+	rm -rf ./src/*/*.class
 

@@ -7,7 +7,7 @@ Instructions on how to build with ANTLR
 From the /EE2-Compiler/src directory:
 
 ```
-antlr4 C.g4 -visitor -package src.antlr -o antlr
+antlr4 C.g4 -visitor -package compiler.antlr -o antlr
 javac ./antlr/*.java
 ```
 
@@ -17,7 +17,7 @@ From the /EE2-Compiler directory:
 
 ```
 javac ./src/*.java
-grun src.antlr.C translation_unit -gui
+grun compiler.antlr.C translation_unit -gui
 ```
 
 Then enter your C code and press CTRL+D
@@ -28,7 +28,7 @@ From the /EE2-Compiler directory:
 
 ```
 javac ./src/*.java
-java src.CTranslator
+java compiler.CTranslator
 ```
 
 Then enter your C code and press CTRL+D
@@ -39,5 +39,5 @@ From the /EE2-Compiler directory:
 
 ```
 javac ./src/*.java
-java src.CCompiler
+java compiler.CCompiler
 ```

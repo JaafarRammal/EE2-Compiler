@@ -12,7 +12,7 @@ if [ $1 == "--translate" ]
 then
   # running C program into our Java C translator
   C_CODE=$( cat $2 )
-  output=$(printf "$C_CODE" | java c_translator.CTranslator)
+  output=$(printf "$C_CODE" | java compiler.CTranslator)
   #----- reading line by line, including indentation -----
   IFS=''
   while read data; do
