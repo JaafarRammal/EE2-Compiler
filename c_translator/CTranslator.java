@@ -174,7 +174,6 @@ public class CTranslator extends CBaseListener {
     CParser parser = new CParser(tokens);
     ParseTree tree = parser.translation_unit(); // begin parsing at init rule
     ParseTreeWalker walker = new ParseTreeWalker();
-    System.err.println("Equivalent python is:\n");
     CTranslator CtoPython = new CTranslator();
     walker.walk(CtoPython, tree);
     // if (CtoPython.include_main) {
