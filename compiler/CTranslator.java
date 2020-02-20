@@ -152,6 +152,7 @@ public class CTranslator extends CBaseListener {
 
   @Override
   public void exitIfStat(CParser.IfStatContext ctx) {
+    tabulate();System.out.println("pass"); // what if falseExe is empty
     current_scope -= 1;
   }
 
@@ -159,6 +160,7 @@ public class CTranslator extends CBaseListener {
   public void enterElseStat(CParser.ElseStatContext ctx) {
     // because in the grammar, the else is within the ifStat context, it is getting an extra tabulation
     // decrement the scope by one. An elseStat is ALWAYS part of an ifStat anyway
+    tabulate();System.out.println("pass"); // what if trueExec is empty
     current_scope -= 1; 
     tabulate();
     System.out.println("else:");
@@ -196,6 +198,7 @@ public class CTranslator extends CBaseListener {
 
   @Override
   public void exitWhileStat(CParser.WhileStatContext ctx) {
+    tabulate();System.out.println("pass");
     current_scope -= 1;
   }
 
