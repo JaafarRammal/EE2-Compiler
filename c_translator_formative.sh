@@ -18,7 +18,11 @@ working="tmp"
 rm -rf ${working}
 mkdir -p ${working}
 
+total=0
+pass=0
+
 for i in ${input_dir}/*.c ; do
+    total=$(( ${total}+1 ))
     base=$(echo $i | sed -E -e "s|${input_dir}/([^.]+)[.]c|\1|g");
     
     # Compile the reference C version
@@ -51,5 +55,7 @@ for i in ${input_dir}/*.c ; do
         echo "$base, Fail, Expected ${REF_C_OUT}, got ${GOT_P_OUT}"
     else
         echo "$base, Pass"
+        pass=$(( ${pass}+1 ))
     fi
 done
+echo -e  "\nPasses ${pass} out of ${total} tests"

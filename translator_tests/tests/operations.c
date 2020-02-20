@@ -1,6 +1,8 @@
 int main()
 {
-    int c, a = 9,b = 4;
+    int c = 0;
+    int a = 9;
+    int b = 4;
     
    
     int d = 1*a-b;

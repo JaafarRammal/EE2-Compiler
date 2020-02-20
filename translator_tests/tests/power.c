@@ -8,11 +8,13 @@ int power(int base, int powerRaised)
 }
 int main()
 {
-    int base, powerRaised, result;
+    int base;
+    int powerRaised;
+    int result;
 
     base = 2;
 
-  powerRaised = 10;
+    powerRaised = 10;
 
     return power(base, powerRaised);
 

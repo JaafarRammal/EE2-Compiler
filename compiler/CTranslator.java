@@ -70,6 +70,8 @@ public class CTranslator extends CBaseListener {
     int b = ctx.stmt.stop.getStopIndex();
     Interval interval = new Interval(a, b);
     String operation = ctx.stmt.start.getInputStream().getText(interval);
+    operation = operation.replaceAll("&&", " and ");
+    operation = operation.replaceAll("\\|\\|", " or ");
     tabulate();
     System.out.println(operation);
   }
@@ -82,6 +84,8 @@ public class CTranslator extends CBaseListener {
     int b = ctx.stmt.stop.getStopIndex();
     Interval interval = new Interval(a, b);
     String functionCall = ctx.stmt.start.getInputStream().getText(interval);
+    functionCall = functionCall.replaceAll("&&", " and ");
+    functionCall = functionCall.replaceAll("\\|\\|", " or ");
     tabulate();
     System.out.println(functionCall);
   }
@@ -145,6 +149,8 @@ public class CTranslator extends CBaseListener {
     int b = ctx.condition.stop.getStopIndex();
     Interval interval = new Interval(a, b);
     String condition = ctx.start.getInputStream().getText(interval);
+    condition = condition.replaceAll("&&", " and ");
+    condition = condition.replaceAll("\\|\\|", " or ");
     tabulate();
     System.out.println("if(" + condition + "):");
     current_scope += 1;
@@ -178,6 +184,8 @@ public class CTranslator extends CBaseListener {
       int b = ctx.expr.stop.getStopIndex();
       Interval interval = new Interval(a, b);
       ret = ctx.expr.start.getInputStream().getText(interval);
+      ret = ret.replaceAll("&&", " and ");
+      ret = ret.replaceAll("\\|\\|", " or ");
     }
     tabulate();
     System.out.println("return " + ret);
@@ -191,6 +199,8 @@ public class CTranslator extends CBaseListener {
     int b = ctx.condition.stop.getStopIndex();
     Interval interval = new Interval(a, b);
     String condition = ctx.start.getInputStream().getText(interval);
+    condition = condition.replaceAll("&&", " and ");
+    condition = condition.replaceAll("\\|\\|", " or ");
     tabulate();
     System.out.println("while(" + condition + "):");
     current_scope += 1;

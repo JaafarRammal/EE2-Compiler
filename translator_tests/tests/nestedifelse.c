@@ -1,6 +1,7 @@
 int main()
 {
-   int var1, var2;
+  int var1;
+	int var2;
   
   var1 = 45;
   var2 = 67;

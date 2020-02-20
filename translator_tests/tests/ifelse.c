@@ -1,6 +1,8 @@
 int main()
 {
-    int c, a = 25,b = 4;
+    int c = 0;
+    int a = 25;
+    int b = 4;
     
    
   if( a == 9 && b ==4 && c==0) { return 1;}

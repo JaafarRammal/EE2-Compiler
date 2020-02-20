@@ -1,8 +1,6 @@
+#!bin/bash
+
 #place translator bytecode & compiler bash script in same folder
-java:
-	make clean
-	javac ./compiler/antlr/*.java
-	javac ./compiler/*.java
 bin/c_compiler:
 	make java
 	rm -rf ./bin
@@ -11,12 +9,10 @@ bin/c_compiler:
 	mv ./bin/c_compiler.sh ./bin/c_compiler
 	chmod u+x ./bin/c_compiler
 
-#compile translator from makefile. 
-# translator: 
-# 	javac ./c_translator/*.java
-
-#NOTE: antlr4 command not recognised by make, difficult workaround. Compile grammar manually.
-grammar:
+java:
+	make clean
+	javac ./compiler/antlr/*.java
+	javac ./compiler/*.java
 
 clean:
 	rm -rf ./bin
