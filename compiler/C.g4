@@ -1,185 +1,916 @@
 grammar C;
-import CLex;
 
-translation_unit
-	: declaration	#tuDecl
-	|	function_definition	#tu_funcDef
-	| tu=translation_unit (decl=declaration|func_def=function_definition)	#multDef
-	;
+primaryExpression
+    :   Identifier
+    |   Constant
+    |   StringLiteral+
+    |   '(' expression ')'
+    |   genericSelection
+    |   '__extension__'? '(' compoundStatement ')' // Blocks (GCC extension)
+    |   '__builtin_va_arg' '(' unaryExpression ',' typeName ')'
+    |   '__builtin_offsetof' '(' typeName ',' unaryExpression ')'
+    ;
 
-function_definition
-	: type=type_specifier func_dec=fun_declarator comp_stat=compound_statement
-	;
+genericSelection
+    :   '_Generic' '(' assignmentExpression ',' genericAssocList ')'
+    ;
 
-type_specifier
-	: type=VOID
-	| type=INT
-	;
+genericAssocList
+    :   genericAssociation
+    |   genericAssocList ',' genericAssociation
+    ;
 
-fun_declarator
-	: id=IDENTIFIER '(' params=parameter_list ')'	#funcDeclParam
-	| id=IDENTIFIER '(' ')'												#funcDecl
-	;
+genericAssociation
+    :   typeName ':' assignmentExpression
+    |   'default' ':' assignmentExpression
+    ;
 
-parameter_list
-	: param=parameter_declaration															#singleParam
-	| params=parameter_list ',' param=parameter_declaration		#multParam
-	;
+postfixExpression
+    :   primaryExpression
+    |   postfixExpression '[' expression ']'
+    |   postfixExpression '(' argumentExpressionList? ')'
+    |   postfixExpression '.' Identifier
+    |   postfixExpression '->' Identifier
+    |   postfixExpression '++'
+    |   postfixExpression '--'
+    |   '(' typeName ')' '{' initializerList '}'
+    |   '(' typeName ')' '{' initializerList ',' '}'
+    |   '__extension__' '(' typeName ')' '{' initializerList '}'
+    |   '__extension__' '(' typeName ')' '{' initializerList ',' '}'
+    ;
 
-parameter_declaration
-	: type=type_specifier decl=declarator
-	;
+argumentExpressionList
+    :   assignmentExpression
+    |   argumentExpressionList ',' assignmentExpression
+    ;
 
-declarator
-	: id=IDENTIFIER																						#declId
-	| decl=declarator '[' const_expr=constant_expression ']'	#declBrackets
-	;
+unaryExpression
+    :   postfixExpression
+    |   '++' unaryExpression
+    |   '--' unaryExpression
+    |   unaryOperator castExpression
+    |   'sizeof' unaryExpression
+    |   'sizeof' '(' typeName ')'
+    |   '_Alignof' '(' typeName ')'
+    |   '&&' Identifier // GCC extension address of label
+    ;
 
-constant_expression
-	: INT_CONSTANT
-	;
+unaryOperator
+    :   '&' | '*' | '+' | '-' | '~' | '!'
+    ;
 
-compound_statement
-	: OP_CR CL_CR												#cmpStatementEmpty
-	| OP_CR stat_l=statement_list CL_CR	#cmpStatementNonEmpty
-	;
+castExpression
+    :   '(' typeName ')' castExpression
+    |   '__extension__' '(' typeName ')' castExpression
+    |   unaryExpression
+    |   DigitSequence // for
+    ;
 
-statement_list
-	: stat=statement																#singleStatement
-	| decl_l=declaration_list												#singleDeclarationList
-	| stat_l=statement_list stat=statement					#multipleStatments
-	| stat_l=statement_list decl_l=declaration_list	#multipleStatmentsDeclarationList
-	;
+multiplicativeExpression
+    :   castExpression
+    |   multiplicativeExpression '*' castExpression
+    |   multiplicativeExpression '/' castExpression
+    |   multiplicativeExpression '%' castExpression
+    ;
 
-statement
-	: stmt=compound_statement											#compoundStatement
-	| stmt=selection_statement										#selectionStatement
-	| stmt=iteration_statement										#iterationStatement
-	| stmt=assignment_statement	 ';'   						#assignmentStatement
-	|	stmt=expression	';'													#exprStatement
-	|	stmt=l_expression	';'												#lexprStatement
-	| RETURN expr=expression? ';'									#returnStatement
-	|	';'																					#emptyStatement
-	;
+additiveExpression
+    :   multiplicativeExpression
+    |   additiveExpression '+' multiplicativeExpression
+    |   additiveExpression '-' multiplicativeExpression
+    ;
 
-assignment_statement
-	:	left=l_expression ASS_OP right=expression	#assgnOp
-	;
+shiftExpression
+    :   additiveExpression
+    |   shiftExpression '<<' additiveExpression
+    |   shiftExpression '>>' additiveExpression
+    ;
+
+relationalExpression
+    :   shiftExpression
+    |   relationalExpression '<' shiftExpression
+    |   relationalExpression '>' shiftExpression
+    |   relationalExpression '<=' shiftExpression
+    |   relationalExpression '>=' shiftExpression
+    ;
+
+equalityExpression
+    :   relationalExpression
+    |   equalityExpression '==' relationalExpression
+    |   equalityExpression '!=' relationalExpression
+    ;
+
+andExpression
+    :   equalityExpression
+    |   andExpression '&' equalityExpression
+    ;
+
+exclusiveOrExpression
+    :   andExpression
+    |   exclusiveOrExpression '^' andExpression
+    ;
+
+inclusiveOrExpression
+    :   exclusiveOrExpression
+    |   inclusiveOrExpression '|' exclusiveOrExpression
+    ;
+
+logicalAndExpression
+    :   inclusiveOrExpression
+    |   logicalAndExpression '&&' inclusiveOrExpression
+    ;
+
+logicalOrExpression
+    :   logicalAndExpression
+    |   logicalOrExpression '||' logicalAndExpression
+    ;
+
+conditionalExpression
+    :   logicalOrExpression ('?' expression ':' conditionalExpression)?
+    ;
+
+assignmentExpression
+    :   conditionalExpression
+    |   unaryExpression assignmentOperator assignmentExpression
+    |   DigitSequence // for
+    ;
+
+assignmentOperator
+    :   '=' | '*=' | '/=' | '%=' | '+=' | '-=' | '<<=' | '>>=' | '&=' | '^=' | '|='
+    ;
 
 expression
-	:	expr=assignment_statement															#assgnExpr
-	| expr=logical_and_expression														#logicalExpr
-	| left=expression op=OR_OP right=logical_and_expression	#orOp
-	;
+    :   assignmentExpression
+    |   expression ',' assignmentExpression
+    ;
 
-logical_and_expression
-	: expr=equality_expression																				#equalityExpr
-	| left=logical_and_expression op=AND_OP right=equality_expression	#andOp
-	;
-
-equality_expression
-	: expr=relational_expression																		#relExpr
-	| left=equality_expression op=EQ_OP right=relational_expression	#eqOp		
-	| left=equality_expression op=NE_OP right=relational_expression	#neqOp
-	;
-relational_expression
-	: expr=additive_expression																			#additiveExpr
-	| left=relational_expression op=LT_OP right=additive_expression	#ltOp
-	| left=relational_expression op=GL_OP right=additive_expression	#glOp
-	| left=relational_expression op=LE_OP right=additive_expression	#leOp
-	| left=relational_expression op=GE_OP right=additive_expression	#geOp
-	;
-
-additive_expression
-	: expr=multiplicative_expression																			#multiplicativeExpr
-	| left=additive_expression op=ADD_OP right=multiplicative_expression	#addOp
-	| left=additive_expression op=SUB_OP right=multiplicative_expression	#subOp
-	;
-
-multiplicative_expression
-	: expr=unary_expression																							#unaryExpr
-	| left=multiplicative_expression	op=MUL_OP	right=unary_expression	#multOp
-	| left=multiplicative_expression	op=DIV_OP	right=unary_expression	#divOp
-	;
-unary_expression
-	: expr=postfix_expression										#postfixExpr
-	| op=unary_operator expr=postfix_expression	#unaryOp
-	;
-
-postfix_expression
-	: expr=primary_expression											#primExpr
-	| id=IDENTIFIER '(' ')'												#functionCall
-	| id=IDENTIFIER '(' expr_l=expression_list ')'#functionCallParam
-	| left=l_expression op=INC_OP									#incrOp
-	;
-
-primary_expression
-	: expr=l_expression				#lExpr
-	| val=INT_CONSTANT				#intConst
-  | val=STRING_LITERAL			#stringLit
-	| '(' expr=expression ')'	#parentheses
-	;
-
-l_expression
-	: id=IDENTIFIER																#exprId
-	| left=l_expression '[' right=expression ']' 	#exprBrackets
-	;
-expression_list
-	: expr=expression															#singleExpr
-	| expr_l=expression_list ',' expr=expression	#multipleExpr
-	;
-
-unary_operator
-	: op=SUB_OP
-	| op=ADD_OP
-	| op=NOT_OP
-	;
-
-selection_statement
-	: IF '(' condition=expression ')' true_exec=statement (false_exec=else_statement)?	#ifStat
-	;
-
-else_statement
-	:	ELSE false_exec=statement	#elseStat
-	;
-
-iteration_statement
-	: WHILE '(' condition=expression ')' true_exec=statement	#whileStat
-	;
-
-declaration_list
-	: decl=declaration									#singleDecl
-	| declaration_list decl=declaration	#multipleDecl
-	;
+constantExpression
+    :   conditionalExpression
+    ;
 
 declaration
-	: type=type_specifier decl_l=declarator_list	';'     #decl
-	|	type=type_specifier	assgn=assignment_statement ';'	#assgn
+    :   declarationSpecifiers initDeclaratorList ';'
+	  | 	declarationSpecifiers ';'
+    |   staticAssertDeclaration
+    ;
+
+declarationSpecifiers
+    :   declarationSpecifier+
+    ;
+
+declarationSpecifiers2
+    :   declarationSpecifier+
+    ;
+
+declarationSpecifier
+    :   storageClassSpecifier
+    |   typeSpecifier
+    |   typeQualifier
+    |   functionSpecifier
+    |   alignmentSpecifier
+    ;
+
+initDeclaratorList
+    :   initDeclarator
+    |   initDeclaratorList ',' initDeclarator
+    ;
+
+initDeclarator
+    :   declarator
+    |   declarator '=' initializer
+    ;
+
+storageClassSpecifier
+    :   'typedef'
+    |   'extern'
+    |   'static'
+    |   '_Thread_local'
+    |   'auto'
+    |   'register'
+    ;
+
+typeSpecifier
+    :   ('void'
+    |   'char'
+    |   'short'
+    |   'int'
+    |   'long'
+    |   'float'
+    |   'double'
+    |   'signed'
+    |   'unsigned'
+    |   '_Bool'
+    |   '_Complex'
+    |   '__m128'
+    |   '__m128d'
+    |   '__m128i')
+    |   '__extension__' '(' ('__m128' | '__m128d' | '__m128i') ')'
+    |   atomicTypeSpecifier
+    |   structOrUnionSpecifier
+    |   enumSpecifier
+    |   typedefName
+    |   '__typeof__' '(' constantExpression ')' // GCC extension
+    |   typeSpecifier pointer
+    ;
+
+structOrUnionSpecifier
+    :   structOrUnion Identifier? '{' structDeclarationList '}'
+    |   structOrUnion Identifier
+    ;
+
+structOrUnion
+    :   'struct'
+    |   'union'
+    ;
+
+structDeclarationList
+    :   structDeclaration
+    |   structDeclarationList structDeclaration
+    ;
+
+structDeclaration
+    :   specifierQualifierList structDeclaratorList? ';'
+    |   staticAssertDeclaration
+    ;
+
+specifierQualifierList
+    :   typeSpecifier specifierQualifierList?
+    |   typeQualifier specifierQualifierList?
+    ;
+
+structDeclaratorList
+    :   structDeclarator
+    |   structDeclaratorList ',' structDeclarator
+    ;
+
+structDeclarator
+    :   declarator
+    |   declarator? ':' constantExpression
+    ;
+
+enumSpecifier
+    :   'enum' Identifier? '{' enumeratorList '}'
+    |   'enum' Identifier? '{' enumeratorList ',' '}'
+    |   'enum' Identifier
+    ;
+
+enumeratorList
+    :   enumerator
+    |   enumeratorList ',' enumerator
+    ;
+
+enumerator
+    :   enumerationConstant
+    |   enumerationConstant '=' constantExpression
+    ;
+
+enumerationConstant
+    :   Identifier
+    ;
+
+atomicTypeSpecifier
+    :   '_Atomic' '(' typeName ')'
+    ;
+
+typeQualifier
+    :   'const'
+    |   'restrict'
+    |   'volatile'
+    |   '_Atomic'
+    ;
+
+functionSpecifier
+    :   ('inline'
+    |   '_Noreturn'
+    |   '__inline__' // GCC extension
+    |   '__stdcall')
+    |   gccAttributeSpecifier
+    |   '__declspec' '(' Identifier ')'
+    ;
+
+alignmentSpecifier
+    :   '_Alignas' '(' typeName ')'
+    |   '_Alignas' '(' constantExpression ')'
+    ;
+
+declarator
+    :   pointer? directDeclarator gccDeclaratorExtension*
+    ;
+
+directDeclarator
+    :   Identifier
+    |   '(' declarator ')'
+    |   directDeclarator '[' typeQualifierList? assignmentExpression? ']'
+    |   directDeclarator '[' 'static' typeQualifierList? assignmentExpression ']'
+    |   directDeclarator '[' typeQualifierList 'static' assignmentExpression ']'
+    |   directDeclarator '[' typeQualifierList? '*' ']'
+    |   directDeclarator '(' parameterTypeList ')'
+    |   directDeclarator '(' identifierList? ')'
+    |   Identifier ':' DigitSequence  // bit field
+    |   '(' typeSpecifier? pointer directDeclarator ')' // function pointer like: (__cdecl *f)
+    ;
+
+gccDeclaratorExtension
+    :   '__asm' '(' StringLiteral+ ')'
+    |   gccAttributeSpecifier
+    ;
+
+gccAttributeSpecifier
+    :   '__attribute__' '(' '(' gccAttributeList ')' ')'
+    ;
+
+gccAttributeList
+    :   gccAttribute (',' gccAttribute)*
+    |   // empty
+    ;
+
+gccAttribute
+    :   ~(',' | '(' | ')') // relaxed def for "identifier or reserved word"
+        ('(' argumentExpressionList? ')')?
+    |   // empty
+    ;
+
+nestedParenthesesBlock
+    :   (   ~('(' | ')')
+        |   '(' nestedParenthesesBlock ')'
+        )*
+    ;
+
+pointer
+    :   '*' typeQualifierList?
+    |   '*' typeQualifierList? pointer
+    |   '^' typeQualifierList? // Blocks language extension
+    |   '^' typeQualifierList? pointer // Blocks language extension
+    ;
+
+typeQualifierList
+    :   typeQualifier
+    |   typeQualifierList typeQualifier
+    ;
+
+parameterTypeList
+    :   parameterList
+    |   parameterList ',' '...'
+    ;
+
+parameterList
+    :   parameterDeclaration
+    |   parameterList ',' parameterDeclaration
+    ;
+
+parameterDeclaration
+    :   declarationSpecifiers declarator
+    |   declarationSpecifiers2 abstractDeclarator?
+    ;
+
+identifierList
+    :   Identifier
+    |   identifierList ',' Identifier
+    ;
+
+typeName
+    :   specifierQualifierList abstractDeclarator?
+    ;
+
+abstractDeclarator
+    :   pointer
+    |   pointer? directAbstractDeclarator gccDeclaratorExtension*
+    ;
+
+directAbstractDeclarator
+    :   '(' abstractDeclarator ')' gccDeclaratorExtension*
+    |   '[' typeQualifierList? assignmentExpression? ']'
+    |   '[' 'static' typeQualifierList? assignmentExpression ']'
+    |   '[' typeQualifierList 'static' assignmentExpression ']'
+    |   '[' '*' ']'
+    |   '(' parameterTypeList? ')' gccDeclaratorExtension*
+    |   directAbstractDeclarator '[' typeQualifierList? assignmentExpression? ']'
+    |   directAbstractDeclarator '[' 'static' typeQualifierList? assignmentExpression ']'
+    |   directAbstractDeclarator '[' typeQualifierList 'static' assignmentExpression ']'
+    |   directAbstractDeclarator '[' '*' ']'
+    |   directAbstractDeclarator '(' parameterTypeList? ')' gccDeclaratorExtension*
+    ;
+
+typedefName
+    :   Identifier
+    ;
+
+initializer
+    :   assignmentExpression
+    |   '{' initializerList '}'
+    |   '{' initializerList ',' '}'
+    ;
+
+initializerList
+    :   designation? initializer
+    |   initializerList ',' designation? initializer
+    ;
+
+designation
+    :   designatorList '='
+    ;
+
+designatorList
+    :   designator
+    |   designatorList designator
+    ;
+
+designator
+    :   '[' constantExpression ']'
+    |   '.' Identifier
+    ;
+
+staticAssertDeclaration
+    :   '_Static_assert' '(' constantExpression ',' StringLiteral+ ')' ';'
+    ;
+
+statement
+    :   labeledStatement
+    |   compoundStatement
+    |   expressionStatement
+    |   selectionStatement
+    |   iterationStatement
+    |   jumpStatement
+    |   ('__asm' | '__asm__') ('volatile' | '__volatile__') '(' (logicalOrExpression (',' logicalOrExpression)*)? (':' (logicalOrExpression (',' logicalOrExpression)*)?)* ')' ';'
+    ;
+
+labeledStatement
+    :   Identifier ':' statement
+    |   'case' constantExpression ':' statement
+    |   'default' ':' statement
+    ;
+
+compoundStatement
+    :   '{' blockItemList? '}'
+    ;
+
+blockItemList
+    :   blockItem
+    |   blockItemList blockItem
+    ;
+
+blockItem
+    :   statement
+    |   declaration
+    ;
+
+expressionStatement
+    :   expression? ';'
+    ;
+
+selectionStatement
+    :   'if' '(' expression ')' statement ('else' statement)?
+    |   'switch' '(' expression ')' statement
+    ;
+
+iterationStatement
+    :   While '(' expression ')' statement
+    |   Do statement While '(' expression ')' ';'
+    |   For '(' forCondition ')' statement
+    ;
+
+//    |   'for' '(' expression? ';' expression?  ';' forUpdate? ')' statement
+//    |   For '(' declaration  expression? ';' expression? ')' statement
+
+forCondition
+	:   forDeclaration ';' forExpression? ';' forExpression?
+	|   expression? ';' forExpression? ';' forExpression?
 	;
 
-declarator_list
-	: decl=declarator															#singleDeclarator
-	| decl_l=declarator_list ',' decl=declarator	#multipleDeclarator
+forDeclaration
+    :   declarationSpecifiers initDeclaratorList
+	| 	declarationSpecifiers
+    ;
+
+forExpression
+    :   assignmentExpression
+    |   forExpression ',' assignmentExpression
+    ;
+
+jumpStatement
+    :   'goto' Identifier ';'
+    |   'continue' ';'
+    |   'break' ';'
+    |   'return' expression? ';'
+    |   'goto' unaryExpression ';' // GCC extension
+    ;
+
+compilationUnit
+    :   translationUnit? EOF
+    ;
+
+translationUnit
+    :   externalDeclaration
+    |   translationUnit externalDeclaration
+    ;
+
+externalDeclaration
+    :   functionDefinition
+    |   declaration
+    |   ';' // stray ;
+    ;
+
+functionDefinition
+    :   declarationSpecifiers? declarator declarationList? compoundStatement
+    ;
+
+declarationList
+    :   declaration
+    |   declarationList declaration
+    ;
+
+Auto : 'auto';
+Break : 'break';
+Case : 'case';
+Char : 'char';
+Const : 'const';
+Continue : 'continue';
+Default : 'default';
+Do : 'do';
+Double : 'double';
+Else : 'else';
+Enum : 'enum';
+Extern : 'extern';
+Float : 'float';
+For : 'for';
+Goto : 'goto';
+If : 'if';
+Inline : 'inline';
+Int : 'int';
+Long : 'long';
+Register : 'register';
+Restrict : 'restrict';
+Return : 'return';
+Short : 'short';
+Signed : 'signed';
+Sizeof : 'sizeof';
+Static : 'static';
+Struct : 'struct';
+Switch : 'switch';
+Typedef : 'typedef';
+Union : 'union';
+Unsigned : 'unsigned';
+Void : 'void';
+Volatile : 'volatile';
+While : 'while';
+
+Alignas : '_Alignas';
+Alignof : '_Alignof';
+Atomic : '_Atomic';
+Bool : '_Bool';
+Complex : '_Complex';
+Generic : '_Generic';
+Imaginary : '_Imaginary';
+Noreturn : '_Noreturn';
+StaticAssert : '_Static_assert';
+ThreadLocal : '_Thread_local';
+
+LeftParen : '(';
+RightParen : ')';
+LeftBracket : '[';
+RightBracket : ']';
+LeftBrace : '{';
+RightBrace : '}';
+
+Less : '<';
+LessEqual : '<=';
+Greater : '>';
+GreaterEqual : '>=';
+LeftShift : '<<';
+RightShift : '>>';
+
+Plus : '+';
+PlusPlus : '++';
+Minus : '-';
+MinusMinus : '--';
+Star : '*';
+Div : '/';
+Mod : '%';
+
+And : '&';
+Or : '|';
+AndAnd : '&&';
+OrOr : '||';
+Caret : '^';
+Not : '!';
+Tilde : '~';
+
+Question : '?';
+Colon : ':';
+Semi : ';';
+Comma : ',';
+
+Assign : '=';
+// '*=' | '/=' | '%=' | '+=' | '-=' | '<<=' | '>>=' | '&=' | '^=' | '|='
+StarAssign : '*=';
+DivAssign : '/=';
+ModAssign : '%=';
+PlusAssign : '+=';
+MinusAssign : '-=';
+LeftShiftAssign : '<<=';
+RightShiftAssign : '>>=';
+AndAssign : '&=';
+XorAssign : '^=';
+OrAssign : '|=';
+
+Equal : '==';
+NotEqual : '!=';
+
+Arrow : '->';
+Dot : '.';
+Ellipsis : '...';
+
+Identifier
+    :   IdentifierNondigit
+        (   IdentifierNondigit
+        |   Digit
+        )*
+    ;
+
+fragment
+IdentifierNondigit
+    :   Nondigit
+    |   UniversalCharacterName
+    //|   // other implementation-defined characters...
+    ;
+
+fragment
+Nondigit
+    :   [a-zA-Z_]
+    ;
+
+fragment
+Digit
+    :   [0-9]
+    ;
+
+fragment
+UniversalCharacterName
+    :   '\\u' HexQuad
+    |   '\\U' HexQuad HexQuad
+    ;
+
+fragment
+HexQuad
+    :   HexadecimalDigit HexadecimalDigit HexadecimalDigit HexadecimalDigit
+    ;
+
+Constant
+    :   IntegerConstant
+    |   FloatingConstant
+    //|   EnumerationConstant
+    |   CharacterConstant
+    ;
+
+fragment
+IntegerConstant
+    :   DecimalConstant IntegerSuffix?
+    |   OctalConstant IntegerSuffix?
+    |   HexadecimalConstant IntegerSuffix?
+    |	BinaryConstant
+    ;
+
+fragment
+BinaryConstant
+	:	'0' [bB] [0-1]+
 	;
 
+fragment
+DecimalConstant
+    :   NonzeroDigit Digit*
+    ;
+
+fragment
+OctalConstant
+    :   '0' OctalDigit*
+    ;
+
+fragment
+HexadecimalConstant
+    :   HexadecimalPrefix HexadecimalDigit+
+    ;
+
+fragment
+HexadecimalPrefix
+    :   '0' [xX]
+    ;
+
+fragment
+NonzeroDigit
+    :   [1-9]
+    ;
+
+fragment
+OctalDigit
+    :   [0-7]
+    ;
+
+fragment
+HexadecimalDigit
+    :   [0-9a-fA-F]
+    ;
+
+fragment
+IntegerSuffix
+    :   UnsignedSuffix LongSuffix?
+    |   UnsignedSuffix LongLongSuffix
+    |   LongSuffix UnsignedSuffix?
+    |   LongLongSuffix UnsignedSuffix?
+    ;
+
+fragment
+UnsignedSuffix
+    :   [uU]
+    ;
+
+fragment
+LongSuffix
+    :   [lL]
+    ;
+
+fragment
+LongLongSuffix
+    :   'll' | 'LL'
+    ;
+
+fragment
+FloatingConstant
+    :   DecimalFloatingConstant
+    |   HexadecimalFloatingConstant
+    ;
+
+fragment
+DecimalFloatingConstant
+    :   FractionalConstant ExponentPart? FloatingSuffix?
+    |   DigitSequence ExponentPart FloatingSuffix?
+    ;
+
+fragment
+HexadecimalFloatingConstant
+    :   HexadecimalPrefix HexadecimalFractionalConstant BinaryExponentPart FloatingSuffix?
+    |   HexadecimalPrefix HexadecimalDigitSequence BinaryExponentPart FloatingSuffix?
+    ;
+
+fragment
+FractionalConstant
+    :   DigitSequence? '.' DigitSequence
+    |   DigitSequence '.'
+    ;
+
+fragment
+ExponentPart
+    :   'e' Sign? DigitSequence
+    |   'E' Sign? DigitSequence
+    ;
+
+fragment
+Sign
+    :   '+' | '-'
+    ;
+
+DigitSequence
+    :   Digit+
+    ;
+
+fragment
+HexadecimalFractionalConstant
+    :   HexadecimalDigitSequence? '.' HexadecimalDigitSequence
+    |   HexadecimalDigitSequence '.'
+    ;
+
+fragment
+BinaryExponentPart
+    :   'p' Sign? DigitSequence
+    |   'P' Sign? DigitSequence
+    ;
+
+fragment
+HexadecimalDigitSequence
+    :   HexadecimalDigit+
+    ;
+
+fragment
+FloatingSuffix
+    :   'f' | 'l' | 'F' | 'L'
+    ;
+
+fragment
+CharacterConstant
+    :   '\'' CCharSequence '\''
+    |   'L\'' CCharSequence '\''
+    |   'u\'' CCharSequence '\''
+    |   'U\'' CCharSequence '\''
+    ;
+
+fragment
+CCharSequence
+    :   CChar+
+    ;
+
+fragment
+CChar
+    :   ~['\\\r\n]
+    |   EscapeSequence
+    ;
+fragment
+EscapeSequence
+    :   SimpleEscapeSequence
+    |   OctalEscapeSequence
+    |   HexadecimalEscapeSequence
+    |   UniversalCharacterName
+    ;
+fragment
+SimpleEscapeSequence
+    :   '\\' ['"?abfnrtv\\]
+    ;
+fragment
+OctalEscapeSequence
+    :   '\\' OctalDigit
+    |   '\\' OctalDigit OctalDigit
+    |   '\\' OctalDigit OctalDigit OctalDigit
+    ;
+fragment
+HexadecimalEscapeSequence
+    :   '\\x' HexadecimalDigit+
+    ;
+StringLiteral
+    :   EncodingPrefix? '"' SCharSequence? '"'
+    ;
+fragment
+EncodingPrefix
+    :   'u8'
+    |   'u'
+    |   'U'
+    |   'L'
+    ;
+fragment
+SCharSequence
+    :   SChar+
+    ;
+fragment
+SChar
+    :   ~["\\\r\n]
+    |   EscapeSequence
+    |   '\\\n'   // Added line
+    |   '\\\r\n' // Added line
+    ;
+
+ComplexDefine
+    :   '#' Whitespace? 'define'  ~[#]*
+        -> skip
+    ;
+         
+IncludeDirective
+    :   '#' Whitespace? 'include' Whitespace? (('"' ~[\r\n]* '"') | ('<' ~[\r\n]* '>' )) Whitespace? Newline
+        -> skip
+    ;
+
+// ignore the following asm blocks:
 /*
-
-TO BE ADDED / ANY BUGS NOTICED:
-
-- Add support for nested function definitions:
-
-int main(){
-	void a(){}	// this is not being parsed
-	a();
-}
-
-if(1){
-
-}
-
-UPDATE: THIS IS NOT A THING haha
-
-
-- problem with declaration outside a scope (rest is not parsed)
-
+    asm
+    {
+        mfspr x, 286;
+    }
  */
+AsmBlock
+    :   'asm' ~'{'* '{' ~'}'* '}'
+	-> skip
+    ;
+	
+// ignore the lines generated by c preprocessor                                   
+// sample line : '#line 1 "/home/dm/files/dk1.h" 1'                           
+LineAfterPreprocessing
+    :   '#line' Whitespace* ~[\r\n]*
+        -> skip
+    ;  
+
+LineDirective
+    :   '#' Whitespace? DecimalConstant Whitespace? StringLiteral ~[\r\n]*
+        -> skip
+    ;
+
+PragmaDirective
+    :   '#' Whitespace? 'pragma' Whitespace ~[\r\n]*
+        -> skip
+    ;
+
+Whitespace
+    :   [ \t]+
+        -> skip
+    ;
+
+Newline
+    :   (   '\r' '\n'?
+        |   '\n'
+        )
+        -> skip
+    ;
+
+BlockComment
+    :   '/*' .*? '*/'
+        -> skip
+    ;
+
+LineComment
+    :   '//' ~[\r\n]*
+        -> skip
+    ;
