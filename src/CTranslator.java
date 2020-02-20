@@ -1,6 +1,6 @@
-package c_translator;
+package src;
 
-import c_translator.antlr.*;
+import src.antlr.*;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.TokenStream;
@@ -9,46 +9,61 @@ import org.antlr.v4.runtime.misc.Interval;
 import java.util.Set; // for the global variables tracking
 import java.util.HashSet; // for the global variables tracking
 
+// antlr listeners are by default depth-first walk (therefore a full in depth anticlockwise circle)
+
 public class CTranslator extends CBaseListener {
 
-  int current_scope;
-  Boolean include_main;
-  Set<String> global_variables = new HashSet<String>();
+  ////////////////////////////////////////////////////////////////////////////////////
+  // use three common helper variables for the translator object
+  int current_scope; // tracks the tabulation requirement
+  Boolean include_main; // checks if we include the python main call
+  Set<String> global_variables = new HashSet<String>(); // set of global variables to be included
 
-
+  ////////////////////////////////////////////////////////////////////////////////////
+  // constructor. Set scope to 0 and main to false
   CTranslator() {
     current_scope = 0; // keep track of the scop count to tabulate correctly
     include_main = false; // keep track if we need to include a main
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////
   // function to add tabs correctly for the python generation
   public void tabulate() {
     for (int i = 0; i < current_scope; i++)
       System.out.print("\t");
   }
 
-  // variable declaration is similar with a compulsory assignemnt (=0) and remove
-  // type
+  ////////////////////////////////////////////////////////////////////////////////////
+  // variable declaration is similar with a compulsory assignemnt (=0) and remove type
   @Override
   public void enterDecl(CParser.DeclContext ctx) {
     tabulate();
     System.out.println(ctx.decl_l.getText() + "=0");
   }
 
-  // copy the assignement
-  @Override
-  public void enterAssgn(CParser.AssgnContext ctx) {
-    tabulate();
-    System.out.println(ctx.assgn.getText());
-  }
-
-  // copy the assignment
+  ////////////////////////////////////////////////////////////////////////////////////
+  // add variable to global set
+  // these are the only cases where we might declare a new variable
   @Override public void enterAssgnOp(CParser.AssgnOpContext ctx) {
     if(current_scope==0){
       global_variables.add(ctx.left.getText());
     }
   }
 
+  @Override public void enterSingleDeclarator(CParser.SingleDeclaratorContext ctx) {
+    if(current_scope==0){
+      global_variables.add(ctx.decl.getText());
+    }
+  }
+
+  @Override
+  public void enterAssgn(CParser.AssgnContext ctx) {
+    tabulate();
+    System.out.println(ctx.assgn.getText());
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // assignement statement
   @Override
   public void enterAssignmentStatement(CParser.AssignmentStatementContext ctx) {
     int a = ctx.stmt.start.getStartIndex();
@@ -58,38 +73,72 @@ public class CTranslator extends CBaseListener {
     tabulate();
     System.out.println(operation);
   }
-
-  // copy the assignment
-  @Override public void enterSingleDeclarator(CParser.SingleDeclaratorContext ctx) {
-    if(current_scope==0){
-      global_variables.add(ctx.decl.getText());
-    }
+  
+  ////////////////////////////////////////////////////////////////////////////////////
+  // mainly function calls and expressions (valid as statements)
+  @Override
+  public void enterExprStatement(CParser.ExprStatementContext ctx) {
+    int a = ctx.stmt.start.getStartIndex();
+    int b = ctx.stmt.stop.getStopIndex();
+    Interval interval = new Interval(a, b);
+    String functionCall = ctx.stmt.start.getInputStream().getText(interval);
+    tabulate();
+    System.out.println(functionCall);
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // function declartion with some params manipulation
   @Override
   public void enterFunction_definition(CParser.Function_definitionContext ctx) {
     tabulate();
     current_scope += 1;
-    int a = ctx.func_dec.start.getStartIndex();
-    int b = ctx.func_dec.stop.getStopIndex();
-    Interval interval = new Interval(a, b);
-    String definition = ctx.start.getInputStream().getText(interval);
-    System.out.println("def " + definition + ":");
-    for(String gVar : global_variables){
-      tabulate();System.out.println("global "+gVar);
-    }
+    System.out.print("def " + ctx.func_dec.getChild(0) + "(");
     if (ctx.func_dec.getChild(0).getText().toString().equals("main")) {
       include_main = true;
     }
-    ;
+  }
+
+  // very ugly solution but if this is the last param, close function definition
+  // else place a comma for the next param
+  // put closing parentheses (check twice unfortunatly)
+  // could also directly put that in the grammar
+  // please open an issue later if this needs to be resolved for a better implementation
+
+  @Override
+  public void enterParameter_declaration(CParser.Parameter_declarationContext ctx) {
+    System.out.print(ctx.decl.getText());
+    if(ctx.getParent().getParent().getChild(1).getText().equals("(")){
+      System.out.println("):");
+      for(String gVar : global_variables){
+        tabulate();System.out.println("global "+gVar);
+      }
+    }else{
+      System.out.print(", ");
+    }
   }
 
   @Override
   public void exitFunction_definition(CParser.Function_definitionContext ctx) {
+    tabulate();System.out.println("pass"); // for empty functions, python will not compile
     current_scope -= 1;
   }
 
+  @Override
+  public void exitFuncDecl(CParser.FuncDeclContext ctx){
+    if(ctx.getChild(3) == null) {
+      System.out.println("):");
+      for(String gVar : global_variables){
+        tabulate();System.out.println("global "+gVar);
+      }
+    }
+  }
 
+  // end of function declaration
+
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // if statement (with else independant)
+  // note that the else is part of the if context
   @Override
   public void enterIfStat(CParser.IfStatContext ctx) {
     int a = ctx.condition.start.getStartIndex();
@@ -117,7 +166,9 @@ public class CTranslator extends CBaseListener {
     // do not decrement scope when leaving an elseStat context because we are also leaving an ifStat context
     // which will already decrement the scope
   }
-  
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // return statement
   @Override public void enterReturnStatement(CParser.ReturnStatementContext ctx) {
     String ret = "";
     if (ctx.expr != null) {
@@ -130,6 +181,8 @@ public class CTranslator extends CBaseListener {
     System.out.println("return " + ret);
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // while statement. Same concept as the if
   @Override
   public void enterWhileStat(CParser.WhileStatContext ctx) {
     int a = ctx.condition.start.getStartIndex();
@@ -146,26 +199,8 @@ public class CTranslator extends CBaseListener {
     current_scope -= 1;
   }
 
-  @Override
-  public void enterCmpStatementEmpty(CParser.CmpStatementEmptyContext ctx) {
-    //current_scope += 1;
-  }
-
-  @Override
-  public void exitCmpStatementEmpty(CParser.CmpStatementEmptyContext ctx) {
-    //current_scope -= 1;
-  }
-
-  @Override
-  public void enterCmpStatementNonEmpty(CParser.CmpStatementNonEmptyContext ctx) {
-    //current_scope += 1;
-  }
-
-  @Override
-  public void exitCmpStatementNonEmpty(CParser.CmpStatementNonEmptyContext ctx) {
-    //current_scope -= 1;
-  }
-
+  ////////////////////////////////////////////////////////////////////////////////////
+  // main class. create a tree and call a listener on the tree
   public static void main(String[] args) throws Exception {
     // create a CharStream that reads from standard input
     ANTLRInputStream input = new ANTLRInputStream(System.in); // create a lexer that feeds off of input CharStream

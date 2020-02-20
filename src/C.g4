@@ -17,8 +17,8 @@ type_specifier
 	;
 
 fun_declarator
-	: id=IDENTIFIER '(' params=parameter_list ')'	#funcDecl
-	| id=IDENTIFIER '(' ')'												#funcDeclParam
+	: id=IDENTIFIER '(' params=parameter_list ')'	#funcDeclParam
+	| id=IDENTIFIER '(' ')'												#funcDecl
 	;
 
 parameter_list
@@ -52,12 +52,22 @@ statement_list
 	;
 
 statement
+<<<<<<< HEAD:c_translator/C.g4
 	: stmt=compound_statement									#compoundStatement
 	| stmt=selection_statement								#selectionStatement
 	| stmt=iteration_statement								#iterationStatement
 	| stmt=assignment_statement ';'   				#assignmentStatement
 	|	(l_expr=l_expression | expr=expression)	#exprStatement
 	| RETURN expr=expression? ';'							#returnStatement
+=======
+	: stmt=compound_statement											#compoundStatement
+	| stmt=selection_statement										#selectionStatement
+	| stmt=iteration_statement										#iterationStatement
+	| stmt=assignment_statement	 ';'   						#assignmentStatement
+	|	stmt=expression	';'													#exprStatement
+	|	stmt=l_expression	';'												#lexprStatement
+	| RETURN expr=expression? ';'									#returnStatement
+>>>>>>> 121a353af77c373b2dcd200ec950f3f9d4ddb2fe:src/C.g4
 	;
 
 assignment_statement
