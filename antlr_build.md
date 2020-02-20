@@ -16,7 +16,10 @@ javac ./antlr/*.java
 From the /EE2-Compiler directory:
 
 ```
-javac ./src/*.java
+javac ./translator/*.java
+grun translator.antlr.C translation_unit -gui
+
+javac ./compiler/*.java
 grun compiler.antlr.C translation_unit -gui
 ```
 
@@ -27,8 +30,8 @@ Then enter your C code and press CTRL+D
 From the /EE2-Compiler directory:
 
 ```
-javac ./src/*.java
-java compiler.CTranslator
+javac ./translator/*.java
+java translator.CTranslator
 ```
 
 Then enter your C code and press CTRL+D

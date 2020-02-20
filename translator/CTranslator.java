@@ -1,6 +1,6 @@
-package compiler;
+package translator;
 
-import compiler.antlr.*;
+import translator.antlr.*;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.TokenStream;
