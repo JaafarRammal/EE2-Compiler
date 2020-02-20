@@ -211,9 +211,9 @@ public class CTranslator extends CBaseListener {
     ParseTreeWalker walker = new ParseTreeWalker();
     CTranslator CtoPython = new CTranslator();
     walker.walk(CtoPython, tree);
-    // if (CtoPython.include_main) {
-    //   System.out.println("if __name__ == \"__main__\":\n\timport sys\n\tret=main()\n\tsys.exit(ret)");
-    // }
+    if (CtoPython.include_main) {
+      System.out.println("if __name__ == \"__main__\":\n\timport sys\n\tret=main()\n\tsys.exit(ret)");
+    }
     System.out.println();
   }
 
