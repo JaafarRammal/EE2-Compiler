@@ -129,6 +129,7 @@ expression_list
 
 unary_operator
 	: op=SUB_OP
+	| op=ADD_OP
 	| op=NOT_OP
 	;
 

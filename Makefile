@@ -20,5 +20,6 @@ grammar:
 
 clean:
 	rm -rf ./bin
-	rm -rf ./src/*/*.class
+	rm -rf ./compiler/antlr/*.class
+	rm -rf ./compiler/*.class
 

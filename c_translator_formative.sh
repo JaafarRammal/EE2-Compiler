@@ -12,9 +12,10 @@ if [[ ! -f bin/c_compiler ]] ; then
     have_compiler=1
 fi
 
-input_dir="translator_tests/examples"
+input_dir="translator_tests/tests"
 
-working="tmp/formative"
+working="tmp"
+rm -rf ${working}
 mkdir -p ${working}
 
 for i in ${input_dir}/*.c ; do
@@ -28,8 +29,8 @@ for i in ${input_dir}/*.c ; do
     REF_C_OUT=$?
     
     # Run the reference python version
-    python3 ${input_dir}/$base.py
-    REF_P_OUT=$?
+    # python3 ${input_dir}/$base.py
+    # REF_P_OUT=$?
     
     if [[ ${have_compiler} -eq 0 ]] ; then
         
@@ -41,9 +42,10 @@ for i in ${input_dir}/*.c ; do
         GOT_P_OUT=$?
     fi
     
-    if [[ $REF_C_OUT -ne $REF_P_OUT ]] ; then
-        echo "$base, REF_FAIL, Expected ${REF_C_OUT}, got ${REF_P_OUT}"
-    elif [[ ${have_compiler} -ne 0 ]] ; then
+    # if [[ $REF_C_OUT -ne $REF_P_OUT ]] ; then
+    #     echo "$base, REF_FAIL, Expected ${REF_C_OUT}, got ${REF_P_OUT}"
+    # elif [[ ${have_compiler} -ne 0 ]] ; then
+    if [[ ${have_compiler} -ne 0 ]] ; then
         echo "$base, Fail, No C compiler/translator"
     elif [[ $REF_C_OUT -ne $GOT_P_OUT ]] ; then
         echo "$base, Fail, Expected ${REF_C_OUT}, got ${GOT_P_OUT}"
