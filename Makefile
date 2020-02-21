@@ -23,4 +23,10 @@ clean:
 	rm -rf ./translator/antlr/*.class
 	rm -rf ./translator/*.class
 
+########## MIPS BINARY CREATION ##############
 
+#makes parser that takes assembly text file as arg 1, moves into bin
+parser:
+	mkdir -p bin
+	cd mips_bingen && $(MAKE)
+	cp ./mips_bingen/bin/parser ./bin
