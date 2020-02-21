@@ -1,62 +1,62 @@
 grammar C;
 
 primaryExpression
-    :   Identifier
-    |   Constant
-    |   StringLiteral+
-    |   '(' expression ')'
-    |   genericSelection
-    |   '__extension__'? '(' compoundStatement ')' // Blocks (GCC extension)
-    |   '__builtin_va_arg' '(' unaryExpression ',' typeName ')'
-    |   '__builtin_offsetof' '(' typeName ',' unaryExpression ')'
+    :   id=Identifier                                                           #idPrimaryExpr
+    |   val=Constant                                                            #intConstPrimaryExpr
+    |   val=StringLiteral+                                                      #strLitPrimaryExpr
+    |   '(' expr=expression ')'                                                 #ParExprPrimaryExpr
+    |   genSelec=genericSelection                                               #GSelectPrimaryExpr
+    |   '__extension__'? '(' cmpStat=compoundStatement ')'                      #cmpStatPrimaryExpr // Blocks (GCC extension)
+    |   '__builtin_va_arg' '(' expr=unaryExpression ',' type=typeName ')'       #vaArgPrimaryExpr
+    |   '__builtin_offsetof' '(' type=typeName ',' expr=unaryExpression ')'     #offsetPrimaryExpr
     ;
 
 genericSelection
-    :   '_Generic' '(' assignmentExpression ',' genericAssocList ')'
+    :   '_Generic' '(' assgnExpr=assignmentExpression ',' genAssL=genericAssocList ')'
     ;
 
 genericAssocList
-    :   genericAssociation
-    |   genericAssocList ',' genericAssociation
+    :   genAss=genericAssociation                               #singleGenAssList
+    |   genAss=genericAssocList ',' genAssL=genericAssociation  #multGenAssList
     ;
 
 genericAssociation
-    :   typeName ':' assignmentExpression
-    |   'default' ':' assignmentExpression
+    :   type=typeName ':' expr=assignmentExpression    #typeGenAss
+    |   'default' ':' expr=assignmentExpression        #defaultGenAss
     ;
 
 postfixExpression
-    :   primaryExpression
-    |   postfixExpression '[' expression ']'
-    |   postfixExpression '(' argumentExpressionList? ')'
-    |   postfixExpression '.' Identifier
-    |   postfixExpression '->' Identifier
-    |   postfixExpression '++'
-    |   postfixExpression '--'
-    |   '(' typeName ')' '{' initializerList '}'
-    |   '(' typeName ')' '{' initializerList ',' '}'
-    |   '__extension__' '(' typeName ')' '{' initializerList '}'
-    |   '__extension__' '(' typeName ')' '{' initializerList ',' '}'
+    :   expr=primaryExpression                                                  #primPostExpr
+    |   left=postfixExpression '[' right=expression ']'                         #arrPostExpr
+    |   expr=postfixExpression '(' args=argumentExpressionList? ')'             #funcInvocPostExpr
+    |   expr=postfixExpression '.' id=Identifier                                #funcCallPostExpr
+    |   expr=postfixExpression '->' id=Identifier                               #funcCallPtrPostExpr
+    |   expr=postfixExpression '++'                                             #incrPostExpr
+    |   expr=postfixExpression '--'                                             #decrPostExpr
+    |   '(' type=typeName ')' '{' inits=initializerList '}'                     #singleCastPostExpr
+    |   '(' type=typeName ')' '{' inits=initializerList ',' '}'                 #multCastPostExpr
+    |   '__extension__' '(' type=typeName ')' '{' inits=initializerList '}'     #singleExtPostExpr
+    |   '__extension__' '(' type=typeName ')' '{' inits=initializerList ',' '}' #multExtPostExpr
     ;
 
 argumentExpressionList
-    :   assignmentExpression
-    |   argumentExpressionList ',' assignmentExpression
+    :   expr=assignmentExpression                                   #singleArgExprList
+    |   args=argumentExpressionList ',' expr=assignmentExpression   #multArgExprList
     ;
 
 unaryExpression
-    :   postfixExpression
-    |   '++' unaryExpression
-    |   '--' unaryExpression
-    |   unaryOperator castExpression
-    |   'sizeof' unaryExpression
-    |   'sizeof' '(' typeName ')'
-    |   '_Alignof' '(' typeName ')'
-    |   '&&' Identifier // GCC extension address of label
+    :   expr=postfixExpression                                  #postUnExpr
+    |   '++' expr=unaryExpression                               #preIncUnExpr
+    |   '--' expr=unaryExpression                               #preDecUnExpr
+    |   left=unaryOperator right=castExpression                 #castUnExpr
+    |   'sizeof' expr=unaryExpression                           #sizeExprUnExpr
+    |   'sizeof' '(' type=typeName ')'                          #sizeTypeUnExpe
+    |   '_Alignof' '(' type=typeName ')'                        #alignUnExpr
+    |   '&&' id=Identifier                                      #idUnExpr        // GCC extension address of label    
     ;
 
 unaryOperator
-    :   '&' | '*' | '+' | '-' | '~' | '!'
+    :   op=('&' | '*' | '+' | '-' | '~' | '!')
     ;
 
 castExpression
@@ -149,7 +149,7 @@ constantExpression
 
 declaration
     :   declarationSpecifiers initDeclaratorList ';'
-	  | 	declarationSpecifiers ';'
+	| 	declarationSpecifiers ';'
     |   staticAssertDeclaration
     ;
 
@@ -189,7 +189,7 @@ storageClassSpecifier
     ;
 
 typeSpecifier
-    :   ('void'
+    :   type=('void'
     |   'char'
     |   'short'
     |   'int'
@@ -202,14 +202,14 @@ typeSpecifier
     |   '_Complex'
     |   '__m128'
     |   '__m128d'
-    |   '__m128i')
-    |   '__extension__' '(' ('__m128' | '__m128d' | '__m128i') ')'
-    |   atomicTypeSpecifier
-    |   structOrUnionSpecifier
-    |   enumSpecifier
-    |   typedefName
-    |   '__typeof__' '(' constantExpression ')' // GCC extension
-    |   typeSpecifier pointer
+    |   '__m128i')                                                      #baseTypeSpec
+    |   '__extension__' '(' ('__m128' | '__m128d' | '__m128i') ')'      #extensionTypeSpec
+    |   type=atomicTypeSpecifier                                        #atomicTypeSpec
+    |   type=structOrUnionSpecifier                                     #structTypeSpec
+    |   type=enumSpecifier                                              #enumTypeSpec
+    |   type=typedefName                                                #typeDefSpec
+    |   type='__typeof__' '(' constantExpression ')'                    #typeOfSpec // GCC extension
+    |   type=typeSpecifier ptr=pointer                                  #typePointerSpec
     ;
 
 structOrUnionSpecifier
@@ -509,14 +509,20 @@ externalDeclaration
     |   ';' // stray ;
     ;
 
+// i think decl_list is unused because we don't have this form to implement
 functionDefinition
-    :   declarationSpecifiers? declarator declarationList? compoundStatement
+    :   spec=declarationSpecifiers? func_dec=declarator dec_list=declarationList? comp_stat=compoundStatement
     ;
 
 declarationList
-    :   declaration
-    |   declarationList declaration
+    :   dec=declaration                             #singleDecList
+    |   dec_list=declarationList dec=declaration    #MultDecList
     ;
+
+
+//////////////////////////////
+///////     LEXER      /////// 
+//////////////////////////////
 
 Auto : 'auto';
 Break : 'break';
