@@ -135,8 +135,8 @@ conditionalExpression
     ;
 
 assignmentExpression
-    :   expr=conditionalExpression                                              #AssgnExpr
-    |   left=unaryExpression op=assignmentOperator right=assignmentExpression   #AssgnExpr
+    :   expr=conditionalExpression                                              #termAssgnExpr
+    |   left=unaryExpression op=assignmentOperator right=assignmentExpression   #opAssgnExpr
     |   expr=DigitSequence                                                      #digitSeqAssgnExpr   // for               
     ;
 
@@ -155,44 +155,44 @@ constantExpression
     ;
 
 declaration
-    :   declarationSpecifiers initDeclaratorList ';'
-	| 	declarationSpecifiers ';'
-    |   staticAssertDeclaration
+    :   spec=declarationSpecifiers initList=initDeclaratorList ';'  #initSpecDeclaration
+	| 	spec=declarationSpecifiers ';'                              #specDeclaration
+    |   dec=staticAssertDeclaration                                 #staticDeclaration
     ;
 
 declarationSpecifiers
-    :   declarationSpecifier+
+    :   dec=declarationSpecifier+
     ;
 
 declarationSpecifiers2
-    :   declarationSpecifier+
+    :   dec=declarationSpecifier+
     ;
 
 declarationSpecifier
-    :   storageClassSpecifier
-    |   typeSpecifier
-    |   typeQualifier
-    |   functionSpecifier
-    |   alignmentSpecifier
+    :   type=storageClassSpecifier  #classDecSpec
+    |   type=typeSpecifier          #typeSpecDecSpec
+    |   type=typeQualifier          #typeQualDecSpec
+    |   type=functionSpecifier      #funcDecSpec
+    |   type=alignmentSpecifier     #alignDecSpec
     ;
 
 initDeclaratorList
-    :   initDeclarator
-    |   initDeclaratorList ',' initDeclarator
+    :   dec=initDeclarator                                  #singleInitDecList
+    |   decL=initDeclaratorList ',' dec=initDeclarator   #multInitDecList
     ;
 
 initDeclarator
-    :   declarator
-    |   declarator '=' initializer
+    :   dec=declarator                          #termInitDec
+    |   left=declarator '=' right=initializer   #opInitDec
     ;
 
 storageClassSpecifier
-    :   'typedef'
+    :   type=('typedef'
     |   'extern'
     |   'static'
     |   '_Thread_local'
     |   'auto'
-    |   'register'
+    |   'register')
     ;
 
 typeSpecifier
@@ -220,114 +220,114 @@ typeSpecifier
     ;
 
 structOrUnionSpecifier
-    :   structOrUnion Identifier? '{' structDeclarationList '}'
-    |   structOrUnion Identifier
+    :   ojb=structOrUnion id=Identifier? '{' decL=structDeclarationList '}' #decStructUnSpec
+    |   obj=structOrUnion id=Identifier                                     #singleStructUnSpec
     ;
 
 structOrUnion
-    :   'struct'
-    |   'union'
+    :   id=('struct'
+    |   'union')
     ;
 
 structDeclarationList
-    :   structDeclaration
-    |   structDeclarationList structDeclaration
+    :   dec=structDeclaration                               #singleStructDecList
+    |   decL=structDeclarationList dec=structDeclaration    #multStructDecList
     ;
 
 structDeclaration
-    :   specifierQualifierList structDeclaratorList? ';'
-    |   staticAssertDeclaration
+    :   specL=specifierQualifierList decL=structDeclaratorList? ';' #mulStructDec
+    |   dec=staticAssertDeclaration                                 #singleStructDec
     ;
 
 specifierQualifierList
-    :   typeSpecifier specifierQualifierList?
-    |   typeQualifier specifierQualifierList?
+    :   type=typeSpecifier specL=specifierQualifierList?    #specSpecQualList
+    |   type=typeQualifier specL=specifierQualifierList?    #qualSpecQualList
     ;
 
 structDeclaratorList
-    :   structDeclarator
-    |   structDeclaratorList ',' structDeclarator
+    :   dec=structDeclarator                                #singleStructDecList
+    |   decL=structDeclaratorList ',' dec=structDeclarator  #mulStructDecList
     ;
 
 structDeclarator
-    :   declarator
-    |   declarator? ':' constantExpression
+    :   dec=declarator                              #emptyStructDec
+    |   dec=declarator? ':' expr=constantExpression #assgnStructDec
     ;
 
 enumSpecifier
-    :   'enum' Identifier? '{' enumeratorList '}'
-    |   'enum' Identifier? '{' enumeratorList ',' '}'
-    |   'enum' Identifier
+    :   'enum' id=Identifier? '{' enumL=enumeratorList (',')? '}'   #decEnumSpec
+    // |   'enum' id=Identifier? '{' enumeratorList ',' '}'
+    |   'enum' id=Identifier                                        #emptyEnumSpec
     ;
 
 enumeratorList
-    :   enumerator
-    |   enumeratorList ',' enumerator
+    :   enum=enumerator                             #singleEnumList
+    |   enumL=enumeratorList ',' enum=enumerator    #multEnumList
     ;
 
 enumerator
-    :   enumerationConstant
-    |   enumerationConstant '=' constantExpression
+    :   enum=enumerationConstant                                #emptyEnum
+    |   enum=enumerationConstant '=' expr=constantExpression    #assgnEnum
     ;
 
 enumerationConstant
-    :   Identifier
+    :   id=Identifier
     ;
 
 atomicTypeSpecifier
-    :   '_Atomic' '(' typeName ')'
+    :   '_Atomic' '(' type=typeName ')'
     ;
 
 typeQualifier
-    :   'const'
+    :   type= ('const'
     |   'restrict'
     |   'volatile'
-    |   '_Atomic'
+    |   '_Atomic')
     ;
 
 functionSpecifier
-    :   ('inline'
+    :   spec=('inline'
     |   '_Noreturn'
     |   '__inline__' // GCC extension
-    |   '__stdcall')
-    |   gccAttributeSpecifier
-    |   '__declspec' '(' Identifier ')'
+    |   '__stdcall')                        #baseFuncSpec
+    |   spec=gccAttributeSpecifier          #gccFuncSpec
+    |   '__declspec' '(' id=Identifier ')'  #declFuncSpec
     ;
 
 alignmentSpecifier
-    :   '_Alignas' '(' typeName ')'
-    |   '_Alignas' '(' constantExpression ')'
+    :   '_Alignas' '(' type=typeName ')'            #typeAlignSpec
+    |   '_Alignas' '(' expr=constantExpression ')'  #exprAlignSpec
     ;
 
 declarator
-    :   pointer? directDeclarator gccDeclaratorExtension*
+    :   ptr=pointer? dec=directDeclarator gcc=gccDeclaratorExtension*
     ;
 
 directDeclarator
-    :   Identifier
-    |   '(' declarator ')'
-    |   directDeclarator '[' typeQualifierList? assignmentExpression? ']'
-    |   directDeclarator '[' 'static' typeQualifierList? assignmentExpression ']'
-    |   directDeclarator '[' typeQualifierList 'static' assignmentExpression ']'
-    |   directDeclarator '[' typeQualifierList? '*' ']'
-    |   directDeclarator '(' parameterTypeList ')'
-    |   directDeclarator '(' identifierList? ')'
-    |   Identifier ':' DigitSequence  // bit field
-    |   '(' typeSpecifier? pointer directDeclarator ')' // function pointer like: (__cdecl *f)
+    :   id=Identifier
+    |   '(' dec=declarator ')'
+    |   dec=directDeclarator '[' qualL=typeQualifierList? expr=assignmentExpression? ']'
+    |   dec=directDeclarator '[' 'static' qualL=typeQualifierList? expr=assignmentExpression ']'
+    |   dec=directDeclarator '[' qualL=typeQualifierList 'static' expr=assignmentExpression ']'
+    |   dec=directDeclarator '[' qualL=typeQualifierList? '*' ']'
+    |   dec=directDeclarator '(' paramL=parameterTypeList ')'
+    |   dec=directDeclarator '(' idL=identifierList? ')'
+    |   id=Identifier ':' seq=DigitSequence  // bit field
+    |   '(' type=typeSpecifier? ptr=pointer dec=directDeclarator ')' // function pointer like: (__cdecl *f)
     ;
 
 gccDeclaratorExtension
-    :   '__asm' '(' StringLiteral+ ')'
-    |   gccAttributeSpecifier
+    :   '__asm' '(' const=StringLiteral+ ')'    #singleGccDecExt
+    |   spec=gccAttributeSpecifier              #multGccDecExt
     ;
 
 gccAttributeSpecifier
-    :   '__attribute__' '(' '(' gccAttributeList ')' ')'
+    :   '__attribute__' '(' '(' attL=gccAttributeList ')' ')'
     ;
 
 gccAttributeList
-    :   gccAttribute (',' gccAttribute)*
-    |   // empty
+    :   att=gccAttribute (',' gccAttribute)*    #gccAttList
+    |                                           #emptyGccAttList // empty
     ;
 
 gccAttribute
