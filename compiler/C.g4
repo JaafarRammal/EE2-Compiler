@@ -45,106 +45,113 @@ argumentExpressionList
     ;
 
 unaryExpression
-    :   expr=postfixExpression                                  #postUnExpr
-    |   '++' expr=unaryExpression                               #preIncUnExpr
-    |   '--' expr=unaryExpression                               #preDecUnExpr
-    |   left=unaryOperator right=castExpression                 #castUnExpr
-    |   'sizeof' expr=unaryExpression                           #sizeExprUnExpr
-    |   'sizeof' '(' type=typeName ')'                          #sizeTypeUnExpe
-    |   '_Alignof' '(' type=typeName ')'                        #alignUnExpr
-    |   '&&' id=Identifier                                      #idUnExpr        // GCC extension address of label    
+    :   expr=postfixExpression                                  #postUnaryExpr
+    |   '++' expr=unaryExpression                               #preIncUnaryExpr
+    |   '--' expr=unaryExpression                               #preDecUnaryExpr
+    |   left=unaryOperator right=castExpression                 #castUnaryExpr
+    |   'sizeof' expr=unaryExpression                           #sizeExprUnaryExpr
+    |   'sizeof' '(' type=typeName ')'                          #sizeTypeUnaryExpe
+    |   '_Alignof' '(' type=typeName ')'                        #alignUnaryExpr
+    |   '&&' id=Identifier                                      #idUnaryExpr        // GCC extension address of label    
     ;
 
 unaryOperator
-    :   op=('&' | '*' | '+' | '-' | '~' | '!')
+    // :   op=('&' | '*' | '+' | '-' | '~' | '!')
+    :   op=( And | Star | Plus | Minus | Tilde | Not )
     ;
 
 castExpression
-    :   '(' typeName ')' castExpression
-    |   '__extension__' '(' typeName ')' castExpression
-    |   unaryExpression
-    |   DigitSequence // for
+    :   '(' type=typeName ')' expr=castExpression                   #typeCastExpr
+    |   '__extension__' '(' type=typeName ')' expr=castExpression   #extensionCastExpr
+    |   expr=unaryExpression                                        #unaryCastExpr
+    |   seq=DigitSequence                                           #digitSeqCastExpr   // for
     ;
 
 multiplicativeExpression
-    :   castExpression
-    |   multiplicativeExpression '*' castExpression
-    |   multiplicativeExpression '/' castExpression
-    |   multiplicativeExpression '%' castExpression
+    :   expr=castExpression                                                 #termMultExpr
+    // |   left=multiplicativeExpression '*' right=castExpression  #multOpMultExpr
+    // |   left=multiplicativeExpression '/' right=castExpression  #divOpMultExpr
+    // |   left=multiplicativeExpression '%' right=castExpression  #modOpMultExpr
+    |   left=multiplicativeExpression op=(Star|Div|Mod) right=castExpression #opMultExpr    // aka ( * | / | % )
     ;
 
 additiveExpression
-    :   multiplicativeExpression
-    |   additiveExpression '+' multiplicativeExpression
-    |   additiveExpression '-' multiplicativeExpression
+    :   expr=multiplicativeExpression                                           #termAddExpr
+    // |   left=additiveExpression '+' right=multiplicativeExpression       #addAddExpr
+    // |   left=additiveExpression '-' right=multiplicativeExpression       #subAddExpr
+    |   left=additiveExpression op=(Plus|Minus) right=multiplicativeExpression  #opAddExpr  // aka ( + | - )
     ;
 
 shiftExpression
-    :   additiveExpression
-    |   shiftExpression '<<' additiveExpression
-    |   shiftExpression '>>' additiveExpression
+    :   expr=additiveExpression                                                 #termShiftExpr
+    // |   shiftExpression '<<' additiveExpression                             #leftShiftExpr
+    // |   shiftExpression '>>' additiveExpression                             #rightShiftExpr
+    |   left=shiftExpression op=(LeftShift|RightShift) right=additiveExpression    #opShiftExpr  // aka ( << | >> )
     ;
 
 relationalExpression
-    :   shiftExpression
-    |   relationalExpression '<' shiftExpression
-    |   relationalExpression '>' shiftExpression
-    |   relationalExpression '<=' shiftExpression
-    |   relationalExpression '>=' shiftExpression
+    :   expr=shiftExpression                                                                        #termRelExpr
+    // |   left=relationalExpression '<' right=shiftExpression                                       #ltRelExpr
+    // |   left=relationalExpression '>' right=shiftExpression                                       #gtRelExpr
+    // |   left=relationalExpression '<=' right=shiftExpression                                      #lteRelExpr
+    // |   left=relationalExpression '>=' right=shiftExpression                                      #gteRelExpr
+    |   left=relationalExpression op=(Less|Greater|LessEqual|GreaterEqual) right=shiftExpression    #opRelExpr   // aka ('<'|'>'|'<='|'>=')
     ;
 
 equalityExpression
-    :   relationalExpression
-    |   equalityExpression '==' relationalExpression
-    |   equalityExpression '!=' relationalExpression
+    :   expr=relationalExpression                                           #termEqualExpr
+    // |   left=equalityExpression '==' right=relationalExpression             #eqEqualExpr
+    // |   left=equalityExpression '!=' right=relationalExpression             #neqEqualExpr
+    |   left=equalityExpression op=(NotEqual|Equal) right=relationalExpression   #opEqualExpr
     ;
 
 andExpression
-    :   equalityExpression
-    |   andExpression '&' equalityExpression
+    :   expr=equalityExpression                         #termAndExpr
+    |   left=andExpression '&' right=equalityExpression #opAndExpr
     ;
 
 exclusiveOrExpression
-    :   andExpression
-    |   exclusiveOrExpression '^' andExpression
+    :   expr=andExpression									#termExcOrExpr
+    |   left=exclusiveOrExpression '^' right=andExpression  #opExcOrExpr
     ;
 
 inclusiveOrExpression
-    :   exclusiveOrExpression
-    |   inclusiveOrExpression '|' exclusiveOrExpression
+    :   expr=exclusiveOrExpression									#termIncOrExpr
+    |   left=inclusiveOrExpression '|' right=exclusiveOrExpression  #opIncOrExpr
     ;
 
 logicalAndExpression
-    :   inclusiveOrExpression
-    |   logicalAndExpression '&&' inclusiveOrExpression
+    :   expr=inclusiveOrExpression									#termLogAndExpr
+    |   left=logicalAndExpression '&&' right=inclusiveOrExpression  #opLogAndExpr
     ;
 
 logicalOrExpression
-    :   logicalAndExpression
-    |   logicalOrExpression '||' logicalAndExpression
+    :   expr=logicalAndExpression									#termLogOrExpr
+    |   left=logicalOrExpression '||' right=logicalAndExpression    #opLogOrExpr
     ;
 
 conditionalExpression
-    :   logicalOrExpression ('?' expression ':' conditionalExpression)?
+    :   cond=logicalOrExpression ('?' true_exec=expression ':' false_exec=conditionalExpression)?
     ;
 
 assignmentExpression
-    :   conditionalExpression
-    |   unaryExpression assignmentOperator assignmentExpression
-    |   DigitSequence // for
+    :   expr=conditionalExpression                                              #AssgnExpr
+    |   left=unaryExpression op=assignmentOperator right=assignmentExpression   #AssgnExpr
+    |   expr=DigitSequence                                                      #digitSeqAssgnExpr   // for               
     ;
 
 assignmentOperator
-    :   '=' | '*=' | '/=' | '%=' | '+=' | '-=' | '<<=' | '>>=' | '&=' | '^=' | '|='
+    // :   '=' | '*=' | '/=' | '%=' | '+=' | '-=' | '<<=' | '>>=' | '&=' | '^=' | '|='
+    :   Assign | StarAssign | DivAssign | ModAssign | PlusAssign | MinusAssign | LeftShiftAssign | RightShiftAssign | AndAssign | XorAssign | OrAssign
     ;
 
 expression
-    :   assignmentExpression
-    |   expression ',' assignmentExpression
+    :   expr=assignmentExpression                       #singleExpr
+    |   left=expression ',' right=assignmentExpression  #multExpr
     ;
 
 constantExpression
-    :   conditionalExpression
+    :   expr=conditionalExpression
     ;
 
 declaration
