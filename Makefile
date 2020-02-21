@@ -5,6 +5,7 @@ bin/c_compiler:
 	make java
 	rm -rf ./bin
 	mkdir bin
+	make parser
 	cp ./c_compiler.sh ./bin
 	mv ./bin/c_compiler.sh ./bin/c_compiler
 	chmod u+x ./bin/c_compiler
@@ -27,6 +28,6 @@ clean:
 
 #makes parser that takes assembly text file as arg 1, moves into bin
 parser:
-	mkdir -p bin
+	#mkdir -p bin
 	cd mips_bingen && $(MAKE)
 	cp ./mips_bingen/bin/parser ./bin

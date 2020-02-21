@@ -1,6 +1,9 @@
 MIPS Binary Instruction File Generator
 ===================================
 
+1. make bin/parser
+
+
 This command-line applet allows you to create the binaries needed to test your MIPS Simulator. As of now all the commands listed in the specifications have been implemented into this application.
 
 Instructions
