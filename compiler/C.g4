@@ -245,8 +245,8 @@ specifierQualifierList
     ;
 
 structDeclaratorList
-    :   dec=structDeclarator                                #singleStructDecList
-    |   decL=structDeclaratorList ',' dec=structDeclarator  #mulStructDecList
+    :   dec=structDeclarator                                #singleStructDecrList
+    |   decL=structDeclaratorList ',' dec=structDeclarator  #mulStructDecrList
     ;
 
 structDeclarator
@@ -261,13 +261,13 @@ enumSpecifier
     ;
 
 enumeratorList
-    :   enum=enumerator                             #singleEnumList
-    |   enumL=enumeratorList ',' enum=enumerator    #multEnumList
+    :   enume=enumerator                             #singleEnumList
+    |   enumL=enumeratorList ',' enume=enumerator    #multEnumList
     ;
 
 enumerator
-    :   enum=enumerationConstant                                #emptyEnum
-    |   enum=enumerationConstant '=' expr=constantExpression    #assgnEnum
+    :   enume=enumerationConstant                                #emptyEnum
+    |   enume=enumerationConstant '=' expr=constantExpression    #assgnEnum
     ;
 
 enumerationConstant
@@ -300,12 +300,12 @@ alignmentSpecifier
     ;
 
 declarator
-    :   ptr=pointer? dec=directDeclarator gcc=gccDeclaratorExtension*
+    :   ptr=pointer? directDec=directDeclarator gcc=gccDeclaratorExtension*
     ;
 
 directDeclarator
     :   id=Identifier
-    |   '(' dec=declarator ')'
+    |   '(' decl=declarator ')'
     |   dec=directDeclarator '[' qualL=typeQualifierList? expr=assignmentExpression? ']'
     |   dec=directDeclarator '[' 'static' qualL=typeQualifierList? expr=assignmentExpression ']'
     |   dec=directDeclarator '[' qualL=typeQualifierList 'static' expr=assignmentExpression ']'
@@ -317,36 +317,38 @@ directDeclarator
     ;
 
 gccDeclaratorExtension
-    :   '__asm' '(' const=StringLiteral+ ')'    #singleGccDecExt
-    |   spec=gccAttributeSpecifier              #multGccDecExt
+    :   '__asm' '(' id=StringLiteral+ ')'    #singleGccDecExt
+    |   spec=gccAttributeSpecifier           #multGccDecExt
     ;
 
 gccAttributeSpecifier
     :   '__attribute__' '(' '(' attL=gccAttributeList ')' ')'
     ;
 
+// most probably unused
 gccAttributeList
     :   att=gccAttribute (',' gccAttribute)*    #gccAttList
     |                                           #emptyGccAttList // empty
     ;
 
+// most probably unused
 gccAttribute
-    :   ~(',' | '(' | ')') // relaxed def for "identifier or reserved word"
-        ('(' argumentExpressionList? ')')?
-    |   // empty
+    :   ~(',' | '(' | ')')                      // relaxed def for "identifier or reserved word"
+        ('(' argL=argumentExpressionList? ')')? #multGccAttr
+    |                                           #emptyGccAttr   // empty
     ;
 
 nestedParenthesesBlock
     :   (   ~('(' | ')')
-        |   '(' nestedParenthesesBlock ')'
+        |   '(' block=nestedParenthesesBlock ')'
         )*
     ;
 
 pointer
-    :   '*' typeQualifierList?
-    |   '*' typeQualifierList? pointer
-    |   '^' typeQualifierList? // Blocks language extension
-    |   '^' typeQualifierList? pointer // Blocks language extension
+    :   '*' qualL=typeQualifierList?                #SPointer
+    |   '*' qualL=typeQualifierList? ptr=pointer    #SPPointer
+    |   '^' qualL=typeQualifierList?                #HPointer   // Blocks language extension
+    |   '^' qualL=typeQualifierList? ptr=pointer    #HPPointer   // Blocks language extension
     ;
 
 typeQualifierList
@@ -355,165 +357,168 @@ typeQualifierList
     ;
 
 parameterTypeList
-    :   parameterList
-    |   parameterList ',' '...'
+    :   paramL=parameterList            #singleParamTypeList
+    |   paramL=parameterList ',' '...'  #extParamTypeList
     ;
 
 parameterList
-    :   parameterDeclaration
-    |   parameterList ',' parameterDeclaration
+    :   param=parameterDeclaration                          #singleParamList
+    |   paramL=parameterList ',' param=parameterDeclaration #multParamList
     ;
 
 parameterDeclaration
-    :   declarationSpecifiers declarator
-    |   declarationSpecifiers2 abstractDeclarator?
+    :   spec=declarationSpecifiers dec=declarator           #decParamDec
+    |   spec=declarationSpecifiers2 dec=abstractDeclarator? #absParamDec
     ;
 
 identifierList
-    :   Identifier
-    |   identifierList ',' Identifier
+    :   id=Identifier                           #singleIdList
+    |   idL=identifierList ',' id=Identifier    #multIdList
     ;
 
 typeName
-    :   specifierQualifierList abstractDeclarator?
+    :   spec=specifierQualifierList dec=abstractDeclarator?
     ;
 
 abstractDeclarator
-    :   pointer
-    |   pointer? directAbstractDeclarator gccDeclaratorExtension*
+    :   ptr=pointer                                                             #ptrAbsDec
+    |   ptr=pointer? dec=directAbstractDeclarator gcc=gccDeclaratorExtension*   #ptrGccAbsDec
     ;
 
+// probably won't need that rule as well
 directAbstractDeclarator
-    :   '(' abstractDeclarator ')' gccDeclaratorExtension*
-    |   '[' typeQualifierList? assignmentExpression? ']'
-    |   '[' 'static' typeQualifierList? assignmentExpression ']'
-    |   '[' typeQualifierList 'static' assignmentExpression ']'
-    |   '[' '*' ']'
-    |   '(' parameterTypeList? ')' gccDeclaratorExtension*
-    |   directAbstractDeclarator '[' typeQualifierList? assignmentExpression? ']'
-    |   directAbstractDeclarator '[' 'static' typeQualifierList? assignmentExpression ']'
-    |   directAbstractDeclarator '[' typeQualifierList 'static' assignmentExpression ']'
-    |   directAbstractDeclarator '[' '*' ']'
-    |   directAbstractDeclarator '(' parameterTypeList? ')' gccDeclaratorExtension*
+    :   '(' dec=abstractDeclarator ')' gcc=gccDeclaratorExtension*                                          #decDirAbsDec
+    |   '[' qualL=typeQualifierList? expr=assignmentExpression? ']'                                         #qualDirAbsDec
+    |   '[' 'static' qualL=typeQualifierList? expr=assignmentExpression ']'                                 #staticQualDirAbsDec
+    |   '[' qualL=typeQualifierList 'static' expr=assignmentExpression ']'                                  #qualStaticDirAbsDec
+    |   '[' '*' ']'                                                                                         #addrDirAbsDec
+    |   '(' paramL=parameterTypeList? ')' gcc=gccDeclaratorExtension*                                       #paramDirAbsDec
+    |   dec=directAbstractDeclarator '[' qualL=typeQualifierList? expr=assignmentExpression? ']'            #decQualDirAbsDec
+    |   dec=directAbstractDeclarator '[' 'static' qualL=typeQualifierList? expr=assignmentExpression ']'    #decStaticQualDirAbsDec
+    |   dec=directAbstractDeclarator '[' qualL=typeQualifierList 'static' expr=assignmentExpression ']'     #decQualStaticDirAbsDec
+    |   dec=directAbstractDeclarator '[' '*' ']'                                                            #decAddrDirAbsDec
+    |   dec=directAbstractDeclarator '(' paramL=parameterTypeList? ')' gcc=gccDeclaratorExtension*          #decParamDirAbsDec
     ;
+
+
 
 typedefName
-    :   Identifier
+    :   id=Identifier
     ;
 
 initializer
-    :   assignmentExpression
-    |   '{' initializerList '}'
-    |   '{' initializerList ',' '}'
+    :   expr=assignmentExpression           #assgnInit
+    |   '{' initL=initializerList '}'       #singleInit
+    |   '{' initL=initializerList ',' '}'   #multInit
     ;
 
 initializerList
-    :   designation? initializer
-    |   initializerList ',' designation? initializer
+    :   des=designation? init=initializer                           #preDesInitList
+    |   initL=initializerList ',' des=designation? ini=initializer  #postDesInitList
     ;
 
 designation
-    :   designatorList '='
+    :   desL=designatorList '='
     ;
 
 designatorList
-    :   designator
-    |   designatorList designator
+    :   des=designator                      #singleDesList
+    |   desL=designatorList des=designator  #multDesList
     ;
 
 designator
-    :   '[' constantExpression ']'
-    |   '.' Identifier
+    :   '[' expr=constantExpression ']' #arrayDes
+    |   '.' id=Identifier               #funcDes
     ;
 
 staticAssertDeclaration
-    :   '_Static_assert' '(' constantExpression ',' StringLiteral+ ')' ';'
+    :   '_Static_assert' '(' expr=constantExpression ',' id=StringLiteral+ ')' ';'
     ;
 
 statement
-    :   labeledStatement
-    |   compoundStatement
-    |   expressionStatement
-    |   selectionStatement
-    |   iterationStatement
-    |   jumpStatement
-    |   ('__asm' | '__asm__') ('volatile' | '__volatile__') '(' (logicalOrExpression (',' logicalOrExpression)*)? (':' (logicalOrExpression (',' logicalOrExpression)*)?)* ')' ';'
+    :   stmt=labeledStatement       #labelStat
+    |   stmt=compoundStatement      #cmpStat
+    |   stmt=expressionStatement    #exprStat
+    |   stmt=selectionStatement     #selectStat
+    |   stmt=iterationStatement     #iterStat
+    |   stmt=jumpStatement          #jumpStat
+    // |   ('__asm' | '__asm__') ('volatile' | '__volatile__') '(' (logicalOrExpression (',' logicalOrExpression)*)? (':' (logicalOrExpression (',' logicalOrExpression)*)?)* ')' ';'
     ;
 
 labeledStatement
-    :   Identifier ':' statement
-    |   'case' constantExpression ':' statement
-    |   'default' ':' statement
+    :   id=Identifier ':' exec=statement                    #idLabelStat
+    |   'case' cond=constantExpression ':' exec=statement   #caseLabelStat
+    |   'default' ':' exec=statement                        #defLabelStat
     ;
 
 compoundStatement
-    :   '{' blockItemList? '}'
+    :   '{' itemL=blockItemList? '}'
     ;
 
 blockItemList
-    :   blockItem
-    |   blockItemList blockItem
+    :   item=blockItem                      #singleBlockItemList
+    |   itemL=blockItemList item=blockItem  #multBlockItemList
     ;
 
 blockItem
-    :   statement
-    |   declaration
+    :   stat=statement  #statBlockItem
+    |   dec=declaration #decBlockItem
     ;
 
 expressionStatement
-    :   expression? ';'
+    :   expr=expression? ';'
     ;
 
 selectionStatement
-    :   'if' '(' expression ')' statement ('else' statement)?
-    |   'switch' '(' expression ')' statement
+    :   'if' '(' cond=expression ')' trueExec=statement ('else' falseExec=statement)?   #ifSelecStat
+    |   'switch' '(' expression ')' trueExec=statement                                  #switchSelecStat
     ;
 
 iterationStatement
-    :   While '(' expression ')' statement
-    |   Do statement While '(' expression ')' ';'
-    |   For '(' forCondition ')' statement
+    :   While '(' cond=expression ')' exec=statement        #whileIterStat
+    |   Do exec=statement While '(' cond=expression ')' ';' #doIterStat
+    |   For '(' cond=forCondition ')' exec=statement        #forIterStat
     ;
 
 //    |   'for' '(' expression? ';' expression?  ';' forUpdate? ')' statement
 //    |   For '(' declaration  expression? ';' expression? ')' statement
 
 forCondition
-	:   forDeclaration ';' forExpression? ';' forExpression?
-	|   expression? ';' forExpression? ';' forExpression?
+	:   init=forDeclaration ';' cond=forExpression? ';' update=forExpression?   #decForCond
+	|   init=expression? ';' cond=forExpression? ';' update=forExpression?      #expForCond
 	;
 
 forDeclaration
-    :   declarationSpecifiers initDeclaratorList
-	| 	declarationSpecifiers
+    :   dec=declarationSpecifiers init=initDeclaratorList   #multForDec
+	| 	dec=declarationSpecifiers                           #singleForDec
     ;
 
 forExpression
-    :   assignmentExpression
-    |   forExpression ',' assignmentExpression
+    :   expr=assignmentExpression                       #singleForExpr
+    |   forExp=forExpression ',' expr=assignmentExpression #multForExpr
     ;
 
 jumpStatement
-    :   'goto' Identifier ';'
-    |   'continue' ';'
-    |   'break' ';'
-    |   'return' expression? ';'
-    |   'goto' unaryExpression ';' // GCC extension
+    :   'goto' id=Identifier ';'        #gotoJumpStat
+    |   'continue' ';'                  #continueJumpStat
+    |   'break' ';'                     #breakJumpStat
+    |   'return' expr=expression? ';'   #returnJumpStat
+    |   'goto' expr=unaryExpression ';' #gotoExpJumpStat    // GCC extension
     ;
 
 compilationUnit
-    :   translationUnit? EOF
+    :   tu=translationUnit? EOF
     ;
 
 translationUnit
-    :   externalDeclaration
-    |   translationUnit externalDeclaration
+    :   dec=externalDeclaration                     #singleTransUnit
+    |   tu=translationUnit dec=externalDeclaration  #multTransUnit
     ;
 
 externalDeclaration
-    :   functionDefinition
-    |   declaration
-    |   ';' // stray ;
+    :   dec=functionDefinition  #funcExtDec
+    |   dec=declaration         #decExtDec
+    |   ';'                     #empty      // stray ;
     ;
 
 // i think decl_list is unused because we don't have this form to implement
