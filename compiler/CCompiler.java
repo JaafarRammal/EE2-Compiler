@@ -22,40 +22,40 @@ public class CCompiler extends CBaseVisitor <String> {
     scratch[0] = "R1"; scratch[1] = "R3"; scratch[2] = "R7";
   }
 
-  @Override
-  public String visitAddOp(CParser.AddOpContext ctx) { 
-    this.visit(ctx.getChild(0));
-    System.out.println("SW R2 " + mem++);
+  // @Override
+  // public String visitAddOp(CParser.AddOpContext ctx) { 
+  //   this.visit(ctx.getChild(0));
+  //   System.out.println("SW R2 " + mem++);
 
-    this.visit(ctx.getChild(2));
-    System.out.println("SW R2 " + mem++);
+  //   this.visit(ctx.getChild(2));
+  //   System.out.println("SW R2 " + mem++);
 
-    System.out.println("LW " + scratch[current_s++] + " " + --mem);
-    System.out.println("LW " + scratch[current_s++] + " " + --mem);
-    System.out.println("ADD R2 " + scratch[--current_s] + " " + scratch[--current_s]);
+  //   System.out.println("LW " + scratch[current_s++] + " " + --mem);
+  //   System.out.println("LW " + scratch[current_s++] + " " + --mem);
+  //   System.out.println("ADD R2 " + scratch[--current_s] + " " + scratch[--current_s]);
 
-    return "DONE";
-  }
+  //   return "DONE";
+  // }
 
-  @Override
-  public String visitIntConst(CParser.IntConstContext ctx){
-    System.out.println("LI R2 " + ctx.val.getText());
-    return "DONE";
-  }
+  // @Override
+  // public String visitIntConst(CParser.IntConstContext ctx){
+  //   System.out.println("LI R2 " + ctx.val.getText());
+  //   return "DONE";
+  // }
 
-  @Override
-  public String visitExprId(CParser.ExprIdContext ctx){
-    System.out.println("LW R2 " + table.get(ctx.id.getText()));
-    return "DONE";
-  }
+  // @Override
+  // public String visitExprId(CParser.ExprIdContext ctx){
+  //   System.out.println("LW R2 " + table.get(ctx.id.getText()));
+  //   return "DONE";
+  // }
 
-  @Override
-  public String visitAssgnOp(CParser.AssgnOpContext ctx){
-    this.visit(ctx.right);
-    System.out.println("SW R2 " + mem);
-    table.put(ctx.left.getText(), mem++);
-    return "DONE";
-  }
+  // @Override
+  // public String visitAssgnOp(CParser.AssgnOpContext ctx){
+  //   this.visit(ctx.right);
+  //   System.out.println("SW R2 " + mem);
+  //   table.put(ctx.left.getText(), mem++);
+  //   return "DONE";
+  // }
 
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -66,7 +66,7 @@ public class CCompiler extends CBaseVisitor <String> {
     CLexer lexer = new CLexer(input); // create a buffer of tokens pulled from the lexer
     CommonTokenStream tokens = new CommonTokenStream(lexer); // create a parser that feeds off the tokens buffer
     CParser parser = new CParser(tokens);
-    ParseTree tree = parser.translation_unit(); // begin parsing at init rule
+    ParseTree tree = parser.compilationUnit(); // begin parsing at init rule
     CCompiler compiler = new CCompiler();
     String assembly = compiler.visit(tree);
     System.out.println(assembly);
