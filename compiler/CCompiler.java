@@ -22,41 +22,75 @@ public class CCompiler extends CBaseVisitor <String> {
     scratch[0] = "R1"; scratch[1] = "R3"; scratch[2] = "R7";
   }
 
-  // @Override
-  // public String visitAddOp(CParser.AddOpContext ctx) { 
-  //   this.visit(ctx.getChild(0));
-  //   System.out.println("SW R2 " + mem++);
+  // add comment of every line to debug easily
+  @Override
+  public String visitStatBlockItem(CParser.StatBlockItemContext ctx){
+    int a = ctx.item.start.getStartIndex();
+    int b = ctx.item.stop.getStopIndex();
+    Interval interval = new Interval(a, b);
+    String line = ctx.item.start.getInputStream().getText(interval);
+    System.out.println("\n# " + line);
+    this.visit(ctx.item);
+    return "DONE";
+  }
+  @Override
+  public String visitDecBlockItem(CParser.DecBlockItemContext ctx){
+    int a = ctx.item.start.getStartIndex();
+    int b = ctx.item.stop.getStopIndex();
+    Interval interval = new Interval(a, b);
+    String line = ctx.item.start.getInputStream().getText(interval);
+    System.out.println("\n# " + line);
+    this.visit(ctx.item);
+    return "DONE";
+  }
+  // end debug functions
 
-  //   this.visit(ctx.getChild(2));
-  //   System.out.println("SW R2 " + mem++);
+  @Override
+  public String visitOpAddExpr(CParser.OpAddExprContext ctx) { 
+    this.visit(ctx.left);
+    System.out.println("SW R2 " + mem++);
 
-  //   System.out.println("LW " + scratch[current_s++] + " " + --mem);
-  //   System.out.println("LW " + scratch[current_s++] + " " + --mem);
-  //   System.out.println("ADD R2 " + scratch[--current_s] + " " + scratch[--current_s]);
+    this.visit(ctx.right);
+    System.out.println("SW R2 " + mem++);
 
-  //   return "DONE";
-  // }
+    System.out.println("LW " + scratch[current_s++] + " " + --mem);
+    System.out.println("LW " + scratch[current_s++] + " " + --mem);
 
-  // @Override
-  // public String visitIntConst(CParser.IntConstContext ctx){
-  //   System.out.println("LI R2 " + ctx.val.getText());
-  //   return "DONE";
-  // }
+    if(ctx.op.getText().equals('+')){
+      System.out.println("ADD R2 " + scratch[--current_s] + " " + scratch[--current_s]);
+    }else{
+      System.out.println("SUB R2 " + scratch[--current_s] + " " + scratch[--current_s]);
+    }
 
-  // @Override
-  // public String visitExprId(CParser.ExprIdContext ctx){
-  //   System.out.println("LW R2 " + table.get(ctx.id.getText()));
-  //   return "DONE";
-  // }
+    return "DONE";
+  }
 
-  // @Override
-  // public String visitAssgnOp(CParser.AssgnOpContext ctx){
-  //   this.visit(ctx.right);
-  //   System.out.println("SW R2 " + mem);
-  //   table.put(ctx.left.getText(), mem++);
-  //   return "DONE";
-  // }
+  @Override
+  public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx){
+    System.out.println("LI R2 " + ctx.val.getText());
+    return "DONE";
+  }
 
+  @Override
+  public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx){
+    System.out.println("LW R2 " + table.get(ctx.id.getText()));
+    return "DONE";
+  }
+
+  @Override
+  public String visitOpAssgnExpr(CParser.OpAssgnExprContext ctx){
+    this.visit(ctx.right);
+    System.out.println("SW R2 " + table.get(ctx.left.getText()));
+    return "DONE";
+  }
+
+  @Override
+  public String visitOpInitDec(CParser.OpInitDecContext ctx){
+    this.visit(ctx.right);
+    System.out.println("SW R2 " + mem);
+    table.put(ctx.left.getText(), mem++);
+    return "DONE";
+  }
 
   ////////////////////////////////////////////////////////////////////////////////////
   // main class. create a tree and call a listener on the tree

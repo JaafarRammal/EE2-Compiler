@@ -14,7 +14,7 @@ fi
 
 input_dir="translator_tests/tests"
 
-working="tmp"
+working="working/translator_tests"
 rm -rf ${working}
 mkdir -p ${working}
 

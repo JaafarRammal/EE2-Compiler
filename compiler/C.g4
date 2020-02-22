@@ -461,8 +461,8 @@ blockItemList
     ;
 
 blockItem
-    :   stat=statement  #statBlockItem
-    |   dec=declaration #decBlockItem
+    :   item=statement  #statBlockItem
+    |   item=declaration #decBlockItem
     ;
 
 expressionStatement
