@@ -36,6 +36,7 @@ then
   done <<< $output
 fi
 
+##Test for C program to MIPS code to execution
 if [ $1 == "-TEST" ]
 then
 
