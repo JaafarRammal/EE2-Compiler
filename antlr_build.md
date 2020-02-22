@@ -4,8 +4,19 @@ Instructions on how to build with ANTLR
 
 ### Build the package
 
-From the /EE2-Compiler/src directory:
 
+Translator:
+
+From the /EE2-Compiler/translator directory:
+```
+antlr4 C.g4 -visitor -package translator.antlr -o antlr
+javac ./antlr/*.java
+```
+
+
+Compiler:
+
+From the /EE2-Compiler/compiler directory:
 ```
 antlr4 C.g4 -visitor -package compiler.antlr -o antlr
 javac ./antlr/*.java
@@ -20,7 +31,7 @@ javac ./translator/*.java
 grun translator.antlr.C translation_unit -gui
 
 javac ./compiler/*.java
-grun compiler.antlr.C translation_unit -gui
+grun compiler.antlr.C compilationUnit -gui
 ```
 
 Then enter your C code and press CTRL+D
@@ -41,6 +52,8 @@ Then enter your C code and press CTRL+D
 From the /EE2-Compiler directory:
 
 ```
-javac ./src/*.java
+javac ./compiler/*.java
 java compiler.CCompiler
 ```
+
+Then enter your C code and press CTRL+D
