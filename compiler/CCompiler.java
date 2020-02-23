@@ -27,7 +27,24 @@ public class CCompiler extends CBaseVisitor<String> {
     scratch[1] = "$t1";
     scratch[2] = "$t2"; // r8-r15	($t0-$t7)	Temporaries, not saved
     // update: just manually use these scratch registers, easier to play around with order?
+    /*
+    Current usage:
+
+    $v0: return register of any context evaluation
+    $t0-$t2: stack of 3 scratch registers
+    $t3: store value during self assignements
+
+    Conventions:
+    - Any scratch register is undefined when leaving a context function and therefore can be used freely in another context
+    - For now, have the context properly "deallocate" the scratch registers when pushing / poping (otherwise reset to 0 at beginning of context if using)
+    */
   }
+
+
+
+
+
+
 
 
 
@@ -54,8 +71,8 @@ public class CCompiler extends CBaseVisitor<String> {
     this.visit(ctx.getChild(2));
     System.out.println("sw $v0, " + mem++);
 
-    System.out.println("lw " + pushScratch() + --mem);  // push right
-    System.out.println("lw " + pushScratch() + --mem);  // push left
+    System.out.println("lw " + pushScratch() + ", " + --mem);  // get right from stack
+    System.out.println("lw " + pushScratch() + ", " + --mem);  // get left from stack
     return "DONE";
   }
 
@@ -116,6 +133,15 @@ public class CCompiler extends CBaseVisitor<String> {
 
 
 
+
+
+
+
+
+
+
+
+
   ////////////////////////////////////////////////////////////////////////////////////
   // VARIABLES MANIPULATIONS
 
@@ -123,7 +149,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // integer constant node
   @Override
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
-    System.out.println("li $v0, " + ctx.val.getText());
+    System.out.println("addi $v0, $zero, " + ctx.val.getText());
     return "DONE";
   }
 
@@ -136,22 +162,14 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
-  // assignement left = right
-  @Override
-  public String visitOpAssgnExpr(CParser.OpAssgnExprContext ctx) {
-    this.visit(ctx.right);
-    System.out.println("sw $v0, " + table.get(ctx.left.getText()));
-    return "DONE";
-  }
-
-  ////////////////////////////////////////////////////////////////////////////////////
   // declaring a variable with initialization
   // TYPE ID = VAL
   @Override
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
     this.visit(ctx.right);
-    System.out.println("sw $v0, " + mem);
-    table.put(ctx.left.getText(), mem++);
+    String varName = ctx.left.getText();
+    System.out.println("sw $v0, " + mem + "     # \"" + varName + "\" was stored in " + String.format("0x%08X", mem) + " on stack");
+    table.put(varName, mem++);
     return "DONE";
   }
 
@@ -169,6 +187,20 @@ public class CCompiler extends CBaseVisitor<String> {
   // end variable manipulation
   ////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -260,7 +292,7 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("srav $v0, " + popScratch() + ", " + popScratch());
         break;
       default:
-        throwIllegalArgument(ctx.op.getText(), "OpMultExpr");
+        throwIllegalArgument(ctx.op.getText(), "OpShiftExpr");
     }
     System.out.println("or $v0, " + popScratch() + ", " + popScratch());
     return "Done";
@@ -310,6 +342,77 @@ public class CCompiler extends CBaseVisitor<String> {
 
 
 
+
+
+
+
+
+
+
+
+
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // assignement operator
+
+
+  @Override
+  public String visitOpAssgnExpr(CParser.OpAssgnExprContext ctx) {
+    // currently storing into int variable
+    // will be modified later for arrays
+    Integer destination = table.get(ctx.left.getText());
+    this.visit(ctx.right);
+    // $v0 contains the value of whatever was on the right
+    System.out.println("sw $v0, " + mem++); // push right on stack
+    this.visit(ctx.left); // evaluate current value (left)
+    System.out.println("addu $t3, $v0, $zero"); // store current value in $t3
+    System.out.println("lw $v0, " + --mem); // pop right from stack. Ready to evaluate
+    switch(ctx.op.getText()){
+      case("="):
+        break; // do nothing. Store into destination at the end
+      case("+="):
+        System.out.println("add $v0, $v0, $t3");
+        break;
+      case("-="):
+        System.out.println("sub $v0, $v0, $t3");
+        break;
+      case("*="):
+        System.out.println("mul $v0, $v0, $t3");
+        break;
+      case("<<="):
+        System.out.println("sllv $v0, $v0, $t3");
+        break;
+      case(">>="):
+       System.out.println("srav $v0, $v0, $t3");
+       break;
+      case("&="):
+        System.out.println("and $v0, $v0, $t3");
+        break;
+      case("|="):
+        System.out.println("or $v0, $v0, $t3");
+        break;
+      case("^="):
+        System.out.println("xor $v0, $v0, $t3");
+        break;
+      case("/="):
+        System.out.println("div $v0");
+        System.out.println("mflo $v0, $t3");
+        break;
+      case("%="):
+        System.out.println("div $v0");
+        System.out.println("mfhi $v0, $t3");
+        break;
+      default:
+        throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
+    }
+    System.out.println("sw $v0, " + destination);
+    
+    return "DONE";
+  }
+
+  // end assignement operator
+  ////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -526,6 +629,16 @@ public class CCompiler extends CBaseVisitor<String> {
 
     return "DONE";
   }
+
+
+
+
+
+
+
+
+
+
 
 
 
