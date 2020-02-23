@@ -12,10 +12,10 @@ bin/c_compiler:
 
 java:
 	make clean
-	javac ./translator/antlr/*.java
-	javac ./translator/*.java
-	# javac ./compiler/antlr/*.java
-	# javac ./compiler/*.java
+	# javac ./translator/antlr/*.java
+	# javac ./translator/*.java
+	javac ./compiler/antlr/*.java
+	javac ./compiler/*.java
 
 clean:
 	rm -rf ./bin
