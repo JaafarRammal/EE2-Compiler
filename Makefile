@@ -6,14 +6,15 @@ bin/c_compiler:
 	rm -rf ./bin
 	mkdir bin
 	make parser
+	make simulator
 	cp ./c_compiler.sh ./bin
 	mv ./bin/c_compiler.sh ./bin/c_compiler
 	chmod u+x ./bin/c_compiler
 
 java:
 	make clean
-	# javac ./translator/antlr/*.java
-	# javac ./translator/*.java
+	javac ./translator/antlr/*.java
+	javac ./translator/*.java
 	javac ./compiler/antlr/*.java
 	javac ./compiler/*.java
 
@@ -41,7 +42,7 @@ SRC_FILES = simulator/src/simulator.cpp simulator/src/functions.cpp simulator/sr
 DEBUG_SETTING = 1
 
 bin/mips_simulator: $(SRC_FILES)
-	mkdir -p bin
+	#mkdir -p bin
 	$(CC) $(CPPFLAGS) $(SRC_FILES) -o bin/mips_simulator
 
 # Dummy for build simulator to conform to spec

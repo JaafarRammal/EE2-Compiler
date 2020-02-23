@@ -20,78 +20,65 @@ then
   done <<< $output
 fi
 
+#SUBMISSION MODE
+#bin/c_compiler -S [source-file.c] -o [dest-file.s]
 
 if [ $1 == "-S" ]
 then
-  # running C program into our Java C compiler
+  #File path declarations
   C_SOURCEFILE=$( cat $2 )
   S_DESTFILE=$4
+  SIMULATOR_PATH="./bin/mips_simulator"
+  base_path=${S_DESTFILE%.*}
+  base=${S_DESTFILE##*/}	#no preceding path
+  base_name=${base%.*}
+  echo "${base_name}"
+  TXT_FILE="${base_path}.txt"
+  BINARY_PATH="${base_path%.*}.bin"
 
-  #Compiler still has errors, so piping to translator
-  output=$(printf "$C_SOURCEFILE" | java translator.CTranslator)
-  #----- reading line by line, including indentation -----
+  # Running C program into our Java C compiler
+  output=$(printf "$C_SOURCEFILE" | java compiler.CCompiler)
+
+  # Reading output from Compiler ompiler line by line, including indentation 
   IFS=''
   while read data; do
-      echo "$data" >> "$S_DESTFILE" #inputting code into file, line by line
+      echo "$data" >> "$S_DESTFILE" #inputting code into MIPS assembly file
+      echo "$data" >> "$TXT_FILE" #inputting code into txt file, line by line
   done <<< $output
 fi
 
-##Test for C program to MIPS code to execution
+#TESTING MODE
+#bin/c_compiler -TEST [source-file.c] -o [dest-file.s]
+
 if [ $1 == "-TEST" ]
 then
 
-  # running C program into our Java C compiler
+  #File path declarations
   C_SOURCEFILE=$( cat $2 )
   S_DESTFILE=$4
   SIMULATOR_PATH="./bin/mips_simulator"
+  base_path=${S_DESTFILE%.*}
+  base=${S_DESTFILE##*/}	#no preceding path
+  base_name=${base%.*}
+  echo "${base_name}"
+  TXT_FILE="${base_path}.txt"
+  BINARY_PATH="${base_path%.*}.bin"
 
-  #getting base_name for .txt conversion
-  base_name=${S_DESTFILE##*/}
-  TXT_FILE="${base_name%.*}.txt"
-  echo "${TXT_FILE}"
-  BINARY_PATH="${base_name%.*}.bin"
+  # Running C program into our Java C compiler
+  output=$(printf "$C_SOURCEFILE" | java compiler.CCompiler)
 
-  #Compiler still has errors, so piping to translator for now
-  output=$(printf "$C_SOURCEFILE" | java translator.CTranslator)
-  #----- reading line by line, including indentation -----
+  # Reading output from Compiler ompiler line by line, including indentation 
   IFS=''
   while read data; do
+      echo "$data" >> "$S_DESTFILE" #inputting code into MIPS assembly file
       echo "$data" >> "$TXT_FILE" #inputting code into txt file, line by line
   done <<< $output
 
-  ./bin/parser $TXT_FILE
+  # Turning MIPS Assembly code (saved in a text file) into binary
+  ./bin/parser "${TXT_FILE}"
+  mv "${base_name}.bin" "${base_path}.bin"
 
-  ##Then can run on our own simulator
-  output_s=$($SIMULATOR_PATH $BINARY_PATH)
-  RETCODE=$?
-  echo "The return code is: '${RETCODE}'"
-
-fi
-
-##Test ONLY assembly -> binary (while compiler in dev)
-if [ $1 == "-TESTBIN" ]
-then
-
-  # running C program into our Java C compiler
-  C_SOURCEFILE=$( cat $2 )
-  S_DESTFILE=$4
-  SIMULATOR_PATH="./bin/mips_simulator"
-
-  #getting base_name for .txt conversion
-  base_name=${S_DESTFILE##*/}
-  TXT_FILE="${base_name%.*}.txt"
-  echo "${TXT_FILE}"
-  BINARY_PATH="${base_name%.*}.bin"
-
-  #----- reading line by line, including indentation -----
-  IFS=''
-  while read data; do
-      echo "$data" >> "$TXT_FILE" #inputting code into txt file, line by line
-  done < $S_DESTFILE
-
-  ./bin/parser $TXT_FILE
-
-  ##Then can run on our own simulator
+  # Running MIPS binary on simulator
   output_s=$($SIMULATOR_PATH $BINARY_PATH)
   RETCODE=$?
   echo "The return code is: '${RETCODE}'"

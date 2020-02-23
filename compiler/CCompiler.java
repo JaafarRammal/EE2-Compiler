@@ -69,21 +69,6 @@ public class CCompiler extends CBaseVisitor<String> {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   ////////////////////////////////////////////////////////////////////////////////////
   // HELPERS
 
@@ -183,7 +168,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // integer constant node
   @Override
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
-    System.out.println("li $v0 " + ctx.val.getText());
+    System.out.println("li $v0, " + ctx.val.getText());
     return "DONE";
   }
 
@@ -191,7 +176,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // variable identifier
   @Override
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
-    System.out.println("lw $v0 " + table.get(ctx.id.getText()));
+    System.out.println("lw $v0, " + table.get(ctx.id.getText()));
     return "DONE";
   }
 
@@ -255,7 +240,7 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("bne $v0, $zero, " + successEnd + "\nnop"); // if left is non-zero, return true
 
     this.visit(ctx.right);
-    System.out.println("sw $v0 " + mem);
+    System.out.println("sw $v0, " + mem);
     table.put(ctx.left.getText(), mem++);
     return "DONE";
   }
