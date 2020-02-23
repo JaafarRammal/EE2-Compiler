@@ -55,18 +55,18 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpAddExpr(CParser.OpAddExprContext ctx) {
     this.visit(ctx.left);
-    System.out.println("SW $v0 " + mem++);
+    System.out.println("sw $v0 " + mem++);
 
     this.visit(ctx.right);
-    System.out.println("SW $v0 " + mem++);
+    System.out.println("sw $v0 " + mem++);
 
-    System.out.println("LW " + scratch[current_s++] + " " + --mem);
-    System.out.println("LW " + scratch[current_s++] + " " + --mem);
+    System.out.println("lw " + scratch[current_s++] + " " + --mem);
+    System.out.println("lw " + scratch[current_s++] + " " + --mem);
 
     if (ctx.op.getText().equals('+')) {
-      System.out.println("ADD $v0 " + scratch[--current_s] + " " + scratch[--current_s]);
+      System.out.println("add $v0 " + scratch[--current_s] + " " + scratch[--current_s]);
     } else {
-      System.out.println("SUB $v0 " + scratch[--current_s] + " " + scratch[--current_s]);
+      System.out.println("sub $v0 " + scratch[--current_s] + " " + scratch[--current_s]);
     }
 
     return "DONE";
@@ -74,27 +74,27 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
-    System.out.println("LI $v0 " + ctx.val.getText());
+    System.out.println("li $v0 " + ctx.val.getText());
     return "DONE";
   }
 
   @Override
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
-    System.out.println("LW $v0 " + table.get(ctx.id.getText()));
+    System.out.println("lw $v0 " + table.get(ctx.id.getText()));
     return "DONE";
   }
 
   @Override
   public String visitOpAssgnExpr(CParser.OpAssgnExprContext ctx) {
     this.visit(ctx.right);
-    System.out.println("SW $v0 " + table.get(ctx.left.getText()));
+    System.out.println("sw $v0 " + table.get(ctx.left.getText()));
     return "DONE";
   }
 
   @Override
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
     this.visit(ctx.right);
-    System.out.println("SW $v0 " + mem);
+    System.out.println("sw $v0 " + mem);
     table.put(ctx.left.getText(), mem++);
     return "DONE";
   }
@@ -246,15 +246,15 @@ public class CCompiler extends CBaseVisitor<String> {
 
     //go to the value inside LHS
     this.visit(ctx.left);
-    System.out.println("SW $v0 " + mem++); //store in mem
+    System.out.println("sw $v0 " + mem++); //store in mem
 
     //go to the value of RHS
     this.visit(ctx.right);
-    System.out.println("SW $v0 " + mem++); //store in mem
+    System.out.println("sw $v0 " + mem++); //store in mem
 
     //Load variables into register
-    System.out.println("LW " + scratch[current_s++] + " " + --mem);
-    System.out.println("LW " + scratch[current_s++] + " " + --mem);
+    System.out.println("lw " + scratch[current_s++] + " " + --mem);
+    System.out.println("lw " + scratch[current_s++] + " " + --mem);
 
     switch(current_op) {
       case ">":
@@ -286,15 +286,15 @@ public class CCompiler extends CBaseVisitor<String> {
 
     //go to the value inside LHS
     this.visit(ctx.left);
-    System.out.println("SW $v0 " + mem++); //store in mem
+    System.out.println("sw $v0 " + mem++); //store in mem
 
     //go to the value of RHS
     this.visit(ctx.right);
-    System.out.println("SW $v0 " + mem++); //store in mem
+    System.out.println("sw $v0 " + mem++); //store in mem
 
     //Load variables into register
-    System.out.println("LW " + scratch[current_s++] + " " + --mem);
-    System.out.println("LW " + scratch[current_s++] + " " + --mem);
+    System.out.println("lw " + scratch[current_s++] + " " + --mem);
+    System.out.println("lw " + scratch[current_s++] + " " + --mem);
 
     System.out.println("SUB $v0, " + scratch[--current_s] + ", " + scratch[--current_s]);
 
