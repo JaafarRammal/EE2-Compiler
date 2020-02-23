@@ -17,12 +17,13 @@ public class CCompiler extends CBaseVisitor<String> {
   String current_op; //for retrieving operation of expression inside if statement
   int label_id; //for unique identification of each label (branch)
   Map<String, Integer> table = new HashMap<String, Integer>();
+  boolean debug = false;
 
-  CCompiler() {
+  CCompiler(boolean d) {
     mem = 0;
     current_s = 0;
     label_id = 0;
-    
+    debug = d;
     // scratch[0] = "$t0";
     // scratch[1] = "$t1";
     // scratch[2] = "$t2"; // r8-r15	($t0-$t7)	Temporaries, not saved
@@ -98,13 +99,13 @@ public class CCompiler extends CBaseVisitor<String> {
     // FOR NOW REFER TO MEM AS AN OFFSET ON THE STACK
 
     this.visit(ctx.getChild(0));
-    System.out.println("sw $v0, " + mem++);
+    System.out.println("sw $v0, " + 4*(mem++) + "($sp)");
 
     this.visit(ctx.getChild(2));
-    System.out.println("sw $v0, " + mem++);
+    System.out.println("sw $v0, " + 4*(mem++) + "($sp)");
 
-    System.out.println("lw $t1, " + --mem);  // get right from stack
-    System.out.println("lw $t0, " + --mem);  // get left from stack
+    System.out.println("lw $t1, " + 4*(--mem) + "($sp)");  // get right from stack
+    System.out.println("lw $t0, " + 4*(--mem) + "($sp)");  // get left from stack
     return "DONE";
   }
 
@@ -112,23 +113,28 @@ public class CCompiler extends CBaseVisitor<String> {
   // add comment of every line to debug easily
   @Override
   public String visitStatBlockItem(CParser.StatBlockItemContext ctx) {
-    int a = ctx.item.start.getStartIndex();
-    int b = ctx.item.stop.getStopIndex();
-    Interval interval = new Interval(a, b);
-    String line = ctx.item.start.getInputStream().getText(interval);
-    line = line.replaceAll("\n", "\n# ");
-    System.out.println("\n# " + line);
+    if(debug){
+      int a = ctx.item.start.getStartIndex();
+      int b = ctx.item.stop.getStopIndex();
+      Interval interval = new Interval(a, b);
+      String line = ctx.item.start.getInputStream().getText(interval);
+      line = line.replaceAll("\n", "\n# ");
+      System.out.println("\n# " + line);
+    }
     this.visit(ctx.item);
     return "DONE";
   }
 
   @Override
   public String visitDecBlockItem(CParser.DecBlockItemContext ctx) {
-    int a = ctx.item.start.getStartIndex();
-    int b = ctx.item.stop.getStopIndex();
-    Interval interval = new Interval(a, b);
-    String line = ctx.item.start.getInputStream().getText(interval);
-    System.out.println("\n# " + line);
+    if(debug){
+      int a = ctx.item.start.getStartIndex();
+      int b = ctx.item.stop.getStopIndex();
+      Interval interval = new Interval(a, b);
+      String line = ctx.item.start.getInputStream().getText(interval);
+      line = line.replaceAll("\n", "\n# ");
+      System.out.println("\n# " + line);
+    }
     this.visit(ctx.item);
     return "DONE";
   }
@@ -185,7 +191,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // variable identifier
   @Override
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
-    System.out.println("lw $v0, " + table.get(ctx.id.getText()));
+    System.out.println("lw $v0, " + 4*(table.get(ctx.id.getText())) + "($sp)");
     return "DONE";
   }
 
@@ -196,7 +202,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
     this.visit(ctx.right);
     String varName = ctx.left.getText();
-    System.out.println("sw $v0, " + mem + "\t\t# \"" + varName + "\" was stored in " + String.format("0x%08X", mem) + " on stack");
+    System.out.println("sw $v0, " + 4*(mem) + "($sp)\t\t# \"" + varName + "\" was stored in " + String.format("0x%08X", 4*(mem)) + " on stack");
     table.put(varName, mem++);
     return "DONE";
   }
@@ -207,7 +213,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // default value to zero
   @Override
   public String visitTermInitDec(CParser.TermInitDecContext ctx){
-    System.out.println("sw $zero, " + mem);
+    System.out.println("sw $zero, " + 4*(mem) + "($sp)");
     table.put(ctx.dec.getText(), mem++);
     return "DONE";
   }
@@ -390,10 +396,10 @@ public class CCompiler extends CBaseVisitor<String> {
     Integer destination = table.get(ctx.left.getText());
     this.visit(ctx.right);
     // $v0 contains the value of whatever was on the right
-    System.out.println("sw $v0, " + mem++); // push right on stack
+    System.out.println("sw $v0, " + 4*(mem++)); // push right on stack
     this.visit(ctx.left); // evaluate current value (left)
     System.out.println("addu $t2, $v0, $zero"); // store current value in $t2
-    System.out.println("lw $v0, " + --mem); // pop right from stack. Ready to evaluate
+    System.out.println("lw $v0, " + 4*(--mem)); // pop right from stack. Ready to evaluate
     switch(ctx.op.getText()){
       case("="):
         break; // do nothing. Store into destination at the end
@@ -501,7 +507,7 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("beq $v0, $zero, " + endLabel + "\nnop");
     this.visit(ctx.exec); // while loop execution body
     System.out.println("j " + beginLabel + "\nnop");
-    insert(endLabel);
+    insertLabel(endLabel);
     return "DONE";
   }
 
@@ -580,7 +586,11 @@ public class CCompiler extends CBaseVisitor<String> {
     CommonTokenStream tokens = new CommonTokenStream(lexer); // create a parser that feeds off the tokens buffer
     CParser parser = new CParser(tokens);
     ParseTree tree = parser.compilationUnit(); // begin parsing at init rule
-    CCompiler compiler = new CCompiler();
+    boolean debug = false;
+    if(args.length > 0){
+      if(args[0].equals("-debug"))debug = true;
+    }
+    CCompiler compiler = new CCompiler(debug);
     compiler.visit(tree);
     System.out.println("\n# END OF PROGRAM\njr $zero");
   }
