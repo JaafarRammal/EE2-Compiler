@@ -471,7 +471,7 @@ expressionStatement
 
 selectionStatement
     :   'if' '(' cond=expression ')' trueExec=statement ('else' falseExec=statement)?   #ifSelecStat
-    |   'switch' '(' expression ')' trueExec=statement                                  #switchSelecStat
+    |   'switch' '(' cond=expression ')' trueExec=statement                                  #switchSelecStat
     ;
 
 iterationStatement

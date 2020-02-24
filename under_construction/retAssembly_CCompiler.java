@@ -12,15 +12,20 @@ import java.util.HashMap;
 public class CCompiler extends CBaseVisitor<String> {
 
   int mem; 
+  String[] scratch = new String[3];
+  int current_s;
+  boolean enterFunc;
+  String current_op; //for retrieving operation of expression inside if statement
   int label_id; //for unique identification of each label (branch)
   Map<String, Integer> table = new HashMap<String, Integer>();
   boolean debug = false;
 
   CCompiler(boolean d) {
     mem = 0;
+    current_s = 0;
     label_id = 0;
     debug = d;
-    enter_parent = true;
+    enterFunc = true;
     // scratch[0] = "$t0";
     // scratch[1] = "$t1";
     // scratch[2] = "$t2"; // r8-r15	($t0-$t7)	Temporaries, not saved
@@ -76,19 +81,25 @@ public class CCompiler extends CBaseVisitor<String> {
   // $t1 has right
   public String threeOp(ParserRuleContext ctx){
 
+    String assembly_code = "";
+
     // NEEDS STACK IMPLEMENT OF THE $SP
     // WILL BE ADDED LATER
     // FOR NOW REFER TO MEM AS AN OFFSET ON THE STACK
 
     this.visit(ctx.getChild(0));
+
+    assembly_code += "sw $v0, " + 4*(mem++) + "($sp)\n";
     System.out.println("sw $v0, " + 4*(mem++) + "($sp)");
 
     this.visit(ctx.getChild(2));
+    assembly_code += "sw $v0, " + 4*(mem++) + "($sp)\n";
     System.out.println("sw $v0, " + 4*(mem++) + "($sp)");
 
+    assembly_code += "lw $t1, " + 4*(--mem) + "($sp)\n" + "lw $t0, " + 4*(--mem) + "($sp)\n";
     System.out.println("lw $t1, " + 4*(--mem) + "($sp)");  // get right from stack
     System.out.println("lw $t0, " + 4*(--mem) + "($sp)");  // get left from stack
-    return "DONE";
+    return assembly_code;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -109,16 +120,18 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitDecBlockItem(CParser.DecBlockItemContext ctx) {
+    String assembly_code = "";
     if(debug){
       int a = ctx.item.start.getStartIndex();
       int b = ctx.item.stop.getStopIndex();
       Interval interval = new Interval(a, b);
       String line = ctx.item.start.getInputStream().getText(interval);
       line = line.replaceAll("\n", "\n# ");
+      assembly_code+="\n# " + line + "\n";
       System.out.println("\n# " + line);
     }
     this.visit(ctx.item);
-    return "DONE";
+    return assembly_code;
   }
 
   // illegal argument exception helper
@@ -132,8 +145,11 @@ public class CCompiler extends CBaseVisitor<String> {
   }
   
   // insert label (to not forget the : )
-  public void insertLabel(String label){
+  public String insertLabel(String label, String input_assembly){
+    String assembly_code = input_assembly + label + ":\n";
     System.out.println(label + ":");
+
+    return assembly_code;
   }
 
   // END OF HELPERS AND COMMON FUNCTIONS
@@ -143,48 +159,6 @@ public class CCompiler extends CBaseVisitor<String> {
 
 
 
-  ////////////////////////////////////////////////////////////////////////////////////
-  // functions contexts
-
-  ////////////////////////////////////////////////////////////////////////////////////
-  // function declaration
-  @Override
-  public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
-    String functionName = this.visit(ctx.func_dec);
-    System.out.println("# " + functionName + ": function entry");
-    System.out.println("\t.set noreorder\n\t.text\n\t.align 2\n\t.globl " + functionName);
-    insertLabel(functionName);
-    this.visit(ctx.comp_stat);
-    System.out.println("# " + functionName + ": function return");
-
-    // main implement VS function implement
-    if(functionName.equals("main")){
-      insertLabel("_return_" + functionName);
-      System.out.println("move $sp, $fp\nlw $ra, 8($fp)\nlw $fp, 4($fp)\naddiu $sp, $sp, 12\njr $ra\nnop");
-    }else{
-      // NEEDS IMPLEMENTATION
-    }
-    return "u";
-  }
-
-  // function name (id) retrieved
-  @Override
-  public String visitIdDirDec(CParser.IdDirDecContext ctx){
-    return ctx.id.getText();
-  }
-
-  // function params context ( TYPE ID (PARAM_LIST) )
-  @Override
-  public String visitParamlDirDec(CParser.ParamlDirDecContext ctx){
-    return this.visit(ctx.dec);
-  }
-
-  // function identifiers list ( TYPE ID (IDL?) or TYPE ID())
-  @Override
-  public String visitIdlDirDec(CParser.IdlDirDecContext ctx){
-    System.out.println("C");
-    return this.visit(ctx.dec);
-  }
 
 
 
@@ -207,16 +181,18 @@ public class CCompiler extends CBaseVisitor<String> {
   // integer constant node
   @Override
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
+    String assembly_code = "ori $v0, $v0, " + ctx.val.getText() + "\n";
     System.out.println("ori $v0, $v0, " + ctx.val.getText());
-    return "DONE";
+    return assembly_code;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
   // variable identifier
   @Override
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
-    System.out.println("lw $v0, " + 4*table.get(ctx.id.getText())+ "($sp)");
-    return "DONE";
+    String assembly_code = "lw $v0, " + table.get(ctx.id.getText())+ "($sp)\n";
+    System.out.println("lw $v0, " + table.get(ctx.id.getText())+ "($sp)\n");
+    return assembly_code;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -226,9 +202,10 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
     this.visit(ctx.right);
     String varName = ctx.left.getText();
+    String assembly_code = "sw $v0, " + 4*(mem) + "($sp)\t\t# \"" + varName + "\" was stored in " + String.format("0x%08X", 4*(mem)) + " on stack\n";
     System.out.println("sw $v0, " + 4*(mem) + "($sp)\t\t# \"" + varName + "\" was stored in " + String.format("0x%08X", 4*(mem)) + " on stack");
     table.put(varName, mem++);
-    return "DONE";
+    return assembly_code;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -237,9 +214,10 @@ public class CCompiler extends CBaseVisitor<String> {
   // default value to zero
   @Override
   public String visitTermInitDec(CParser.TermInitDecContext ctx){
+    String assembly_code = "sw $zero, " + 4*(mem) + "($sp)\n";
     System.out.println("sw $zero, " + 4*(mem) + "($sp)");
     table.put(ctx.dec.getText(), mem++);
-    return "DONE";
+    return assembly_code;
   }
 
   // end variable manipulation
@@ -274,14 +252,18 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpLogOrExpr(CParser.OpLogOrExprContext ctx){
     String successEnd = makeName("logical_or_success");
     String failEnd = makeName("logical_or_fail");
+    String assembly_code = "";
 
     this.visit(ctx.left);
+    assembly_code += "bne $v0, $zero, " + successEnd + "\nnop\n";
     System.out.println("bne $v0, $zero, " + successEnd + "\nnop"); // if left is non-zero, return true
 
     this.visit(ctx.right);
-    System.out.println("sw $v0, " + 4*mem + "$sp");
+
+    assembly_code += "sw $v0, " + 4*mem + "($sp)\n";
+    System.out.println("sw $v0, " + 4*mem + "($sp)");
     table.put(ctx.left.getText(), mem++);
-    return "DONE";
+    return assembly_code;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -290,19 +272,27 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpLogAndExpr(CParser.OpLogAndExprContext ctx){
     String successEnd = makeName("logical_and_success");
     String failEnd = makeName("logical_and_fail");
-
+    String assembly_code = "";
+    
     this.visit(ctx.left);
+    assembly_code += "beq $v0, $zero, " + failEnd + "\nnop\n";
     System.out.println("beq $v0, $zero, " + failEnd + "\nnop"); // if left is zero, return false
 
     this.visit(ctx.right);
+    assembly_code += "beq $v0, $zero, " + failEnd + "\nnop\n";
     System.out.println("beq $v0, $zero, " + failEnd + "\nnop"); // if right is zero, return false
 
+    assembly_code += "addiu $v0, $zero, 1\n";
     System.out.println("addiu $v0, $zero, 1"); // both weren't zero, return true
+
+    assembly_code += "j " + successEnd + "\nnop\n";
     System.out.println("j " + successEnd + "\nnop");
-    insertLabel(failEnd);
+    assembly_code = insertLabel(failEnd, assembly_code);
+
+    assembly_code += "addu $v0, $zero, $zero\n";
     System.out.println("addu $v0, $zero, $zero");
-    insertLabel(successEnd);
-    return "DONE";
+    assembly_code = insertLabel(successEnd, assembly_code);
+    return assembly_code;
   }
   
   ////////////////////////////////////////////////////////////////////////////////////
@@ -310,8 +300,11 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpIncOrExpr(CParser.OpIncOrExprContext ctx){
     threeOp(ctx);
+    String assembly_code = "";
+
+    assembly_code += "or $v0, $t0, $t1\n";
     System.out.println("or $v0, $t0, $t1");
-    return "Done";
+    return assembly_code;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -319,8 +312,11 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpExcOrExpr(CParser.OpExcOrExprContext ctx){
     threeOp(ctx);
+    String assembly_code = "";
+
+    assembly_code += "xor $v0, $t0, $t1\n";
     System.out.println("xor $v0, $t0, $t1");
-    return "Done";
+    return assembly_code;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -328,8 +324,11 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpAndExpr(CParser.OpAndExprContext ctx){
     threeOp(ctx);
+    String assembly_code = "";
+    assembly_code += "and $v0, $t0, $t1\n";
+
     System.out.println("and $v0, $t0, $t1");
-    return "Done";
+    return assembly_code;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -337,17 +336,21 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpShiftExpr(CParser.OpShiftExprContext ctx){
     threeOp(ctx);
+    String assembly_code = ""; 
+
     switch(ctx.op.getText()){
       case("<<"):
+        assembly_code += "sllv $v0, $t0, $t1\n";
         System.out.println("sllv $v0, $t0, $t1");
         break;
       case(">>"):
+        assembly_code += "srav $v0, $t0, $t1\n";
         System.out.println("srav $v0, $t0, $t1");
         break;
       default:
         throwIllegalArgument(ctx.op.getText(), "OpShiftExpr");
     }
-    return "Done";
+    return assembly_code;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -355,22 +358,27 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpMultExpr(CParser.OpMultExprContext ctx){
     threeOp(ctx);
+    String assembly_code = "";
+
     switch(ctx.op.getText()){
       case("*"):
+        assembly_code += "mul $v0, $t0, $t1\n";
         System.out.println("mul $v0, $t0, $t1");
         break;
       case("/"):
+        assembly_code += "div $t0, $t1\n" + "mflo $v0\n";
         System.out.println("div $t0, $t1"); // left / right
         System.out.println("mflo $v0");
         break;
       case("%"):
+        assembly_code += "div $t0, $t1\n" + "mfhi $v0\n";
         System.out.println("div $t0, $t1");
         System.out.println("mfhi $v0");
         break;
       default:
         throwIllegalArgument(ctx.op.getText(), "OpMultExpr");
     }
-    return "DONE";
+    return assembly_code;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -378,12 +386,16 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpAddExpr(CParser.OpAddExprContext ctx) {
     threeOp(ctx);
+    String assembly_code = "";
+
     if (ctx.op.getText().equals("+")) {
+      assembly_code += "add $v0, $t0, $t1\n";
       System.out.println("add $v0, $t0, $t1");
     } else {
+      assembly_code += "sub $v0, $t0, $t1\n";
       System.out.println("sub $v0, $t0, $t1");
     }
-    return "DONE";
+    return assembly_code;
   }
 
   // end arithmetic and binary expressions
@@ -413,53 +425,69 @@ public class CCompiler extends CBaseVisitor<String> {
     // currently storing into int variable
     // will be modified later for arrays
     Integer destination = table.get(ctx.left.getText());
+    String assembly_code = "";
+
     this.visit(ctx.right);
     // $v0 contains the value of whatever was on the right
+    assembly_code+= "sw $v0, " + 4*(mem++) + "($sp)\n";
     System.out.println("sw $v0, " + 4*(mem++) + "($sp)"); // push right on stack
     this.visit(ctx.left); // evaluate current value (left)
+
+    assembly_code+= "addu $t2, $v0, $zero\n" + "lw $v0, " + 4*(--mem) + "($sp)\n";
     System.out.println("addu $t2, $v0, $zero"); // store current value in $t2
     System.out.println("lw $v0, " + 4*(--mem) + "($sp)"); // pop right from stack. Ready to evaluate
     switch(ctx.op.getText()){
       case("="):
         break; // do nothing. Store into destination at the end
       case("+="):
+        assembly_code+= "add $v0, $v0, $t2\n";
         System.out.println("add $v0, $v0, $t2");
         break;
       case("-="):
+        assembly_code+= "sub $v0, $v0, $t2\n";
         System.out.println("sub $v0, $v0, $t2");
         break;
       case("*="):
+        assembly_code+= "mul $v0, $v0, $t2\n";
         System.out.println("mul $v0, $v0, $t2");
         break;
       case("<<="):
+        assembly_code+= "sllv $v0, $v0, $t2\n";
         System.out.println("sllv $v0, $v0, $t2");
         break;
       case(">>="):
+        assembly_code+= "srav $v0, $v0, $t2\n";
        System.out.println("srav $v0, $v0, $t2");
        break;
       case("&="):
+        assembly_code+= "and $v0, $v0, $t2\n";
         System.out.println("and $v0, $v0, $t2");
         break;
       case("|="):
+        assembly_code+= "or $v0, $v0, $t2\n";
         System.out.println("or $v0, $v0, $t2");
         break;
       case("^="):
+        assembly_code+= "xor $v0, $v0, $t2\n";
         System.out.println("xor $v0, $v0, $t2");
         break;
       case("/="):
+        assembly_code+= "div $v0\n" + "mflo $v0, $t2\n";
         System.out.println("div $v0");
         System.out.println("mflo $v0, $t2");
         break;
       case("%="):
+        assembly_code+= "div $v0\n" + "mfhi $v0, $t2\n";        
         System.out.println("div $v0");
         System.out.println("mfhi $v0, $t2");
         break;
       default:
         throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
     }
-    System.out.println("sw $v0, " + 4*destination + "($sp)");
+    assembly_code+= "sw $v0, " + destination + "($sp)\n";        
+    System.out.println("sw $v0, " + destination + "($sp)");
     
-    return "DONE";
+    return assembly_code;
   }
 
   // end assignement operator
@@ -474,8 +502,6 @@ public class CCompiler extends CBaseVisitor<String> {
 
 
 
-  ////////////////////////////////////////////////////////////////////////////////////
-  // Scoped contexts
 
   ////////////////////////////////////////////////////////////////////////////////////
   // Selection statement
@@ -493,18 +519,25 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitIfSelecStat(CParser.IfSelecStatContext ctx) {
     String falseExecLabel = makeName("if_stat_false");
     String endLabel = makeName("if_stat_end");
+    String assembly_code = "";
+
     this.visit(ctx.cond); // $v0 holds 0 or 1 from the condition
+
+    assembly_code+= "beq $v0, $zero, " + falseExecLabel + "\nnop\n";
     System.out.println("beq $v0, $zero, " + falseExecLabel + "\nnop");
     this.visit(ctx.trueExec);
+
+    assembly_code+= "j " + endLabel + "\nnop\n";
     System.out.println("j " + endLabel + "\nnop");
-    insertLabel(falseExecLabel);
+    assembly_code = insertLabel(falseExecLabel, assembly_code);
     if(ctx.falseExec != null){
       this.visit(ctx.falseExec);
     }else{
+      assembly_code+="nop\n";
       System.out.println("nop");
     }
-    insertLabel(endLabel);
-    return "DONE";
+    assembly_code = insertLabel(endLabel, assembly_code);
+    return assembly_code;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -523,21 +556,21 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitWhileIterStat(CParser.WhileIterStatContext ctx){
     String beginLabel = makeName("while_stat_begin");
     String endLabel = makeName("while_stat_end");
-    insertLabel(beginLabel);
+    String assembly_code = "";
+
+    assembly_code = insertLabel(beginLabel, assembly_code);
     this.visit(ctx.cond); // condition is now in $v0
+
+    assembly_code+="beq $v0, $zero, " + endLabel + "\nnop+\n";
     System.out.println("beq $v0, $zero, " + endLabel + "\nnop");
     this.visit(ctx.exec); // while loop execution body
-    System.out.println("j " + beginLabel + "\nnop");
-    insertLabel(endLabel);
-    return "DONE";
-  }
 
-  // end of scoped contexts
-  ////////////////////////////////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////////////////////////////////
-  
-  ////////////////////////////////////////////////////////////////////////////////////
-  // Comparaison based expressions
+    assembly_code+="j " + beginLabel + "\nnop\n";
+    System.out.println("j " + beginLabel + "\nnop");
+
+    assembly_code = insertLabel(endLabel, assembly_code);
+    return assembly_code;
+  }
 
   ////////////////////////////////////////////////////////////////////////////////////
   // For loop expression
@@ -554,112 +587,26 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitForIterStat(CParser.ForIterStatContext ctx){
-
-    if(enter_parent){
-      enter_parent = false;
+    System.out.println("For Stat");
+    if(enterFunc){
+      enterFunc = false;
       this.visit(ctx.cond);
-    } else {
-      this.visit(ctx.exec);
-      enter_parent = true;
     }
     return "Done";
   }
 
-  //The two possible for conditions. NOTE: can edit grammar to avoid repetition
-  @Override
-  public String visitDecForCond(CParser.DecForCondContext ctx){ //For loop 1
-
-    //variable init
-    this.visit(ctx.init);
-
-    //for loop
-    String beginLabel = makeName("for_stat_begin");
-    String endLabel = makeName("for_stat_end");
-    this.visit(ctx.cond);
-
-    //execution body
-    insertLabel(beginLabel);
-    System.out.println("beq $v0, $zero, " + endLabel + "\nnop");
-    this.visit(ctx.getParent());
-
-    //increment variable
-    this.visit(ctx.update);
-
-    //return to top of loop
-    System.out.println("j " + beginLabel + "\nnop");
-    insertLabel(endLabel);
-   
+  //The two possible for conditions. 
+  public String visitDecForCond(CParser.DecForCondContext ctx){
+    //this.visit(ctx.getParent());
+    String stuff = this.visit(ctx.init);
+    //System.out.println(stuff);
+    
     return "Done";
   }
 
-  @Override
-  public String visitExpForCond(CParser.ExpForCondContext ctx){ //For loop 2
-    //variable init
-    this.visit(ctx.init);
-
-    //for loop
-    String beginLabel = makeName("for_stat_begin");
-    String endLabel = makeName("for_stat_end");
-    insertLabel(beginLabel);
-    this.visit(ctx.cond);
-
-    //print statement
-    System.out.println("beq $v0, $zero, " + endLabel + "\nnop");
-    this.visit(ctx.getParent());
-
-
-    //increment variable
-    this.visit(ctx.update);
-
-    //return to top of loop
-    System.out.println("j " + beginLabel + "\nnop");
-    insertLabel(endLabel);
-   
+  public String visitExpForCond(CParser.ExpForCondContext ctx){
+    System.out.println("ExpForCond");
     return "Done";
-  }
-
-   ////////////////////////////////////////////////////////////////////////////////////
-  // Switch case expression
-
-  @Override
-  public String visitSwitchSelecStat(CParser.SwitchSelecStatContext ctx){ 
-    this.visit(ctx.cond); //switch value loaded into register 2 ($v0) 
-    //Save the variable
-    System.out.println("sw $v0, " + 4*(mem) + "($sp)"); //save variable in stack
-
-    return "DONE";
-  }
-
-
-  @Override
-  public String visitCaseLabelStat(CParser.CaseLabelStatContext ctx){ 
-    //System.out.println(ctx.cond.getText());
-    String beginLabel = makeName("case_stat_begin");
-    String endLabel = makeName("case_stat_end");
-
-    this.visit(ctx.cond);
-    System.out.println("lw $t0, " + 4*(mem) + "($sp)"); //load variable saved from SwitchSelec
-
-    //compare switch value to case value
-    System.out.println("bne $v0, $t0, " + endLabel + "\nnop"); //if not equal, jump to the end
-    this.visit(ctx.exec);
-    //if break appears during exec, jump to end
-    insertLabel(endLabel); 
-
-    return "DONE";
-  }
-
-  //Default case
-  @Override
-  public String visitDefLabelStat(CParser.DefLabelStatContext ctx){ 
-    String endLabel = makeName("case_stat_end");
-
-    //execute default
-    this.visit(ctx.exec);
-    //if break appears during switch selec stat, jump to endLabel. recommend global var.
-    insertLabel(endLabel); 
-
-    return "DONE";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -667,27 +614,36 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpRelExpr(CParser.OpRelExprContext ctx){
     threeOp(ctx);
+    String assembly_code = "";
+
+    assembly_code += "xor $t2, $t0, $t1\n"; 
     System.out.println("xor $t2, $t0, $t1");
+
+    assembly_code += "sltiu $t2, $t2, 1\n"; 
     System.out.println("sltiu $t2, $t2, 1");  // $t2 = (right == left)
     switch(ctx.op.getText()) {
       case ">":
+        assembly_code += "slt $v0, $t1, $t0\n"; 
         System.out.println("slt $v0, $t1, $t0"); // right < left
         break;
       case "<":
+        assembly_code += "slt $v0, $t0, $t1\n"; 
         System.out.println("slt $v0, $t0, $t1"); // left < right
         break;
       case "<=":
+        assembly_code += "slt $v0, $t1, $t0\n" + "or $v0, $v0, $t2\n"; 
         System.out.println("slt $v0, $t1, $t0"); // right < left
         System.out.println("or $v0, $v0, $t2"); // right <= left
         break;
       case ">=": 
+        assembly_code += "slt $v0, $t0, $t1\n" + "or $v0, $v0, $t2\n"; 
         System.out.println("slt $v0, $t0, $t1"); // left < right
         System.out.println("or $v0, $v0, $t2"); // left <= right
         break;
       default:
         throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
     }
-    return "DONE";
+    return assembly_code;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -695,24 +651,26 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpEqualExpr(CParser.OpEqualExprContext ctx){
     threeOp(ctx);
+    String assembly_code = "";
+
+    assembly_code += "xor $v0, $t0, $t1\n"; 
     System.out.println("xor $v0, $t0, $t1"); // A^B = 0 only if A=B, non-zero otherwise
+
     switch(ctx.op.getText()){
       case "==":
+        assembly_code += "sltiu $v0, $v0, 1\n";  
         System.out.println("sltiu $v0, $v0, 1");
         break;
       case "!=":
+        assembly_code += "sltu $v0, $v0, $zero\n";  
         System.out.println("sltu $v0, $v0, $zero");
         break;
       default:
         throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
     }
 
-    return "DONE";
+    return assembly_code;
   }
-
-  // end of comparaison based expressions
-  ////////////////////////////////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -729,8 +687,27 @@ public class CCompiler extends CBaseVisitor<String> {
     if(args.length > 0){
       if(args[0].equals("-debug"))debug = true;
     }
+
+    // temporary function stack manipulation for now (large allocation)
+    // will be later fixed when entering function context
+    System.out.println(
+      "addiu $sp, $sp, -192\n"+
+      "sw $fp, 4($sp)\n"+
+      "or $fp, $sp, $sp\n"
+    );
+
     CCompiler compiler = new CCompiler(debug);
     compiler.visit(tree);
+
+    System.out.println(
+      "or $sp, $fp, $fp\n"+
+      "lw $fp, 4($sp)\n"+
+      "addiu $sp, $sp, 192\n"+
+      "jr $31\n"+
+      "nop\n"
+    );
+    
+    // System.out.println("\n# END OF PROGRAM\njr $zero");
   }
 
 }
