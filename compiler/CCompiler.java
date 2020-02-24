@@ -12,16 +12,12 @@ import java.util.HashMap;
 public class CCompiler extends CBaseVisitor<String> {
 
   int mem; 
-  String[] scratch = new String[3];
-  int current_s;
-  String current_op; //for retrieving operation of expression inside if statement
   int label_id; //for unique identification of each label (branch)
   Map<String, Integer> table = new HashMap<String, Integer>();
   boolean debug = false;
 
   CCompiler(boolean d) {
     mem = 0;
-    current_s = 0;
     label_id = 0;
     debug = d;
     // scratch[0] = "$t0";
@@ -146,6 +142,48 @@ public class CCompiler extends CBaseVisitor<String> {
 
 
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // functions contexts
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // function declaration
+  @Override
+  public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
+    String functionName = this.visit(ctx.func_dec);
+    System.out.println("# " + functionName + ": function entry");
+    System.out.println("\t.set noreorder\n\t.text\n\t.align 2\n\t.globl " + functionName);
+    insertLabel(functionName);
+    this.visit(ctx.comp_stat);
+    System.out.println("# " + functionName + ": function return");
+
+    // main implement VS function implement
+    if(functionName.equals("main")){
+      insertLabel("_return_" + functionName);
+      System.out.println("move $sp, $fp\nlw $ra, 8($fp)\nlw $fp, 4($fp)\naddiu $sp, $sp, 12\njr $ra\nnop");
+    }else{
+      // NEEDS IMPLEMENTATION
+    }
+    return "u";
+  }
+
+  // function name (id) retrieved
+  @Override
+  public String visitIdDirDec(CParser.IdDirDecContext ctx){
+    return ctx.id.getText();
+  }
+
+  // function params context ( TYPE ID (PARAM_LIST) )
+  @Override
+  public String visitParamlDirDec(CParser.ParamlDirDecContext ctx){
+    return this.visit(ctx.dec);
+  }
+
+  // function identifiers list ( TYPE ID (IDL?) or TYPE ID())
+  @Override
+  public String visitIdlDirDec(CParser.IdlDirDecContext ctx){
+    System.out.println("C");
+    return this.visit(ctx.dec);
+  }
 
 
 
@@ -176,7 +214,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // variable identifier
   @Override
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
-    System.out.println("lw $v0, " + table.get(ctx.id.getText())+ "($sp)");
+    System.out.println("lw $v0, " + 4*table.get(ctx.id.getText())+ "($sp)");
     return "DONE";
   }
 
@@ -418,7 +456,7 @@ public class CCompiler extends CBaseVisitor<String> {
       default:
         throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
     }
-    System.out.println("sw $v0, " + destination + "($sp)");
+    System.out.println("sw $v0, " + 4*destination + "($sp)");
     
     return "DONE";
   }
@@ -435,6 +473,8 @@ public class CCompiler extends CBaseVisitor<String> {
 
 
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Scoped contexts
 
   ////////////////////////////////////////////////////////////////////////////////////
   // Selection statement
@@ -491,6 +531,13 @@ public class CCompiler extends CBaseVisitor<String> {
     return "DONE";
   }
 
+  // end of scoped contexts
+  ////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////
+  
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Comparaison based expressions
+
   ////////////////////////////////////////////////////////////////////////////////////
   // Relational expression
   @Override
@@ -539,6 +586,10 @@ public class CCompiler extends CBaseVisitor<String> {
     return "DONE";
   }
 
+  // end of comparaison based expressions
+  ////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////
+
 
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -554,27 +605,8 @@ public class CCompiler extends CBaseVisitor<String> {
     if(args.length > 0){
       if(args[0].equals("-debug"))debug = true;
     }
-
-    // temporary function stack manipulation for now (large allocation)
-    // will be later fixed when entering function context
-    System.out.println(
-      "addiu $sp, $sp, -192\n"+
-      "sw $fp, 4($sp)\n"+
-      "or $fp, $sp, $sp\n"
-    );
-
     CCompiler compiler = new CCompiler(debug);
     compiler.visit(tree);
-
-    System.out.println(
-      "or $sp, $fp, $fp\n"+
-      "lw $fp, 4($sp)\n"+
-      "addiu $sp, $sp, 192\n"+
-      "jr $31\n"+
-      "nop\n"
-    );
-    
-    // System.out.println("\n# END OF PROGRAM\njr $zero");
   }
 
 }
