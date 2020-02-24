@@ -14,6 +14,7 @@ public class CCompiler extends CBaseVisitor<String> {
   int mem; 
   String[] scratch = new String[3];
   int current_s;
+  boolean enterFunc;
   String current_op; //for retrieving operation of expression inside if statement
   int label_id; //for unique identification of each label (branch)
   Map<String, Integer> table = new HashMap<String, Integer>();
@@ -24,6 +25,7 @@ public class CCompiler extends CBaseVisitor<String> {
     current_s = 0;
     label_id = 0;
     debug = d;
+    enterFunc = true;
     // scratch[0] = "$t0";
     // scratch[1] = "$t1";
     // scratch[2] = "$t2"; // r8-r15	($t0-$t7)	Temporaries, not saved
@@ -489,6 +491,43 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
     return "DONE";
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // For loop expression
+
+  /*for the for statement:
+    - variable declaration
+    - insert begin_label
+    - compile the condition into register _cond_
+    - insert a BEQ _cond_ _zero_ end_label
+    - compile statement into destReg
+    - insert a J begin_label 
+    - insert end_label
+  */
+
+  @Override
+  public String visitForIterStat(CParser.ForIterStatContext ctx){
+    System.out.println("For Stat");
+    if(enterFunc){
+      enterFunc = false;
+      this.visit(ctx.cond);
+    }
+    return "Done";
+  }
+
+  //The two possible for conditions. 
+  public String visitDecForCond(CParser.DecForCondContext ctx){
+    //this.visit(ctx.getParent());
+    String stuff = this.visit(ctx.init);
+    //System.out.println(stuff);
+    
+    return "Done";
+  }
+
+  public String visitExpForCond(CParser.ExpForCondContext ctx){
+    System.out.println("ExpForCond");
+    return "Done";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
