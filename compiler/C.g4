@@ -304,16 +304,16 @@ declarator
     ;
 
 directDeclarator
-    :   id=Identifier
-    |   '(' decl=declarator ')'
-    |   dec=directDeclarator '[' qualL=typeQualifierList? expr=assignmentExpression? ']'
-    |   dec=directDeclarator '[' 'static' qualL=typeQualifierList? expr=assignmentExpression ']'
-    |   dec=directDeclarator '[' qualL=typeQualifierList 'static' expr=assignmentExpression ']'
-    |   dec=directDeclarator '[' qualL=typeQualifierList? '*' ']'
-    |   dec=directDeclarator '(' paramL=parameterTypeList ')'
-    |   dec=directDeclarator '(' idL=identifierList? ')'
-    |   id=Identifier ':' seq=DigitSequence  // bit field
-    |   '(' type=typeSpecifier? ptr=pointer dec=directDeclarator ')' // function pointer like: (__cdecl *f)
+    :   id=Identifier                                                                                           #idDirDec
+    |   '(' decl=declarator ')'                                                                                 #parDirDec
+    |   dec=directDeclarator '[' qualL=typeQualifierList? expr=assignmentExpression? ']'                        #qArrDirDec
+    |   dec=directDeclarator '[' 'static' qualL=typeQualifierList? expr=assignmentExpression ']'                #qsArrDirDec
+    |   dec=directDeclarator '[' qualL=typeQualifierList 'static' expr=assignmentExpression ']'                 #sqArrDirDec
+    |   dec=directDeclarator '[' qualL=typeQualifierList? '*' ']'                                               #eArrDirDec
+    |   dec=directDeclarator '(' paramL=parameterTypeList ')'                                                   #paramlDirDec
+    |   dec=directDeclarator '(' idL=identifierList? ')'                                                        #idlDirDec
+    |   id=Identifier ':' seq=DigitSequence                                                                     #dsDirDec   // bit field
+    |   '(' type=typeSpecifier? ptr=pointer dec=directDeclarator ')'                                            #ptrDirDec  // function pointer like: (__cdecl *f)
     ;
 
 gccDeclaratorExtension
