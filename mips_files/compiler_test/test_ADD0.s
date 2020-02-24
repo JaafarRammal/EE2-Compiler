@@ -1,6 +1,6 @@
-lw $v0, null
+lw $v0, 0
 sw $v0, 0($sp)
-lw $v0, null
+lw $v0, 0
 sw $v0, 4($sp)
 lw $t1, 4($sp)
 lw $t0, 0($sp)

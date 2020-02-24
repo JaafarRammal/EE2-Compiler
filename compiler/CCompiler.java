@@ -168,7 +168,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // integer constant node
   @Override
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
-    System.out.println("li $v0, " + ctx.val.getText());
+    System.out.println("ori $v0, $v0, " + ctx.val.getText());
     return "DONE";
   }
 
@@ -176,7 +176,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // variable identifier
   @Override
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
-    System.out.println("lw $v0, " + table.get(ctx.id.getText()));
+    System.out.println("lw $v0, " + table.get(ctx.id.getText())+ "($sp)");
     return "DONE";
   }
 
@@ -376,10 +376,10 @@ public class CCompiler extends CBaseVisitor<String> {
     Integer destination = table.get(ctx.left.getText());
     this.visit(ctx.right);
     // $v0 contains the value of whatever was on the right
-    System.out.println("sw $v0, " + 4*(mem++)); // push right on stack
+    System.out.println("sw $v0, " + 4*(mem++) + "($sp)"); // push right on stack
     this.visit(ctx.left); // evaluate current value (left)
     System.out.println("addu $t2, $v0, $zero"); // store current value in $t2
-    System.out.println("lw $v0, " + 4*(--mem)); // pop right from stack. Ready to evaluate
+    System.out.println("lw $v0, " + 4*(--mem) + "($sp)"); // pop right from stack. Ready to evaluate
     switch(ctx.op.getText()){
       case("="):
         break; // do nothing. Store into destination at the end
@@ -418,7 +418,7 @@ public class CCompiler extends CBaseVisitor<String> {
       default:
         throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
     }
-    System.out.println("sw $v0, " + destination);
+    System.out.println("sw $v0, " + destination + "($sp)");
     
     return "DONE";
   }
