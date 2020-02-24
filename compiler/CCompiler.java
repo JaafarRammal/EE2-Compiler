@@ -520,6 +520,7 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   //The two possible for conditions. NOTE: can edit grammar to avoid repetition
+  @Override
   public String visitDecForCond(CParser.DecForCondContext ctx){ //For loop 1
 
     //variable init
@@ -545,6 +546,7 @@ public class CCompiler extends CBaseVisitor<String> {
     return "Done";
   }
 
+  @Override
   public String visitExpForCond(CParser.ExpForCondContext ctx){ //For loop 2
     //variable init
     this.visit(ctx.init);
@@ -568,6 +570,50 @@ public class CCompiler extends CBaseVisitor<String> {
     insertLabel(endLabel);
    
     return "Done";
+  }
+
+   ////////////////////////////////////////////////////////////////////////////////////
+  // Switch case expression
+
+  @Override
+  public String visitSwitchSelecStat(CParser.SwitchSelecStatContext ctx){ 
+    this.visit(ctx.cond); //switch value loaded into register 2 ($v0) 
+    //Save the variable
+    System.out.println("sw $v0, " + 4*(mem) + "($sp)"); //save variable in stack
+
+    return "DONE";
+  }
+
+
+  @Override
+  public String visitCaseLabelStat(CParser.CaseLabelStatContext ctx){ 
+    //System.out.println(ctx.cond.getText());
+    String beginLabel = makeName("case_stat_begin");
+    String endLabel = makeName("case_stat_end");
+
+    this.visit(ctx.cond);
+    System.out.println("lw $t0, " + 4*(mem) + "($sp)"); //load variable saved from SwitchSelec
+
+    //compare switch value to case value
+    System.out.println("bne $v0, $t0, " + endLabel + "\nnop"); //if not equal, jump to the end
+    this.visit(ctx.exec);
+    //if break appears during exec, jump to end
+    insertLabel(endLabel); 
+
+    return "DONE";
+  }
+
+  //Default case
+  @Override
+  public String visitDefLabelStat(CParser.DefLabelStatContext ctx){ 
+    String endLabel = makeName("case_stat_end");
+
+    //execute default
+    this.visit(ctx.exec);
+    //if break appears during switch selec stat, jump to endLabel. recommend global var.
+    insertLabel(endLabel); 
+
+    return "DONE";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
