@@ -14,7 +14,7 @@ public class CCompiler extends CBaseVisitor<String> {
   int mem; 
   String[] scratch = new String[3];
   int current_s;
-  boolean enterFunc;
+  boolean enter_parent;
   String current_op; //for retrieving operation of expression inside if statement
   int label_id; //for unique identification of each label (branch)
   Map<String, Integer> table = new HashMap<String, Integer>();
@@ -25,7 +25,7 @@ public class CCompiler extends CBaseVisitor<String> {
     current_s = 0;
     label_id = 0;
     debug = d;
-    enterFunc = true;
+    enter_parent = true;
     // scratch[0] = "$t0";
     // scratch[1] = "$t1";
     // scratch[2] = "$t2"; // r8-r15	($t0-$t7)	Temporaries, not saved
@@ -508,25 +508,65 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitForIterStat(CParser.ForIterStatContext ctx){
-    System.out.println("For Stat");
-    if(enterFunc){
-      enterFunc = false;
+
+    if(enter_parent){
+      enter_parent = false;
       this.visit(ctx.cond);
+    } else {
+      this.visit(ctx.exec);
+      enter_parent = true;
     }
     return "Done";
   }
 
-  //The two possible for conditions. 
-  public String visitDecForCond(CParser.DecForCondContext ctx){
-    //this.visit(ctx.getParent());
-    String stuff = this.visit(ctx.init);
-    //System.out.println(stuff);
-    
+  //The two possible for conditions. NOTE: can edit grammar to avoid repetition
+  public String visitDecForCond(CParser.DecForCondContext ctx){ //For loop 1
+
+    //variable init
+    this.visit(ctx.init);
+
+    //for loop
+    String beginLabel = makeName("for_stat_begin");
+    String endLabel = makeName("for_stat_end");
+    this.visit(ctx.cond);
+
+    //execution body
+    insertLabel(beginLabel);
+    System.out.println("beq $v0, $zero, " + endLabel + "\nnop");
+    this.visit(ctx.getParent());
+
+    //increment variable
+    this.visit(ctx.update);
+
+    //return to top of loop
+    System.out.println("j " + beginLabel + "\nnop");
+    insertLabel(endLabel);
+   
     return "Done";
   }
 
-  public String visitExpForCond(CParser.ExpForCondContext ctx){
-    System.out.println("ExpForCond");
+  public String visitExpForCond(CParser.ExpForCondContext ctx){ //For loop 2
+    //variable init
+    this.visit(ctx.init);
+
+    //for loop
+    String beginLabel = makeName("for_stat_begin");
+    String endLabel = makeName("for_stat_end");
+    insertLabel(beginLabel);
+    this.visit(ctx.cond);
+
+    //print statement
+    System.out.println("beq $v0, $zero, " + endLabel + "\nnop");
+    this.visit(ctx.getParent());
+
+
+    //increment variable
+    this.visit(ctx.update);
+
+    //return to top of loop
+    System.out.println("j " + beginLabel + "\nnop");
+    insertLabel(endLabel);
+   
     return "Done";
   }
 
