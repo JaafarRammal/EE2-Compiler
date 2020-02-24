@@ -242,7 +242,7 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("bne $v0, $zero, " + successEnd + "\nnop"); // if left is non-zero, return true
 
     this.visit(ctx.right);
-    System.out.println("sw $v0, " + mem);
+    System.out.println("sw $v0, " + 4*mem + "$sp");
     table.put(ctx.left.getText(), mem++);
     return "DONE";
   }
@@ -593,9 +593,27 @@ public class CCompiler extends CBaseVisitor<String> {
     if(args.length > 0){
       if(args[0].equals("-debug"))debug = true;
     }
+
+    // temporary function stack manipulation for now (large allocation)
+    // will be later fixed when entering function context
+    System.out.println(
+      "addiu $sp, $sp, -192\n"+
+      "sw $fp, 4($sp)\n"+
+      "or $fp, $sp, $sp\n"
+    );
+
     CCompiler compiler = new CCompiler(debug);
     compiler.visit(tree);
-    System.out.println("\n# END OF PROGRAM\njr $zero");
+
+    System.out.println(
+      "or $sp, $fp, $fp\n"+
+      "lw $fp, 4($sp)\n"+
+      "addiu $sp, $sp, 192\n"+
+      "jr $31\n"+
+      "nop\n"
+    );
+    
+    // System.out.println("\n# END OF PROGRAM\njr $zero");
   }
 
 }
