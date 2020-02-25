@@ -8,6 +8,8 @@ import org.antlr.v4.runtime.misc.Interval;
 
 import java.util.Map;
 import java.util.HashMap;
+import java.util.LinkedList; 
+import java.util.Queue;
 
 public class CCompiler extends CBaseVisitor<String> {
 
@@ -15,12 +17,22 @@ public class CCompiler extends CBaseVisitor<String> {
   int label_id; //for unique identification of each label (branch)
   Map<String, Integer> table = new HashMap<String, Integer>();
   boolean debug = false;
+  boolean enter_parent = false;
+
+  // Break: switch / while / for    (break_context)
+  // Continue: while / for          (continue_context)
+  // Return: functions              (return_context)
+
+  Queue<String> current_break_context = new LinkedList<>(); 
+  Queue<String> current_continue_context = new LinkedList<>();
+  Queue<String> current_return_context = new LinkedList<>();
 
   CCompiler(boolean d) {
     mem = 0;
     label_id = 0;
     debug = d;
     enter_parent = true;
+    
     // scratch[0] = "$t0";
     // scratch[1] = "$t1";
     // scratch[2] = "$t2"; // r8-r15	($t0-$t7)	Temporaries, not saved
@@ -186,7 +198,9 @@ public class CCompiler extends CBaseVisitor<String> {
     return this.visit(ctx.dec);
   }
 
-
+  // end of function contexts
+  ////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -247,7 +261,24 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
 
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // jump statements
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // break statement
+  @Override
+  public String visitBreakJumpStat(CParser.BreakJumpStatContext ctx) {
+    System.out.println("j " + current_break_context.peek() + "\nnop");
+    return "DONE";
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // continue statement
+  @Override
+  public String visitContinueJumpStat(CParser.ContinueJumpStatContext ctx) {
+    System.out.println("j " + current_continue_context.peek() + "\nnop");
+    return "DONE";
+  }
 
 
 
@@ -523,12 +554,14 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitWhileIterStat(CParser.WhileIterStatContext ctx){
     String beginLabel = makeName("while_stat_begin");
     String endLabel = makeName("while_stat_end");
+    current_break_context.add(endLabel);
     insertLabel(beginLabel);
     this.visit(ctx.cond); // condition is now in $v0
     System.out.println("beq $v0, $zero, " + endLabel + "\nnop");
     this.visit(ctx.exec); // while loop execution body
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
+    current_break_context.poll();
     return "DONE";
   }
 
@@ -575,10 +608,11 @@ public class CCompiler extends CBaseVisitor<String> {
     //for loop
     String beginLabel = makeName("for_stat_begin");
     String endLabel = makeName("for_stat_end");
+    current_break_context.add(endLabel);
+    insertLabel(beginLabel);
     this.visit(ctx.cond);
 
     //execution body
-    insertLabel(beginLabel);
     System.out.println("beq $v0, $zero, " + endLabel + "\nnop");
     this.visit(ctx.getParent());
 
@@ -588,7 +622,7 @@ public class CCompiler extends CBaseVisitor<String> {
     //return to top of loop
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
-   
+    current_break_context.poll();
     return "Done";
   }
 
@@ -600,6 +634,7 @@ public class CCompiler extends CBaseVisitor<String> {
     //for loop
     String beginLabel = makeName("for_stat_begin");
     String endLabel = makeName("for_stat_end");
+    current_break_context.add(endLabel);
     insertLabel(beginLabel);
     this.visit(ctx.cond);
 
@@ -614,7 +649,7 @@ public class CCompiler extends CBaseVisitor<String> {
     //return to top of loop
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
-   
+    current_break_context.poll();
     return "Done";
   }
 
@@ -623,10 +658,13 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitSwitchSelecStat(CParser.SwitchSelecStatContext ctx){ 
+    String endLabel = makeName("switch_stat_end");
+    current_break_context.add(endLabel);
     this.visit(ctx.cond); //switch value loaded into register 2 ($v0) 
     //Save the variable
     System.out.println("sw $v0, " + 4*(mem) + "($sp)"); //save variable in stack
-
+    insertLabel(endLabel);
+    current_break_context.poll();
     return "DONE";
   }
 
