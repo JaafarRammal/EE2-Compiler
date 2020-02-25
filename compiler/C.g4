@@ -446,9 +446,9 @@ statement
     ;
 
 labeledStatement
-    :   id=Identifier ':' exec=statement                    #idLabelStat
-    |   'case' cond=constantExpression ':' exec=statement   #caseLabelStat
-    |   'default' ':' exec=statement                        #defLabelStat
+    :   id=Identifier ':' exec=statement                                       #idLabelStat
+    |   'case' cond=constantExpression ':' exec=statement skip=jumpStatement?  #caseLabelStat
+    |   'default' ':' exec=statement                                           #defLabelStat
     ;
 
 compoundStatement

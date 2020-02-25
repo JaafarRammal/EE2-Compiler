@@ -32,6 +32,7 @@ public class CCompiler extends CBaseVisitor<String> {
     label_id = 0;
     debug = d;
     enter_parent = true;
+    num_param = 0;
     
     // scratch[0] = "$t0";
     // scratch[1] = "$t1";
@@ -160,22 +161,42 @@ public class CCompiler extends CBaseVisitor<String> {
 
   ////////////////////////////////////////////////////////////////////////////////////
   // function declaration
+
+  /*
+
+  80...(HIGH)
+  .----------.
+  |          |
+  .----------.
+  |    ra    |
+  .----------.
+  | fp (old) |
+  .----------.
+  |     3    |  <- $fp
+  .----------.
+  |          |  <- $sp
+  .----------.
+  |          |
+  .----------.
+  20...(LOW)
+
+  */
+
   @Override
   public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
     String functionName = this.visit(ctx.func_dec);
     System.out.println("# " + functionName + ": function entry");
     System.out.println("\t.set noreorder\n\t.text\n\t.align 2\n\t.globl " + functionName);
+    if(!functionName.equals("main")){
+       System.out.println("# store function arguments\nsw $a0, 0($sp)\nsw $a1, 4($sp)\nsw $a2, 8($sp)\nsw $a3, 12($sp)\n");
+    }
+    System.out.println("# " + functionName + ": function return");
+    System.out.println("addiu $sp, $sp, -12\nsw $fp, 4($sp)\nsw $ra, 8($sp)\nmove $fp, $sp\naddiu $sp, $sp, -4\n");
     insertLabel(functionName);
     this.visit(ctx.comp_stat);
-    System.out.println("# " + functionName + ": function return");
-
-    // main implement VS function implement
-    if(functionName.equals("main")){
-      insertLabel("_return_" + functionName);
-      System.out.println("move $sp, $fp\nlw $ra, 8($fp)\nlw $fp, 4($fp)\naddiu $sp, $sp, 12\njr $ra\nnop");
-    }else{
-      // NEEDS IMPLEMENTATION
-    }
+    insertLabel("_return_" + functionName);
+    System.out.println("move $sp, $fp\nlw $ra, 8($fp)\nlw $fp, 4($fp)\naddiu $sp, $sp, 12\njr $ra\nnop");
+   
     return "u";
   }
 
@@ -194,7 +215,6 @@ public class CCompiler extends CBaseVisitor<String> {
   // function identifiers list ( TYPE ID (IDL?) or TYPE ID())
   @Override
   public String visitIdlDirDec(CParser.IdlDirDecContext ctx){
-    System.out.println("C");
     return this.visit(ctx.dec);
   }
 
@@ -221,7 +241,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // integer constant node
   @Override
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
-    System.out.println("ori $v0, $v0, " + ctx.val.getText());
+    System.out.println("ori $v0, $zero, " + ctx.val.getText());
     return "DONE";
   }
 
@@ -663,6 +683,7 @@ public class CCompiler extends CBaseVisitor<String> {
     this.visit(ctx.cond); //switch value loaded into register 2 ($v0) 
     //Save the variable
     System.out.println("sw $v0, " + 4*(mem) + "($sp)"); //save variable in stack
+    this.visit(ctx.trueExec);
     insertLabel(endLabel);
     current_break_context.poll();
     return "DONE";
@@ -671,8 +692,6 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitCaseLabelStat(CParser.CaseLabelStatContext ctx){ 
-    //System.out.println(ctx.cond.getText());
-    String beginLabel = makeName("case_stat_begin");
     String endLabel = makeName("case_stat_end");
 
     this.visit(ctx.cond);
@@ -681,6 +700,7 @@ public class CCompiler extends CBaseVisitor<String> {
     //compare switch value to case value
     System.out.println("bne $v0, $t0, " + endLabel + "\nnop"); //if not equal, jump to the end
     this.visit(ctx.exec);
+    if(ctx.skip != null) this.visit(ctx.skip); // add the break BEFORE the end label
     //if break appears during exec, jump to end
     insertLabel(endLabel); 
 
