@@ -26,7 +26,7 @@ public class CCompiler extends CBaseVisitor<String> {
   Queue<String> current_break_context = new LinkedList<>();   // Break: switch / while / for    (break_context)
   Queue<String> current_continue_context = new LinkedList<>();   // Continue: while / for          (continue_context)
   Queue<String> current_return_context = new LinkedList<>();   // Return: functions              (return_context)
-  Queue<String> current_switch_context = new LinkedList<>(); // Informs us of memory location of switch
+  Queue<Integer> current_switch_context = new LinkedList<>(); // Informs us of memory location of switch
 
   CCompiler(boolean d) {
     mem = 0;
@@ -688,7 +688,7 @@ public class CCompiler extends CBaseVisitor<String> {
     current_break_context.add(endLabel);
     this.visit(ctx.cond); //switch value loaded into register 2 ($v0) 
     //Save the variable
-    current_switch_context.push(mem);
+    current_switch_context.add(mem);
     System.out.println("sw $v0, " + -4*(mem++) + "($sp)"); //save variable in stack
     this.visit(ctx.trueExec);
     insertLabel(endLabel);
@@ -701,7 +701,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitCaseLabelStat(CParser.CaseLabelStatContext ctx){ 
     String endLabel = makeName("case_stat_end");
-    case_mem = current_switch_context.peek();
+    int case_mem = current_switch_context.peek();
     this.visit(ctx.cond);
     System.out.println("lw $t0, " + -4*(case_mem) + "($sp)"); //load variable saved from SwitchSelec
     //compare switch value to case value
