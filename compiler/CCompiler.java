@@ -776,6 +776,39 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // end of scoped contexts
   ////////////////////////////////////////////////////////////////////////////////////
+
+
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Array declarations
+  
+  @Override
+  public String visitQArrDirDec(CParser.QArrDirDecContext ctx){ 
+    System.out.println("Inside Qarr");
+    return "DONE";
+  }
+
+  //TODO: static qualifier array implementation
+  @Override
+  public String visitSqArrDirDec(CParser.SqArrDirDecContext ctx){ 
+    System.out.println("Inside SqArr");
+    return "DONE";
+  }
+
+  //TODO: qualifier static array implementation
+  @Override
+  public String visitQsArrDirDec(CParser.QsArrDirDecContext ctx){ 
+    System.out.println("Inside QsArr");
+    return "DONE";
+  }
+
+  //TODO: dynamic array implementation
+  @Override
+  public String visitEArrDirDec(CParser.EArrDirDecContext ctx){ 
+    System.out.println("Inside EArr");
+    return "DONE";
+  }
+
   ////////////////////////////////////////////////////////////////////////////////////
 
 

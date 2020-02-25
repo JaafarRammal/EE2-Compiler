@@ -31,7 +31,6 @@ javac ./translator/*.java
 grun translator.antlr.C translation_unit -gui
 
 javac ./compiler/*.java
-grun compiler.antlr.C compilationUnit -gui
 ```
 
 Then enter your C code and press CTRL+D
