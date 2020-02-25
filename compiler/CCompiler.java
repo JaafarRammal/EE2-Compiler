@@ -32,7 +32,6 @@ public class CCompiler extends CBaseVisitor<String> {
     label_id = 0;
     debug = d;
     enter_parent = true;
-    num_param = 0;
     
     // scratch[0] = "$t0";
     // scratch[1] = "$t1";
@@ -94,13 +93,13 @@ public class CCompiler extends CBaseVisitor<String> {
     // FOR NOW REFER TO MEM AS AN OFFSET ON THE STACK
 
     this.visit(ctx.getChild(0));
-    System.out.println("sw $v0, " + 4*(mem++) + "($sp)");
+    System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
 
     this.visit(ctx.getChild(2));
-    System.out.println("sw $v0, " + 4*(mem++) + "($sp)");
+    System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
 
-    System.out.println("lw $t1, " + 4*(--mem) + "($sp)");  // get right from stack
-    System.out.println("lw $t0, " + 4*(--mem) + "($sp)");  // get left from stack
+    System.out.println("lw $t1, " + -4*(--mem) + "($sp)");  // get right from stack
+    System.out.println("lw $t0, " + -4*(--mem) + "($sp)");  // get left from stack
     return "DONE";
   }
 
@@ -164,15 +163,18 @@ public class CCompiler extends CBaseVisitor<String> {
 
   /*
 
+  Figure 1
+  --------
+
   80...(HIGH)
-  .----------.
-  |          |
   .----------.
   |    ra    |
   .----------.
   | fp (old) |
   .----------.
   |     3    |  <- $fp
+  .----------.
+  |     6    |  
   .----------.
   |          |  <- $sp
   .----------.
@@ -185,19 +187,22 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
     String functionName = this.visit(ctx.func_dec);
-    System.out.println("# " + functionName + ": function entry");
+    System.out.println("# " + functionName + ": function full");
+    insertLabel(functionName);
     System.out.println("\t.set noreorder\n\t.text\n\t.align 2\n\t.globl " + functionName);
     if(!functionName.equals("main")){
-       System.out.println("# store function arguments\nsw $a0, 0($sp)\nsw $a1, 4($sp)\nsw $a2, 8($sp)\nsw $a3, 12($sp)\n");
+      System.out.println("# store function arguments\nsw $a0, 0($sp)\nsw $a1, 4($sp)\nsw $a2, 8($sp)\nsw $a3, 12($sp)\n");
     }
-    System.out.println("# " + functionName + ": function return");
-    System.out.println("addiu $sp, $sp, -12\nsw $fp, 4($sp)\nsw $ra, 8($sp)\nmove $fp, $sp\naddiu $sp, $sp, -4\n");
-    insertLabel(functionName);
+    System.out.println("# " + functionName + ": function entry");
+    // figure 1: get function header ready
+    System.out.println("addiu $sp, $sp, -12\nsw $fp, 4($sp)\nsw $ra, 8($sp)\nmove $fp, $sp\n");
+    System.out.println("# " + functionName + ": function body");
     this.visit(ctx.comp_stat);
     insertLabel("_return_" + functionName);
+    // exit function: setback $fp and $sp as before. Get correct return address for subroutine
     System.out.println("move $sp, $fp\nlw $ra, 8($fp)\nlw $fp, 4($fp)\naddiu $sp, $sp, 12\njr $ra\nnop");
    
-    return "u";
+    return "DONE";
   }
 
   // function name (id) retrieved
@@ -249,7 +254,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // variable identifier
   @Override
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
-    System.out.println("lw $v0, " + 4*table.get(ctx.id.getText())+ "($sp)");
+    System.out.println("lw $v0, " + -4*table.get(ctx.id.getText())+ "($sp)");
     return "DONE";
   }
 
@@ -260,7 +265,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
     this.visit(ctx.right);
     String varName = ctx.left.getText();
-    System.out.println("sw $v0, " + 4*(mem) + "($sp)\t\t# \"" + varName + "\" was stored in " + String.format("0x%08X", 4*(mem)) + " on stack");
+    System.out.println("sw $v0, " + -4*(mem) + "($sp)\t\t# \"" + varName + "\" was stored in " + String.format("0x%08X", -4*(mem)) + " on stack");
     table.put(varName, mem++);
     return "DONE";
   }
@@ -271,7 +276,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // default value to zero
   @Override
   public String visitTermInitDec(CParser.TermInitDecContext ctx){
-    System.out.println("sw $zero, " + 4*(mem) + "($sp)");
+    System.out.println("sw $zero, " + -4*(mem) + "($sp)");
     table.put(ctx.dec.getText(), mem++);
     return "DONE";
   }
@@ -330,7 +335,7 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("bne $v0, $zero, " + successEnd + "\nnop"); // if left is non-zero, return true
 
     this.visit(ctx.right);
-    System.out.println("sw $v0, " + 4*mem + "$sp");
+    System.out.println("sw $v0, " + -4*mem + "($sp)");
     table.put(ctx.left.getText(), mem++);
     return "DONE";
   }
@@ -466,10 +471,10 @@ public class CCompiler extends CBaseVisitor<String> {
     Integer destination = table.get(ctx.left.getText());
     this.visit(ctx.right);
     // $v0 contains the value of whatever was on the right
-    System.out.println("sw $v0, " + 4*(mem++) + "($sp)"); // push right on stack
+    System.out.println("sw $v0, " + -4*(mem++) + "($sp)"); // push right on stack
     this.visit(ctx.left); // evaluate current value (left)
     System.out.println("addu $t2, $v0, $zero"); // store current value in $t2
-    System.out.println("lw $v0, " + 4*(--mem) + "($sp)"); // pop right from stack. Ready to evaluate
+    System.out.println("lw $v0, " + -4*(--mem) + "($sp)"); // pop right from stack. Ready to evaluate
     switch(ctx.op.getText()){
       case("="):
         break; // do nothing. Store into destination at the end
@@ -508,7 +513,7 @@ public class CCompiler extends CBaseVisitor<String> {
       default:
         throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
     }
-    System.out.println("sw $v0, " + 4*destination + "($sp)");
+    System.out.println("sw $v0, " + -4*destination + "($sp)");
     
     return "DONE";
   }
@@ -682,7 +687,7 @@ public class CCompiler extends CBaseVisitor<String> {
     current_break_context.add(endLabel);
     this.visit(ctx.cond); //switch value loaded into register 2 ($v0) 
     //Save the variable
-    System.out.println("sw $v0, " + 4*(mem) + "($sp)"); //save variable in stack
+    System.out.println("sw $v0, " + -4*(mem) + "($sp)"); //save variable in stack
     this.visit(ctx.trueExec);
     insertLabel(endLabel);
     current_break_context.poll();
@@ -695,7 +700,7 @@ public class CCompiler extends CBaseVisitor<String> {
     String endLabel = makeName("case_stat_end");
 
     this.visit(ctx.cond);
-    System.out.println("lw $t0, " + 4*(mem) + "($sp)"); //load variable saved from SwitchSelec
+    System.out.println("lw $t0, " + -4*(mem) + "($sp)"); //load variable saved from SwitchSelec
 
     //compare switch value to case value
     System.out.println("bne $v0, $t0, " + endLabel + "\nnop"); //if not equal, jump to the end
