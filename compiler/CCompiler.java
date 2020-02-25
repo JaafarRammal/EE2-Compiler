@@ -188,6 +188,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
     String functionName = this.visit(ctx.func_dec);
+    current_return_context.add("_return_" + functionName);
     System.out.println("# " + functionName + ": function full");
     insertLabel(functionName);
     System.out.println("\t.set noreorder\n\t.text\n\t.align 2\n\t.globl " + functionName);
@@ -202,7 +203,7 @@ public class CCompiler extends CBaseVisitor<String> {
     insertLabel("_return_" + functionName);
     // exit function: setback $fp and $sp as before. Get correct return address for subroutine
     System.out.println("move $sp, $fp\nlw $ra, 8($fp)\nlw $fp, 4($fp)\naddiu $sp, $sp, 12\njr $ra\nnop");
-   
+    current_return_context.poll();
     return "DONE";
   }
 
@@ -306,7 +307,14 @@ public class CCompiler extends CBaseVisitor<String> {
     return "DONE";
   }
 
-
+  ////////////////////////////////////////////////////////////////////////////////////
+  // return statement
+  @Override
+  public String visitReturnJumpStat(CParser.ReturnJumpStatContext ctx){
+    if(ctx.expr != null) this.visit(ctx.expr);
+    System.out.println("j " + current_return_context.peek() + "\nnop");
+    return "DONE";
+  }
 
 
 
