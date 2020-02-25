@@ -323,7 +323,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
 
   ////////////////////////////////////////////////////////////////////////////////////
-  // arithmetic and binary expressions
+  // ARITHMETIC AND BINARY EXPRESSIONS
 
   ////////////////////////////////////////////////////////////////////////////////////
   // logical OR
@@ -519,14 +519,67 @@ public class CCompiler extends CBaseVisitor<String> {
     return "DONE";
   }
 
-  // end assignement operator
+  // end assignment operator
   ////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////
 
+  
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Comparaison based expressions
 
 
+////////////////////////////////////////////////////////////////////////////////////
+  // Relational expression
+  @Override
+  public String visitOpRelExpr(CParser.OpRelExprContext ctx){
+    threeOp(ctx);
+    System.out.println("xor $t2, $t0, $t1");
+    System.out.println("sltiu $t2, $t2, 1");  // $t2 = (right == left)
+    switch(ctx.op.getText()) {
+      case ">":
+        System.out.println("slt $v0, $t1, $t0"); // right < left
+        break;
+      case "<":
+        System.out.println("slt $v0, $t0, $t1"); // left < right
+        break;
+      case "<=":
+        System.out.println("slt $v0, $t1, $t0"); // right < left
+        System.out.println("or $v0, $v0, $t2"); // right <= left
+        break;
+      case ">=": 
+        System.out.println("slt $v0, $t0, $t1"); // left < right
+        System.out.println("or $v0, $v0, $t2"); // left <= right
+        break;
+      default:
+        throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
+    }
+    return "DONE";
+  }
 
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  //Equality expression
+  @Override
+  public String visitOpEqualExpr(CParser.OpEqualExprContext ctx){
+    threeOp(ctx);
+    System.out.println("xor $v0, $t0, $t1"); // A^B = 0 only if A=B, non-zero otherwise
+    switch(ctx.op.getText()){
+      case "==":
+        System.out.println("sltiu $v0, $v0, 1");
+        break;
+      case "!=":
+        System.out.println("sltu $v0, $v0, $zero");
+        break;
+      default:
+        throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
+    }
+
+    return "DONE";
+  }
+
+  // end of comparison based expressions
+  ////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -590,13 +643,6 @@ public class CCompiler extends CBaseVisitor<String> {
     current_break_context.poll();
     return "DONE";
   }
-
-  // end of scoped contexts
-  ////////////////////////////////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////////////////////////////////
-  
-  ////////////////////////////////////////////////////////////////////////////////////
-  // Comparaison based expressions
 
   ////////////////////////////////////////////////////////////////////////////////////
   // For loop expression
@@ -728,54 +774,7 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
-  // Relational expression
-  @Override
-  public String visitOpRelExpr(CParser.OpRelExprContext ctx){
-    threeOp(ctx);
-    System.out.println("xor $t2, $t0, $t1");
-    System.out.println("sltiu $t2, $t2, 1");  // $t2 = (right == left)
-    switch(ctx.op.getText()) {
-      case ">":
-        System.out.println("slt $v0, $t1, $t0"); // right < left
-        break;
-      case "<":
-        System.out.println("slt $v0, $t0, $t1"); // left < right
-        break;
-      case "<=":
-        System.out.println("slt $v0, $t1, $t0"); // right < left
-        System.out.println("or $v0, $v0, $t2"); // right <= left
-        break;
-      case ">=": 
-        System.out.println("slt $v0, $t0, $t1"); // left < right
-        System.out.println("or $v0, $v0, $t2"); // left <= right
-        break;
-      default:
-        throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
-    }
-    return "DONE";
-  }
-
-  ////////////////////////////////////////////////////////////////////////////////////
-  //Equality expression
-  @Override
-  public String visitOpEqualExpr(CParser.OpEqualExprContext ctx){
-    threeOp(ctx);
-    System.out.println("xor $v0, $t0, $t1"); // A^B = 0 only if A=B, non-zero otherwise
-    switch(ctx.op.getText()){
-      case "==":
-        System.out.println("sltiu $v0, $v0, 1");
-        break;
-      case "!=":
-        System.out.println("sltu $v0, $v0, $zero");
-        break;
-      default:
-        throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
-    }
-
-    return "DONE";
-  }
-
-  // end of comparaison based expressions
+  // end of scoped contexts
   ////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////
 
