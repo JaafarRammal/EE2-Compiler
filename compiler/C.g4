@@ -177,7 +177,7 @@ declarationSpecifier
     ;
 
 initDeclaratorList
-    :   dec=initDeclarator                                  #singleInitDecList
+    :   dec=initDeclarator                               #singleInitDecList
     |   decL=initDeclaratorList ',' dec=initDeclarator   #multInitDecList
     ;
 
