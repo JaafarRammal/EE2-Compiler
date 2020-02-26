@@ -14,10 +14,11 @@ import java.util.Queue;
 public class CCompiler extends CBaseVisitor<String> {
 
   int mem; 
-  int label_id; //for unique identification of each label (branch)
+  int label_id; // for unique identification of each label (branch)
   Map<String, Integer> table = new HashMap<String, Integer>();
   boolean debug = false;
   boolean enter_parent = false;
+  int param_count = 0;  // count parameters for function definition. No nested cases
 
   // Break: switch / while / for    (break_context)
   // Continue: while / for          (continue_context)
@@ -26,7 +27,8 @@ public class CCompiler extends CBaseVisitor<String> {
   Queue<String> current_break_context = new LinkedList<>();   // Break: switch / while / for    (break_context)
   Queue<String> current_continue_context = new LinkedList<>();   // Continue: while / for          (continue_context)
   Queue<String> current_return_context = new LinkedList<>();   // Return: functions              (return_context)
-  Queue<Integer> current_switch_context = new LinkedList<>(); // Informs us of memory location of switch
+  Queue<Integer> current_switch_context = new LinkedList<>(); // Informs us of memory location of switch. Used for nested switches
+
 
   CCompiler(boolean d) {
     mem = 0;
@@ -101,7 +103,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
     System.out.println("lw $t1, " + -4*(--mem) + "($sp)");  // get right from stack
     System.out.println("lw $t0, " + -4*(--mem) + "($sp)");  // get left from stack
-    return "DONE";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -117,7 +119,7 @@ public class CCompiler extends CBaseVisitor<String> {
       System.out.println("\n# " + line);
     }
     this.visit(ctx.item);
-    return "DONE";
+    return "";
   }
 
   @Override
@@ -131,7 +133,7 @@ public class CCompiler extends CBaseVisitor<String> {
       System.out.println("\n# " + line);
     }
     this.visit(ctx.item);
-    return "DONE";
+    return "";
   }
 
   // illegal argument exception helper
@@ -160,7 +162,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // functions contexts
 
   ////////////////////////////////////////////////////////////////////////////////////
-  // function declaration
+  // function definition
 
   /*
 
@@ -188,6 +190,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
     String functionName = this.visit(ctx.func_dec);
+    current_return_context.add("_return_" + functionName);
     System.out.println("# " + functionName + ": function full");
     insertLabel(functionName);
     System.out.println("\t.set noreorder\n\t.text\n\t.align 2\n\t.globl " + functionName);
@@ -199,29 +202,61 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("addiu $sp, $sp, -12\nsw $fp, 4($sp)\nsw $ra, 8($sp)\nmove $fp, $sp\n");
     System.out.println("# " + functionName + ": function body");
     this.visit(ctx.comp_stat);
-    insertLabel("_return_" + functionName);
+    insertLabel("# " + functionName + ": function return\n_return_" + functionName);
     // exit function: setback $fp and $sp as before. Get correct return address for subroutine
     System.out.println("move $sp, $fp\nlw $ra, 8($fp)\nlw $fp, 4($fp)\naddiu $sp, $sp, 12\njr $ra\nnop");
-   
-    return "DONE";
+    current_return_context.poll();
+    return "";
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////
   // function name (id) retrieved
   @Override
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
     return ctx.id.getText();
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////
   // function params context ( TYPE ID (PARAM_LIST) )
   @Override
   public String visitParamlDirDec(CParser.ParamlDirDecContext ctx){
-    return this.visit(ctx.dec);
+    String functionName = this.visit(ctx.dec);
+    param_count = 0;
+    this.visit(ctx.paramL);
+    table.put(functionName, param_count);
+    return functionName;
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////
   // function identifiers list ( TYPE ID (IDL?) or TYPE ID())
   @Override
   public String visitIdlDirDec(CParser.IdlDirDecContext ctx){
-    return this.visit(ctx.dec);
+    String functionName = this.visit(ctx.dec);
+    param_count = 0;
+    if(ctx.idL != null) this.visit(ctx.idL);
+    table.put(functionName, param_count);
+    return functionName;
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // function invocation with n parameters (integers for now)
+  // function returns in $v0. If type is double or float, use the $f registers discard $v0
+  // we CANNOT get from symbol table because what if we have same function name, different param count?
+  // count the parameters IN the call and then call the appropriate function
+  @Override
+  public String visitFuncInvocPostExpr(CParser.FuncInvocPostExprContext ctx){
+    String functionName = this.visit(ctx.expr); // get function ID. From symbol table with type return later
+    int argsCount = table.get(functionName); // move the stack pointer accordingly
+    mem += argsCount;
+    System.out.println("addiu $sp, $sp, " + -4*mem); // secure memory locations for arguments
+    current_switch_context.add(argsCount-1); // save the count state for parameters (for nested cases like f(g(1), h(2, 3)) where another function gets ready for parameters). -1 because index starts at 0
+    if(ctx.args != null) this.visit(ctx.args); // get parameters
+    for(int i=0; i<4 && i<argsCount; i++){  // store parameters in $a0-$a3
+      System.out.println("lw $a"+ i + " " + 4*i + "($sp)");
+    }
+    System.out.println("jal " + functionName + "\nnop"); // jump and link 
+    current_switch_context.poll();
+    return "u";
   }
 
   // end of function contexts
@@ -229,8 +264,39 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
 
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // parameters, initalizatiors, arguments
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // single parameter declaration in function declaration
+  // should later add to param_count based on type for stack resizing
+  @Override
+  public String visitDecParamDec(CParser.DecParamDecContext ctx){
+    param_count += 1;
+    this.visitChildren(ctx);
+    return "";
+  }
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // function invocation arguments
+  @Override
+  public String visitSingleArgExprList(CParser.SingleArgExprListContext ctx) { 
+    Integer currentArgumentCount = current_switch_context.poll();
+    this.visit(ctx.expr); // value is in $v0. Only bottom part of stack is being used
+    System.out.println("sw $v0 " + 4*currentArgumentCount + "($sp)");
+    current_switch_context.add(currentArgumentCount-1);
+    return "";
+  }
+
+  @Override
+  public String visitMultArgExprList(CParser.MultArgExprListContext ctx) { 
+    Integer currentArgumentCount = current_switch_context.poll();
+    this.visit(ctx.expr); // value is in $v0. Only bottom part of stack is being used
+    System.out.println("sw $v0 " + 4*currentArgumentCount + "($sp)");
+    current_switch_context.add(currentArgumentCount-1);
+    this.visit(ctx.args);
+    return "";
+  }
 
 
 
@@ -248,15 +314,17 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
     System.out.println("ori $v0, $zero, " + ctx.val.getText());
-    return "DONE";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
   // variable identifier
   @Override
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
-    System.out.println("lw $v0, " + -4*table.get(ctx.id.getText())+ "($sp)");
-    return "DONE";
+    String id = ctx.id.getText();
+    if(table.containsKey(id))
+      System.out.println("lw $v0, " + -4*table.get(id)+ "($sp)"); // for now functions are not stored in table, only variables (since a function and a variable can have the same name)
+    return id;  // return function name to caller (invoke in case of function at parent level)
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -268,7 +336,7 @@ public class CCompiler extends CBaseVisitor<String> {
     String varName = ctx.left.getText();
     System.out.println("sw $v0, " + -4*(mem) + "($sp)\t\t# \"" + varName + "\" was stored in " + String.format("0x%08X", -4*(mem)) + " on stack");
     table.put(varName, mem++);
-    return "DONE";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -277,9 +345,12 @@ public class CCompiler extends CBaseVisitor<String> {
   // default value to zero
   @Override
   public String visitTermInitDec(CParser.TermInitDecContext ctx){
-    System.out.println("sw $zero, " + -4*(mem) + "($sp)");
-    table.put(ctx.dec.getText(), mem++);
-    return "DONE";
+    String id = this.visit(ctx.dec);
+    if(!table.containsKey(id)){
+      table.put(id, mem++); // only store in table if not already there. Avoids storing functions IDs
+      System.out.println("sw $zero, " + -4*(mem) + "($sp)");
+    }
+    return "";
   }
 
   // end variable manipulation
@@ -295,7 +366,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitBreakJumpStat(CParser.BreakJumpStatContext ctx) {
     System.out.println("j " + current_break_context.peek() + "\nnop");
-    return "DONE";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -303,10 +374,17 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitContinueJumpStat(CParser.ContinueJumpStatContext ctx) {
     System.out.println("j " + current_continue_context.peek() + "\nnop");
-    return "DONE";
+    return "";
   }
 
-
+  ////////////////////////////////////////////////////////////////////////////////////
+  // return statement
+  @Override
+  public String visitReturnJumpStat(CParser.ReturnJumpStatContext ctx){
+    if(ctx.expr != null) this.visit(ctx.expr);
+    System.out.println("j " + current_return_context.peek() + "\nnop");
+    return "";
+  }
 
 
 
@@ -338,7 +416,7 @@ public class CCompiler extends CBaseVisitor<String> {
     this.visit(ctx.right);
     System.out.println("sw $v0, " + -4*mem + "($sp)");
     table.put(ctx.left.getText(), mem++);
-    return "DONE";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -359,7 +437,7 @@ public class CCompiler extends CBaseVisitor<String> {
     insertLabel(failEnd);
     System.out.println("addu $v0, $zero, $zero");
     insertLabel(successEnd);
-    return "DONE";
+    return "";
   }
   
   ////////////////////////////////////////////////////////////////////////////////////
@@ -368,7 +446,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpIncOrExpr(CParser.OpIncOrExprContext ctx){
     threeOp(ctx);
     System.out.println("or $v0, $t0, $t1");
-    return "Done";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -377,7 +455,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpExcOrExpr(CParser.OpExcOrExprContext ctx){
     threeOp(ctx);
     System.out.println("xor $v0, $t0, $t1");
-    return "Done";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -386,7 +464,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpAndExpr(CParser.OpAndExprContext ctx){
     threeOp(ctx);
     System.out.println("and $v0, $t0, $t1");
-    return "Done";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -404,7 +482,7 @@ public class CCompiler extends CBaseVisitor<String> {
       default:
         throwIllegalArgument(ctx.op.getText(), "OpShiftExpr");
     }
-    return "Done";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -427,7 +505,7 @@ public class CCompiler extends CBaseVisitor<String> {
       default:
         throwIllegalArgument(ctx.op.getText(), "OpMultExpr");
     }
-    return "DONE";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -440,7 +518,7 @@ public class CCompiler extends CBaseVisitor<String> {
     } else {
       System.out.println("sub $v0, $t0, $t1");
     }
-    return "DONE";
+    return "";
   }
 
   // end arithmetic and binary expressions
@@ -516,7 +594,7 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     System.out.println("sw $v0, " + -4*destination + "($sp)");
     
-    return "DONE";
+    return "";
   }
 
   // end assignment operator
@@ -553,7 +631,7 @@ public class CCompiler extends CBaseVisitor<String> {
       default:
         throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
     }
-    return "DONE";
+    return "";
   }
 
 
@@ -574,7 +652,7 @@ public class CCompiler extends CBaseVisitor<String> {
         throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
     }
 
-    return "DONE";
+    return "";
   }
 
   // end of comparison based expressions
@@ -614,7 +692,7 @@ public class CCompiler extends CBaseVisitor<String> {
       System.out.println("nop");
     }
     insertLabel(endLabel);
-    return "DONE";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -641,7 +719,7 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
     current_break_context.poll();
-    return "DONE";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -667,7 +745,7 @@ public class CCompiler extends CBaseVisitor<String> {
       this.visit(ctx.exec);
       enter_parent = true;
     }
-    return "Done";
+    return "";
   }
 
   //The two possible for conditions. NOTE: can edit grammar to avoid repetition
@@ -695,7 +773,7 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
     current_break_context.poll();
-    return "Done";
+    return "";
   }
 
   @Override
@@ -722,7 +800,7 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
     current_break_context.poll();
-    return "Done";
+    return "";
   }
 
    ////////////////////////////////////////////////////////////////////////////////////
@@ -740,7 +818,7 @@ public class CCompiler extends CBaseVisitor<String> {
     insertLabel(endLabel);
     current_break_context.poll();
     current_switch_context.poll();
-    return "DONE";
+    return "";
   }
 
 
@@ -757,7 +835,7 @@ public class CCompiler extends CBaseVisitor<String> {
     //if break appears during exec, jump to end
     insertLabel(endLabel); 
 
-    return "DONE";
+    return "";
   }
 
   //Default case
@@ -770,7 +848,7 @@ public class CCompiler extends CBaseVisitor<String> {
     //if break appears during switch selec stat, jump to endLabel. recommend global var.
     insertLabel(endLabel); 
 
-    return "DONE";
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -785,28 +863,28 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitQArrDirDec(CParser.QArrDirDecContext ctx){ 
     System.out.println("Inside Qarr");
-    return "DONE";
+    return "u";
   }
 
   //TODO: static qualifier array implementation
   @Override
   public String visitSqArrDirDec(CParser.SqArrDirDecContext ctx){ 
     System.out.println("Inside SqArr");
-    return "DONE";
+    return "u";
   }
 
   //TODO: qualifier static array implementation
   @Override
   public String visitQsArrDirDec(CParser.QsArrDirDecContext ctx){ 
     System.out.println("Inside QsArr");
-    return "DONE";
+    return "u";
   }
 
   //TODO: dynamic array implementation
   @Override
   public String visitEArrDirDec(CParser.EArrDirDecContext ctx){ 
     System.out.println("Inside EArr");
-    return "DONE";
+    return "u";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -828,6 +906,7 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     CCompiler compiler = new CCompiler(debug);
     compiler.visit(tree);
+    System.err.println(compiler.table);
   }
 
 }
