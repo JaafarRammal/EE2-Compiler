@@ -260,7 +260,7 @@ public class CCompiler extends CBaseVisitor<String> {
     current_switch_context.add(argsCount-1); // save the count state for parameters (for nested cases like f(g(1), h(2, 3)) where another function gets ready for parameters). -1 because index starts at 0
     if(ctx.args != null) this.visit(ctx.args); // get parameters
     for(int i=0; i<4 && i<argsCount; i++){  // store parameters in $a0-$a3
-      System.out.println("lw $a"+ i + " " + 4*i + "($sp)");
+      System.out.println("lw $a"+ i + ", " + 4*i + "($sp)");
     }
     System.out.println("jal " + functionName + "\nnop"); // jump and link 
     current_switch_context.poll();
@@ -292,7 +292,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitSingleArgExprList(CParser.SingleArgExprListContext ctx) { 
     Integer currentArgumentCount = current_switch_context.poll();
     this.visit(ctx.expr); // value is in $v0. Only bottom part of stack is being used
-    System.out.println("sw $v0 " + 4*currentArgumentCount + "($sp)");
+    System.out.println("sw $v0, " + 4*currentArgumentCount + "($sp)");
     current_switch_context.add(currentArgumentCount-1);
     return "";
   }
@@ -301,7 +301,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitMultArgExprList(CParser.MultArgExprListContext ctx) { 
     Integer currentArgumentCount = current_switch_context.poll();
     this.visit(ctx.expr); // value is in $v0. Only bottom part of stack is being used
-    System.out.println("sw $v0 " + 4*currentArgumentCount + "($sp)");
+    System.out.println("sw $v0, " + 4*currentArgumentCount + "($sp)");
     current_switch_context.add(currentArgumentCount-1);
     this.visit(ctx.args);
     return "";
@@ -332,7 +332,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
     String id = ctx.id.getText();
     if(table.containsKey(id))
-      System.out.println("lw $v0, " + -4*table.get(id)+ "($sp)"); // for now functions are not stored in table, only variables (since a function and a variable can have the same name)
+      System.out.println("lw $v0, " + -4*table.get(id)+ "($fp)"); // for now functions are not stored in table, only variables (since a function and a variable can have the same name)
     return id;  // return function name to caller (invoke in case of function at parent level)
   }
 
@@ -606,7 +606,7 @@ public class CCompiler extends CBaseVisitor<String> {
       default:
         throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
     }
-    System.out.println("sw $v0, " + -4*destination + "($sp)");
+    System.out.println("sw $v0, " + -4*destination + "($fp)");
     
     return "";
   }
