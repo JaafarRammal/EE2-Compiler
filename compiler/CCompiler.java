@@ -190,16 +190,24 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
     String functionName = this.visit(ctx.func_dec);
+    if(ctx.dec_list != null) this.visit(ctx.dec_list); // this is to intialize the function in the symbol table as well... for other functions and for its own good
     current_return_context.add("_return_" + functionName);
     System.out.println("# " + functionName + ": function full");
     insertLabel(functionName);
     System.out.println("\t.set noreorder\n\t.text\n\t.align 2\n\t.globl " + functionName);
     if(!functionName.equals("main")){
-      System.out.println("# store function arguments\nsw $a0, 0($sp)\nsw $a1, 4($sp)\nsw $a2, 8($sp)\nsw $a3, 12($sp)\n");
+      System.out.println("# store function arguments\nsw $a0, 0($sp)\nsw $a1, 4($sp)\nsw $a2, 8($sp)\nsw $a3, 12($sp)\n"); // store arguments on main stack
+      System.out.println("move $t0, $sp"); // remember where the stack pointer was
     }
     System.out.println("# " + functionName + ": function entry");
     // figure 1: get function header ready
     System.out.println("addiu $sp, $sp, -12\nsw $fp, 4($sp)\nsw $ra, 8($sp)\nmove $fp, $sp\n");
+    // now load all input parameters on the function stack
+    mem = 0; // REMOVE LATER. USE SYMBOLE TABLE
+    for(int i=0; i<param_count; i++){
+      System.out.println("lw $t1, " + 4*i + "($t0)");
+      System.out.println("sw $t1, " + -4*(mem++) + "($sp)");
+    }
     System.out.println("# " + functionName + ": function body");
     this.visit(ctx.comp_stat);
     insertLabel("# " + functionName + ": function return\n_return_" + functionName);
@@ -273,7 +281,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitDecParamDec(CParser.DecParamDecContext ctx){
     param_count += 1;
-    this.visitChildren(ctx);
+    this.visit(ctx.spec);
+    table.put(this.visit(ctx.dec), mem++);
     return "";
   }
 
@@ -411,11 +420,16 @@ public class CCompiler extends CBaseVisitor<String> {
     String failEnd = makeName("logical_or_fail");
 
     this.visit(ctx.left);
-    System.out.println("bne $v0, $zero, " + successEnd + "\nnop"); // if left is non-zero, return true
+    System.out.println("bne $v0, $zero, " + successEnd + "\nnop"); // if left is zero, return false
 
     this.visit(ctx.right);
-    System.out.println("sw $v0, " + -4*mem + "($sp)");
-    table.put(ctx.left.getText(), mem++);
+    System.out.println("bne $v0, $zero, " + successEnd + "\nnop"); // if right is zero, return false
+
+    System.out.println("addu $v0, $zero, $zero"); // both weren't zero, return true
+    System.out.println("j " + failEnd + "\nnop");
+    insertLabel(successEnd);
+    System.out.println("addiu $v0, $zero, 1");
+    insertLabel(failEnd);
     return "";
   }
 
