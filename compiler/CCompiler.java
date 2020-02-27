@@ -15,7 +15,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   int mem; 
   int label_id; // for unique identification of each label (branch)
-  Map<String, Integer> table = new HashMap<String, Integer>();
+  // Map<String, Integer> table = new HashMap<String, Integer>();
   boolean debug = false;
   boolean enter_parent = false;
   int param_count = 0;  // count parameters for function definition. No nested cases
@@ -29,6 +29,26 @@ public class CCompiler extends CBaseVisitor<String> {
   Queue<String> current_continue_context = new LinkedList<>();   // Continue: while / for          (continue_context)
   Queue<String> current_return_context = new LinkedList<>();   // Return: functions              (return_context)
   Queue<Integer> current_switch_context = new LinkedList<>(); // Informs us of memory location of switch. Used for nested switches
+
+  // symbol table
+  /*
+  Two tables: one for global variables and one for scopes
+  - Global variables include the function declaration and any variable declaration outside a scope (even structs, global arrays, etc...)
+  - A queue of tables (Level A) that resets whenever we enter a new function code gen:
+    - The queue has B-table that act like our previous implementation (hashmaps)
+    - When entering a new scope within an A-table, we copy the content of the precedent table (so no need to recurse back within the queue)
+  - When looking for a variable:
+    - check the scope's B-table
+    - if still not found, look into the globalTable
+  */
+
+  Map<String, Integer> globalTable = new HashMap<String, Integer>();
+  Queue<Map<String, Integer>> functionTable = new LinkedList<>();
+
+  /*
+  Operations on ATables queue:
+  - Init a new 
+  */
 
 
   CCompiler(boolean d) {
@@ -94,9 +114,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // $t1 has right
   public String threeOp(ParserRuleContext ctx){
 
-    // NEEDS STACK IMPLEMENT OF THE $SP
-    // WILL BE ADDED LATER
-    // FOR NOW REFER TO MEM AS AN OFFSET ON THE STACK
+    // Mem is stack offset
 
     this.visit(ctx.getChild(0));
     System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
@@ -154,6 +172,48 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println(label + ":");
   }
 
+  // extend symbol table to new scope
+  public void extendSymbolTable(){
+    if(debug) System.out.println("\t\t\t\t# Table was " + functionTable); 
+    Map<String, Integer> extension = new HashMap<String, Integer>();
+    Map<String, Integer> current = functionTable.peek();
+    if(current != null) extension.putAll(current);
+    functionTable.add(extension);
+    if(debug) System.out.println("\t\t\t\t# Table is " + functionTable); 
+  }
+
+  // remove from symbol table when leaving scope
+  public void removeSymbolTable(){
+    if(debug) System.out.println("\t\t\t\t# Table was " + functionTable); 
+    functionTable.poll();
+    if(debug) System.out.println("\t\t\t\t# Table is " + functionTable);
+  }
+
+  // clear symbol table when leaving function
+  public void clearSymbolTable(){
+    if(debug) System.out.println("\t\t\t\t# Table was " + functionTable); 
+    functionTable.clear();
+    if(debug) System.out.println("\t\t\t\t# Table is " + functionTable); 
+  }
+
+  // get ID object from symbol table
+  public int getIDSymbolTable(String id){
+    Integer val = globalTable.get(id); // just to init
+    if(functionTable.peek() != null){
+      val = functionTable.peek().get(id);
+      if(val == null) val = globalTable.get(id);
+      return val;
+    }
+    if(debug) System.out.println("\t\t\t\t#Returning " + val + " for ID " + id);
+    return val;
+  }
+
+  // set ID object in symbol table
+  public void setIDSymbolTable(String id, Integer val){
+    if(functionTable.peek() != null) functionTable.peek().put(id, val);
+    else globalTable.put(id, val);
+  }
+
   // END OF HELPERS AND COMMON FUNCTIONS
   ////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////
@@ -188,10 +248,13 @@ public class CCompiler extends CBaseVisitor<String> {
   .----------.
   20...(LOW)
 
+  Note that in our implementation, we relatively offset to $sp. Therefore $sp is always at $fp unless preparing arguments
+
   */
 
   @Override
   public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
+    extendSymbolTable();
     String functionName = this.visit(ctx.func_dec);
     if(ctx.dec_list != null) this.visit(ctx.dec_list); // this is to intialize the function in the symbol table as well... for other functions and for its own good
     current_return_context.add("_return_" + functionName);
@@ -217,6 +280,7 @@ public class CCompiler extends CBaseVisitor<String> {
     // exit function: setback $fp and $sp as before. Get correct return address for subroutine
     System.out.println("move $sp, $fp\nlw $ra, 8($fp)\nlw $fp, 4($fp)\naddiu $sp, $sp, 12\njr $ra\nnop");
     current_return_context.poll();
+    clearSymbolTable(); // using remove means we did great xD test with remove later, should work
     return "";
   }
 
@@ -226,8 +290,9 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
 
-    table.put(ctx.id.getText(), mem);
-    table.put(Integer.toString(mem), 1);//TODO: replace value depending on variable type. e.g Double = 2;
+    setIDSymbolTable(ctx.id.getText(), mem);
+
+    setIDSymbolTable(Integer.toString(mem), 1);//TODO: replace value depending on variable type. e.g Double = 2;
     mem++;
 
     return ctx.id.getText();
@@ -240,7 +305,7 @@ public class CCompiler extends CBaseVisitor<String> {
     String functionName = this.visit(ctx.dec);
     param_count = 0;
     this.visit(ctx.paramL);
-    table.put(functionName, param_count);
+    globalTable.put(functionName, param_count);
     return functionName;
   }
 
@@ -251,7 +316,7 @@ public class CCompiler extends CBaseVisitor<String> {
     String functionName = this.visit(ctx.dec);
     param_count = 0;
     if(ctx.idL != null) this.visit(ctx.idL);
-    table.put(functionName, param_count);
+    globalTable.put(functionName, param_count);
     return functionName;
   }
 
@@ -263,7 +328,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitFuncInvocPostExpr(CParser.FuncInvocPostExprContext ctx){
     String functionName = this.visit(ctx.expr); // get function ID. From symbol table with type return later
-    int argsCount = table.get(functionName); // move the stack pointer accordingly
+    int argsCount = globalTable.get(functionName); // move the stack pointer accordingly
     mem += argsCount;
     System.out.println("addiu $sp, $sp, " + -4*mem); // secure memory locations for arguments
     current_switch_context.add(argsCount-1); // save the count state for parameters (for nested cases like f(g(1), h(2, 3)) where another function gets ready for parameters). -1 because index starts at 0
@@ -271,9 +336,9 @@ public class CCompiler extends CBaseVisitor<String> {
     for(int i=0; i<4 && i<argsCount; i++){  // store parameters in $a0-$a3
       System.out.println("lw $a"+ i + ", " + 4*i + "($sp)");
     }
-    System.out.println("jal " + functionName + "\nnop"); // jump and link 
+    System.out.println("jal " + functionName + "\nnop"); // jump and link
     current_switch_context.poll();
-    return "u";
+    return "";
   }
 
   // end of function contexts
@@ -291,8 +356,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitDecParamDec(CParser.DecParamDecContext ctx){
     param_count += 1;
     this.visit(ctx.spec);
-    System.out.println("DEC PARAM");
-    table.put(this.visit(ctx.dec), mem++);
+    setIDSymbolTable(this.visit(ctx.dec), mem++);
     return "";
   }
 
@@ -342,8 +406,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
     String id = ctx.id.getText();
-    if(table.containsKey(id))
-      System.out.println("lw $v0, " + -4*table.get(id)+ "($fp)"); // for now functions are not stored in table, only variables (since a function and a variable can have the same name)
+    System.out.println("lw $v0, " + -4*getIDSymbolTable(id)+ "($fp)"); // for now functions are not stored in table, only variables (since a function and a variable can have the same name)
     return id;  // return function name to caller (invoke in case of function at parent level)
   }
 
@@ -359,10 +422,6 @@ public class CCompiler extends CBaseVisitor<String> {
 
     int var_size = table.get(Integer.toString(table.get(id))); //getting size of variable ID
 
-    //String varName = ctx.left.getText();
-    //System.out.println("sw $v0, " + -4*(mem) + "($sp)\t\t# \"" + varName + "\" was stored in " + String.format("0x%08X", -4*(mem)) + " on stack");
-    //table.put(varName, mem++);
-    //in the case of int a[3] = {1}, it resets mem to correct value
     mem = initial_mem+var_size;
 
     return "";
@@ -375,10 +434,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitTermInitDec(CParser.TermInitDecContext ctx){
     String id = this.visit(ctx.dec);
-    if(!table.containsKey(id)){
-      table.put(id, mem++); // only store in table if not already there. Avoids storing functions IDs
-      System.out.println("sw $zero, " + -4*(mem) + "($sp)");
-    }
+    setIDSymbolTable(id, mem++); // overwrites variable in sub-context yey!
+    System.out.println("sw $zero, " + -4*(mem) + "($sp)");
     return "";
   }
 
@@ -592,7 +649,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpAssgnExpr(CParser.OpAssgnExprContext ctx) {
     // currently storing into int variable
     // will be modified later for arrays
-    Integer destination = table.get(ctx.left.getText());
+    Integer destination = getIDSymbolTable(ctx.left.getText());
     this.visit(ctx.right);
     // $v0 contains the value of whatever was on the right
     System.out.println("sw $v0, " + -4*(mem++) + "($sp)"); // push right on stack
@@ -724,6 +781,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitIfSelecStat(CParser.IfSelecStatContext ctx) {
+    extendSymbolTable();
     String falseExecLabel = makeName("if_stat_false");
     String endLabel = makeName("if_stat_end");
     this.visit(ctx.cond); // $v0 holds 0 or 1 from the condition
@@ -737,6 +795,7 @@ public class CCompiler extends CBaseVisitor<String> {
       System.out.println("nop");
     }
     insertLabel(endLabel);
+    removeSymbolTable();
     return "";
   }
 
@@ -754,6 +813,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitWhileIterStat(CParser.WhileIterStatContext ctx){
+    extendSymbolTable();
     String beginLabel = makeName("while_stat_begin");
     String endLabel = makeName("while_stat_end");
     current_break_context.add(endLabel);
@@ -764,6 +824,7 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
     current_break_context.poll();
+    removeSymbolTable();
     return "";
   }
 
@@ -787,8 +848,10 @@ public class CCompiler extends CBaseVisitor<String> {
       enter_parent = false;
       this.visit(ctx.cond);
     } else {
-      this.visit(ctx.exec);
       enter_parent = true;
+      extendSymbolTable();
+      this.visit(ctx.exec);
+      removeSymbolTable();
     }
     return "";
   }
@@ -853,6 +916,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitSwitchSelecStat(CParser.SwitchSelecStatContext ctx){ 
+    extendSymbolTable();
     String endLabel = makeName("switch_stat_end");
     current_break_context.add(endLabel);
     this.visit(ctx.cond); //switch value loaded into register 2 ($v0) 
@@ -863,12 +927,14 @@ public class CCompiler extends CBaseVisitor<String> {
     insertLabel(endLabel);
     current_break_context.poll();
     current_switch_context.poll();
+    removeSymbolTable();
     return "";
   }
 
 
   @Override
   public String visitCaseLabelStat(CParser.CaseLabelStatContext ctx){ 
+    extendSymbolTable();
     String endLabel = makeName("case_stat_end");
     int case_mem = current_switch_context.peek();
     this.visit(ctx.cond);
@@ -879,20 +945,20 @@ public class CCompiler extends CBaseVisitor<String> {
     if(ctx.skip != null) this.visit(ctx.skip); // add the break BEFORE the end label
     //if break appears during exec, jump to end
     insertLabel(endLabel); 
-
+    removeSymbolTable();
     return "";
   }
 
   //Default case
   @Override
   public String visitDefLabelStat(CParser.DefLabelStatContext ctx){ 
+    extendSymbolTable();
     String endLabel = makeName("case_stat_end");
-
     //execute default
     this.visit(ctx.exec);
     //if break appears during switch selec stat, jump to endLabel. recommend global var.
     insertLabel(endLabel); 
-
+    removeSymbolTable();
     return "";
   }
 
@@ -919,21 +985,14 @@ public class CCompiler extends CBaseVisitor<String> {
 
     //In case other function is already initialising it in the same scope
     if(!table.containsKey(id)){
-      table.put(id, mem);
+      setIDSymbolTable(id, mem);
       System.out.println("sw $zero, " + -4*(mem) + "($sp)");
     } else{ //update memory size
-      table.put(Integer.toString(table.get(id)), array_size);
+      setIDSymbolTable(Integer.toString(table.get(id)), array_size);
     }
 
-    //Point memory to register after array, doesn't matter what's inside memory location.
-    //mem += array_size;
-    // //initialize memory addresses to 0 s
-    // for(int i = 0;i<array_size;i++){
-    //   System.out.println("sw $zero, " + -4*(mem++) + "($sp)");
-    // }
-    // System.out.println(mem);
-    // System.out.println("END LOOP");
-    //SP now pointing to register after end of array
+    //We do not increment mem, as we want to point to beginning of array for init which happens on RHS.
+
     return id;
   }
 
@@ -977,8 +1036,10 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     CCompiler compiler = new CCompiler(debug);
     compiler.visit(tree);
-    System.err.println(compiler.table);
+    System.err.println("Global table: " + compiler.globalTable);
+    System.err.println("Function table: " + compiler.functionTable);
     System.out.println("Final mem: "+compiler.mem);
+
   }
 
 }
