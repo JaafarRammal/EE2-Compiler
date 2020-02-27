@@ -687,12 +687,12 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("xor $v0, $v0, $t2");
         break;
       case("/="):
-        System.out.println("div $v0");
-        System.out.println("mflo $v0, $t2");
+        System.out.println("div $v0, $t2");
+        System.out.println("mflo $v0");
         break;
       case("%="):
-        System.out.println("div $v0");
-        System.out.println("mfhi $v0, $t2");
+        System.out.println("div $v0, $t2");
+        System.out.println("mfhi $v0");
         break;
       default:
         throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
@@ -1043,7 +1043,7 @@ public class CCompiler extends CBaseVisitor<String> {
     compiler.visit(tree);
     System.err.println("Global table: " + compiler.globalTable);
     System.err.println("Function table: " + compiler.functionTable);
-    System.out.println("Final mem: "+compiler.mem);
+    System.err.println("Final mem: "+compiler.mem);
 
   }
 
