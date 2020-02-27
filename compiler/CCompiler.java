@@ -198,6 +198,10 @@ public class CCompiler extends CBaseVisitor<String> {
 
   // get ID object from symbol table
   public int getIDSymbolTable(String id){
+    // - When looking for a variable:
+    // - check the scope's B-table
+    // - if still not found, look into the globalTable
+    
     Integer val = globalTable.get(id); // just to init
     if(functionTable.peek() != null){
       val = functionTable.peek().get(id);
@@ -291,9 +295,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
 
     setIDSymbolTable(ctx.id.getText(), mem);
-
     setIDSymbolTable(Integer.toString(mem), 1);//TODO: replace value depending on variable type. e.g Double = 2;
-    mem++;
 
     return ctx.id.getText();
   }
@@ -420,7 +422,8 @@ public class CCompiler extends CBaseVisitor<String> {
 
     this.visit(ctx.right);
 
-    int var_size = table.get(Integer.toString(table.get(id))); //getting size of variable ID
+    int mem_loc = getIDSymbolTable(id);
+    int var_size = getIDSymbolTable(Integer.toString(mem_loc)); //getting size of variable ID
 
     mem = initial_mem+var_size;
 
@@ -984,11 +987,13 @@ public class CCompiler extends CBaseVisitor<String> {
     String id = this.visit(ctx.dec);
 
     //In case other function is already initialising it in the same scope
-    if(!table.containsKey(id)){
+    Integer mem_loc = getIDSymbolTable(id);
+    if(mem_loc==null){
       setIDSymbolTable(id, mem);
       System.out.println("sw $zero, " + -4*(mem) + "($sp)");
     } else{ //update memory size
-      setIDSymbolTable(Integer.toString(table.get(id)), array_size);
+      setIDSymbolTable(id, mem);
+      setIDSymbolTable(Integer.toString(mem_loc), array_size);
     }
 
     //We do not increment mem, as we want to point to beginning of array for init which happens on RHS.
