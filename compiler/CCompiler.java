@@ -19,6 +19,7 @@ public class CCompiler extends CBaseVisitor<String> {
   boolean debug = false;
   boolean enter_parent = false;
   int param_count = 0;  // count parameters for function definition. No nested cases
+  int dec_size; 
 
   // Break: switch / while / for    (break_context)
   // Continue: while / for          (continue_context)
@@ -35,6 +36,8 @@ public class CCompiler extends CBaseVisitor<String> {
     label_id = 0;
     debug = d;
     enter_parent = true;
+    dec_size = 0;
+
     
     // scratch[0] = "$t0";
     // scratch[1] = "$t1";
@@ -203,7 +206,7 @@ public class CCompiler extends CBaseVisitor<String> {
     // figure 1: get function header ready
     System.out.println("addiu $sp, $sp, -12\nsw $fp, 4($sp)\nsw $ra, 8($sp)\nmove $fp, $sp\n");
     // now load all input parameters on the function stack
-    mem = 0; // REMOVE LATER. USE SYMBOLE TABLE
+    mem = 0; // REMOVE LATER. USE SYMBOL TABLE
     for(int i=0; i<param_count; i++){
       System.out.println("lw $t1, " + 4*i + "($t0)");
       System.out.println("sw $t1, " + -4*(mem++) + "($sp)");
@@ -218,9 +221,15 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
-  // function name (id) retrieved
+  // The ID of any direct declaration, i.e. int a = 1;
+  // LHS of direct declaration retrieved, returns ID
   @Override
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
+
+    table.put(ctx.id.getText(), mem);
+    table.put(Integer.toString(mem), 1);//TODO: replace value depending on variable type. e.g Double = 2;
+    mem++;
+
     return ctx.id.getText();
   }
 
@@ -282,6 +291,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitDecParamDec(CParser.DecParamDecContext ctx){
     param_count += 1;
     this.visit(ctx.spec);
+    System.out.println("DEC PARAM");
     table.put(this.visit(ctx.dec), mem++);
     return "";
   }
@@ -319,11 +329,12 @@ public class CCompiler extends CBaseVisitor<String> {
   // VARIABLES MANIPULATIONS
 
   ////////////////////////////////////////////////////////////////////////////////////
-  // integer constant node
+  // integer constant node. Returns value
   @Override
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
-    System.out.println("ori $v0, $zero, " + ctx.val.getText());
-    return "";
+    String intConst_val = ctx.val.getText();
+    System.out.println("ori $v0, $zero, " + intConst_val);
+    return intConst_val;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -341,10 +352,19 @@ public class CCompiler extends CBaseVisitor<String> {
   // TYPE ID = VAL
   @Override
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
+    String id = this.visit(ctx.left);
+    int initial_mem = mem;
+
     this.visit(ctx.right);
-    String varName = ctx.left.getText();
-    System.out.println("sw $v0, " + -4*(mem) + "($sp)\t\t# \"" + varName + "\" was stored in " + String.format("0x%08X", -4*(mem)) + " on stack");
-    table.put(varName, mem++);
+
+    int var_size = table.get(Integer.toString(table.get(id))); //getting size of variable ID
+
+    //String varName = ctx.left.getText();
+    //System.out.println("sw $v0, " + -4*(mem) + "($sp)\t\t# \"" + varName + "\" was stored in " + String.format("0x%08X", -4*(mem)) + " on stack");
+    //table.put(varName, mem++);
+    //in the case of int a[3] = {1}, it resets mem to correct value
+    mem = initial_mem+var_size;
+
     return "";
   }
 
@@ -359,6 +379,17 @@ public class CCompiler extends CBaseVisitor<String> {
       table.put(id, mem++); // only store in table if not already there. Avoids storing functions IDs
       System.out.println("sw $zero, " + -4*(mem) + "($sp)");
     }
+    return "";
+  }
+
+  //Initializing a variable in an initializer list
+  //I.e. {4, 3, 2} - 4, 3, 2 each will have single call to AssgnInit
+  @Override
+  public String visitAssgnInit(CParser.AssgnInitContext ctx){
+    this.visit(ctx.expr); //evaluate expression
+    System.out.println("sw $v0, " + -4*(mem) + "($sp)");
+    mem++; 
+
     return "";
   }
 
@@ -874,11 +905,36 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // Array declarations
   
+  //i.e. int a[3];  
+  //returns ID, to be evalutated in OpInit
   @Override
   public String visitQArrDirDec(CParser.QArrDirDecContext ctx){ 
-    
-    System.out.println("Inside Qarr");
-    return "u";
+
+    //Evaluates expression -> adds constant in $v0
+    String primary_expression_string = this.visit(ctx.expr);
+    int array_size = Integer.parseInt(primary_expression_string);			
+
+    //Store start of array in symbol table
+    String id = this.visit(ctx.dec);
+
+    //In case other function is already initialising it in the same scope
+    if(!table.containsKey(id)){
+      table.put(id, mem);
+      System.out.println("sw $zero, " + -4*(mem) + "($sp)");
+    } else{ //update memory size
+      table.put(Integer.toString(table.get(id)), array_size);
+    }
+
+    //Point memory to register after array, doesn't matter what's inside memory location.
+    //mem += array_size;
+    // //initialize memory addresses to 0 s
+    // for(int i = 0;i<array_size;i++){
+    //   System.out.println("sw $zero, " + -4*(mem++) + "($sp)");
+    // }
+    // System.out.println(mem);
+    // System.out.println("END LOOP");
+    //SP now pointing to register after end of array
+    return id;
   }
 
   //TODO: static qualifier array implementation
@@ -922,6 +978,7 @@ public class CCompiler extends CBaseVisitor<String> {
     CCompiler compiler = new CCompiler(debug);
     compiler.visit(tree);
     System.err.println(compiler.table);
+    System.out.println("Final mem: "+compiler.mem);
   }
 
 }
