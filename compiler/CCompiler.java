@@ -1012,7 +1012,7 @@ public class CCompiler extends CBaseVisitor<String> {
       setIDSymbolTable(mem_loc, array_size);
     }
 
-    //mem = initial_mem + array_size; 
+    mem = initial_mem + array_size; 
 
     return id;
   }
@@ -1059,7 +1059,7 @@ public class CCompiler extends CBaseVisitor<String> {
     compiler.visit(tree);
     System.err.println("Global table: " + compiler.globalTable);
     System.err.println("Function table: " + compiler.functionTable);
-    System.out.println("Final mem: "+compiler.mem);
+    System.out.println("Final mem offset: "+compiler.mem);
 
   }
 
