@@ -289,13 +289,19 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
-  // The ID of any direct declaration, i.e. int a = 1;
+  // The ID of any direct declaration, i.e. int a = 1; or int a;
   // LHS of direct declaration retrieved, returns ID
   @Override
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
 
+    System.out.println("IDDIRDEC: UPDATING ID " + ctx.id.getText() + " MEM "+ mem);
+    System.out.println("IDDIRDEC: UPDATING MEM_LOC " + mem + " Var SIZE "+ 1);
+
     setIDSymbolTable(ctx.id.getText(), mem);
     setIDSymbolTable(Integer.toString(mem), 1);//TODO: replace value depending on variable type. e.g Double = 2;
+    System.out.println("sw $zero, " + -4*(mem) + "($sp)");
+
+    mem++;
 
     return ctx.id.getText();
   }
@@ -358,6 +364,8 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitDecParamDec(CParser.DecParamDecContext ctx){
     param_count += 1;
     this.visit(ctx.spec);
+
+    System.out.println("DECPARAMDEC: UPDATING ID " + this.visit(ctx.dec) + " MEM "+ mem);
     setIDSymbolTable(this.visit(ctx.dec), mem++);
     return "";
   }
@@ -408,7 +416,10 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
     String id = ctx.id.getText();
-    System.out.println("lw $v0, " + -4*getIDSymbolTable(id)+ "($fp)"); // for now functions are not stored in table, only variables (since a function and a variable can have the same name)
+    Integer mem_loc = getIDSymbolTable(id);
+    if(mem_loc != null){
+      System.out.println("lw $v0, " + -4*getIDSymbolTable(id)+ "($fp)"); // for now functions are not stored in table, only variables (since a function and a variable can have the same name)
+    }
     return id;  // return function name to caller (invoke in case of function at parent level)
   }
 
@@ -425,7 +436,7 @@ public class CCompiler extends CBaseVisitor<String> {
     int mem_loc = getIDSymbolTable(id);
     int var_size = getIDSymbolTable(Integer.toString(mem_loc)); //getting size of variable ID
 
-    mem = initial_mem+var_size;
+   // mem = initial_mem+var_size;
 
     return "";
   }
@@ -437,8 +448,10 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitTermInitDec(CParser.TermInitDecContext ctx){
     String id = this.visit(ctx.dec);
-    setIDSymbolTable(id, mem++); // overwrites variable in sub-context yey!
-    System.out.println("sw $zero, " + -4*(mem) + "($sp)");
+
+    // System.out.println("Term Init: UPDATING ID " + id + " MEM "+ mem);
+    // setIDSymbolTable(id, mem++); // overwrites variable in sub-context yey!
+    // System.out.println("sw $zero, " + -4*(mem) + "($sp)");
     return "";
   }
 
@@ -981,22 +994,25 @@ public class CCompiler extends CBaseVisitor<String> {
 
     //Evaluates expression -> adds constant in $v0
     String primary_expression_string = this.visit(ctx.expr);
+    int initial_mem = mem;
     int array_size = Integer.parseInt(primary_expression_string);			
 
     //Store start of array in symbol table
     String id = this.visit(ctx.dec);
 
     //In case other function is already initialising it in the same scope
-    Integer mem_loc = getIDSymbolTable(id);
+    String mem_loc = Integer.toString(getIDSymbolTable(id));
+    System.out.println("MEM LOC IS "+mem_loc);
     if(mem_loc==null){
+      System.out.println("MEM LOC IS NULL");
       setIDSymbolTable(id, mem);
       System.out.println("sw $zero, " + -4*(mem) + "($sp)");
     } else{ //update memory size
-      setIDSymbolTable(id, mem);
-      setIDSymbolTable(Integer.toString(mem_loc), array_size);
+      System.out.println("UPDATING MEM_LOC " + mem_loc + " ARRAY SIZE "+ array_size);
+      setIDSymbolTable(mem_loc, array_size);
     }
 
-    //We do not increment mem, as we want to point to beginning of array for init which happens on RHS.
+    //mem = initial_mem + array_size; 
 
     return id;
   }
