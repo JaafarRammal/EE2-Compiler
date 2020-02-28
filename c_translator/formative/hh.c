@@ -2,7 +2,7 @@ int main()
 {
 	int y;
 	int x=5;
-	int s;
+	int s=0;
 	y=((x+s-x)/x)*x;
 	while(y<25) {
 
