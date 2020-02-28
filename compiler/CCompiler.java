@@ -443,7 +443,8 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("sw $zero, " + -4*(mem++) + "($sp)");
     return "";
   }
-
+  
+  ////////////////////////////////////////////////////////////////////////////////////
   //Initializing a variable in an initializer list
   //I.e. {4, 3, 2} - 4, 3, 2 each will have single call to AssgnInit
   @Override
@@ -453,6 +454,40 @@ public class CCompiler extends CBaseVisitor<String> {
     mem++; 
 
     return "";
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // unary manipulation
+  // ADD POINTERS IMPLEMENTATION HERE
+  @Override
+  public String visitCastUnaryExpr(CParser.CastUnaryExprContext ctx){
+    this.visit(ctx.right);
+    String unaryOp = this.visit(ctx.left);
+    switch(unaryOp){
+      case "+":
+        break;
+      case "-":
+        System.out.println("subu $v0, $zero, $v0"); // return v0 becomes -v0
+        break;
+      case "~":
+        System.out.println("not $v0, $v0"); // ~v0 = bitwiseNOT($v0)
+        break;
+      case "!":
+        System.out.println("seq $v0, $v0, $zero"); // !v0 = $v0 == 0 ? 1 : 0
+        break;
+      case "&":
+        break;
+      case "*":
+        break;
+      default:
+        throwIllegalArgument(unaryOp, "CastUnaryExpr");
+    }
+    return "";
+  }
+
+  @Override
+  public String visitUnaryOperator(CParser.UnaryOperatorContext ctx) { 
+    return ctx.op.getText(); 
   }
 
   // end variable manipulation
@@ -728,11 +763,11 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("slt $v0, $t0, $t1"); // left < right
         break;
       case "<=":
-        System.out.println("slt $v0, $t1, $t0"); // right < left
+        System.out.println("slt $v0, $t0, $t1"); // right < left
         System.out.println("or $v0, $v0, $t2"); // right <= left
         break;
       case ">=": 
-        System.out.println("slt $v0, $t0, $t1"); // left < right
+        System.out.println("slt $v0, $t1, $t0"); // left < right
         System.out.println("or $v0, $v0, $t2"); // left <= right
         break;
       default:
