@@ -206,7 +206,6 @@ public class CCompiler extends CBaseVisitor<String> {
     if(functionTable.peek() != null){
       val = functionTable.peek().get(id);
       if(val == null) val = globalTable.get(id);
-      return val;
     }
     if(debug) System.out.println("\t\t\t\t#Returning " + val + " for ID " + id);
     return val;
@@ -330,16 +329,19 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitFuncInvocPostExpr(CParser.FuncInvocPostExprContext ctx){
     String functionName = this.visit(ctx.expr); // get function ID. From symbol table with type return later
-    int argsCount = globalTable.get(functionName); // move the stack pointer accordingly
-    mem += argsCount;
-    System.out.println("addiu $sp, $sp, " + -4*mem); // secure memory locations for arguments
-    current_switch_context.add(argsCount-1); // save the count state for parameters (for nested cases like f(g(1), h(2, 3)) where another function gets ready for parameters). -1 because index starts at 0
+    int argsCount = globalTable.get(functionName); // prepare to move the stack pointer accordingly
+    mem += Math.min(4, argsCount)+1; // allocate at least 4 locations as subroutine is allowed to write over the 4 arguments
+    // current_switch_context.add(argsCount-1); // save the count state for parameters (for nested cases like f(g(1), h(2, 3)) where another function gets ready for parameters). -1 because index starts at 0
+    current_switch_context.add(0); // start at offset zero in the argument context
+    System.out.println("addiu $sp, $sp, " + -4*(++mem)); // secure memory locations for arguments
     if(ctx.args != null) this.visit(ctx.args); // get parameters
     for(int i=0; i<4 && i<argsCount; i++){  // store parameters in $a0-$a3
       System.out.println("lw $a"+ i + ", " + 4*i + "($sp)");
     }
     System.out.println("jal " + functionName + "\nnop"); // jump and link
+    System.out.println("addiu $sp, $sp, " + 4*(mem--)); // restore stack
     current_switch_context.poll();
+    mem -= Math.min(4, argsCount)+1;
     return "";
   }
 
@@ -369,7 +371,7 @@ public class CCompiler extends CBaseVisitor<String> {
     Integer currentArgumentCount = current_switch_context.poll();
     this.visit(ctx.expr); // value is in $v0. Only bottom part of stack is being used
     System.out.println("sw $v0, " + 4*currentArgumentCount + "($sp)");
-    current_switch_context.add(currentArgumentCount-1);
+    current_switch_context.add(currentArgumentCount+1);
     return "";
   }
 
@@ -378,7 +380,7 @@ public class CCompiler extends CBaseVisitor<String> {
     Integer currentArgumentCount = current_switch_context.poll();
     this.visit(ctx.expr); // value is in $v0. Only bottom part of stack is being used
     System.out.println("sw $v0, " + 4*currentArgumentCount + "($sp)");
-    current_switch_context.add(currentArgumentCount-1);
+    current_switch_context.add(currentArgumentCount+1);
     this.visit(ctx.args);
     return "";
   }
@@ -437,8 +439,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitTermInitDec(CParser.TermInitDecContext ctx){
     String id = this.visit(ctx.dec);
-    setIDSymbolTable(id, mem++); // overwrites variable in sub-context yey!
-    System.out.println("sw $zero, " + -4*(mem) + "($sp)");
+    setIDSymbolTable(id, mem); // overwrites variable in sub-context yey!
+    System.out.println("sw $zero, " + -4*(mem++) + "($sp)");
     return "";
   }
 
@@ -687,12 +689,12 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("xor $v0, $v0, $t2");
         break;
       case("/="):
-        System.out.println("div $v0");
-        System.out.println("mflo $v0, $t2");
+        System.out.println("div $v0, $t2");
+        System.out.println("mflo $v0");
         break;
       case("%="):
-        System.out.println("div $v0");
-        System.out.println("mfhi $v0, $t2");
+        System.out.println("div $v0, $t2");
+        System.out.println("mfhi $v0");
         break;
       default:
         throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
@@ -1043,7 +1045,7 @@ public class CCompiler extends CBaseVisitor<String> {
     compiler.visit(tree);
     System.err.println("Global table: " + compiler.globalTable);
     System.err.println("Function table: " + compiler.functionTable);
-    System.out.println("Final mem: "+compiler.mem);
+    System.err.println("Final mem: "+compiler.mem);
 
   }
 
