@@ -1044,7 +1044,29 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
+  // one line conditional
+  @Override
+  public String visitConditionalExpression(CParser.ConditionalExpressionContext ctx) { 
+    this.visit(ctx.cond); // $v0 holds 0 or 1 from the condition if a conditional
+    if(ctx.true_exec != null){
+      extendSymbolTable();
+      String falseExecLabel = makeName("if_stat_false");
+      String endLabel = makeName("if_stat_end");
+      System.out.println("beq $v0, $zero, " + falseExecLabel + "\nnop");
+      this.visit(ctx.true_exec);
+      System.out.println("j " + endLabel + "\nnop");
+      insertLabel(falseExecLabel);
+      this.visit(ctx.false_exec);
+      System.out.println("nop");
+      insertLabel(endLabel);
+      removeSymbolTable();
+    }
+    return "";
+  }
+
+  
   // end of scoped contexts
+  ////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////
 
 
