@@ -495,6 +495,12 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
 
 
+
+
+
+
+
+
   ////////////////////////////////////////////////////////////////////////////////////
   // jump statements
 
@@ -523,11 +529,9 @@ public class CCompiler extends CBaseVisitor<String> {
     return "";
   }
 
-
-
-
-
-
+  // end jump statements
+  ////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -669,6 +673,24 @@ public class CCompiler extends CBaseVisitor<String> {
     Integer offset = getIDSymbolTable(this.visit(ctx.expr)); // get variable location
     switch(ctx.op.getText()){
       case("++"):
+        System.out.println("addi $t1, $v0, 1");
+        break;
+      case("--"):
+        System.out.println("addi $t1, $v0, -1");
+        break;
+      default:
+        throwIllegalArgument(ctx.op.getText(), "IncrPostExpr");
+    }
+    
+    System.out.println("sw $t1, " + -4*offset + "($fp)");
+    return ""; 
+  }
+
+  @Override
+  public String visitPreIncUnaryExpr(CParser.PreIncUnaryExprContext ctx) { 
+    Integer offset = getIDSymbolTable(this.visit(ctx.expr)); // get variable location
+    switch(ctx.op.getText()){
+      case("++"):
         System.out.println("addi $v0, $v0, 1");
         break;
       case("--"):
@@ -680,7 +702,7 @@ public class CCompiler extends CBaseVisitor<String> {
     
     System.out.println("sw $v0, " + -4*offset + "($fp)");
     return ""; 
-  }  
+  } 
 
   // end arithmetic and binary expressions
   ////////////////////////////////////////////////////////////////////////////////////

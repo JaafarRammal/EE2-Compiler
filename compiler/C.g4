@@ -45,8 +45,7 @@ argumentExpressionList
 
 unaryExpression
     :   expr=postfixExpression                                  #postUnaryExpr
-    |   '++' expr=unaryExpression                               #preIncUnaryExpr
-    |   '--' expr=unaryExpression                               #preDecUnaryExpr
+    |   op=('++'|'--') expr=unaryExpression                     #preIncUnaryExpr
     |   left=unaryOperator right=castExpression                 #castUnaryExpr
     |   'sizeof' expr=unaryExpression                           #sizeExprUnaryExpr
     |   'sizeof' '(' type=typeName ')'                          #sizeTypeUnaryExpe
