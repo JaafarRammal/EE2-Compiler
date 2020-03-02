@@ -794,8 +794,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpRelExpr(CParser.OpRelExprContext ctx){
     threeOp(ctx);
-    System.out.println("xor $t2, $t0, $t1");
-    System.out.println("sltiu $t2, $t2, 1");  // $t2 = (right == left)
+    //System.out.println("xor $t2, $t0, $t1");
+    //System.out.println("sltiu $t2, $t2, 1");  // $t2 = (right == left)
     switch(ctx.op.getText()) {
       case ">":
         System.out.println("slt $v0, $t1, $t0"); // right < left
@@ -803,13 +803,13 @@ public class CCompiler extends CBaseVisitor<String> {
       case "<":
         System.out.println("slt $v0, $t0, $t1"); // left < right
         break;
-      case "<=":
-        System.out.println("slt $v0, $t0, $t1"); // right < left
-        System.out.println("or $v0, $v0, $t2"); // right <= left
+      case ">=":
+        System.out.println("slt $v0, $t0, $t1"); // left < right
+        System.out.println("xori $v0, $v0, 1"); // !(left < right) = right <= left
         break;
-      case ">=": 
-        System.out.println("slt $v0, $t1, $t0"); // left < right
-        System.out.println("or $v0, $v0, $t2"); // left <= right
+      case "<=": 
+        System.out.println("slt $v0, $t1, $t0"); // right < left
+        System.out.println("xori $v0, $v0, 1"); // !(right<left) = right >= left
         break;
       default:
         throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
