@@ -663,6 +663,25 @@ public class CCompiler extends CBaseVisitor<String> {
     return "";
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Increments
+  @Override public String visitIncrPostExpr(CParser.IncrPostExprContext ctx) {
+    Integer offset = getIDSymbolTable(this.visit(ctx.expr)); // get variable location
+    switch(ctx.op.getText()){
+      case("++"):
+        System.out.println("addi $v0, $v0, 1");
+        break;
+      case("--"):
+        System.out.println("addi $v0, $v0, -1");
+        break;
+      default:
+        throwIllegalArgument(ctx.op.getText(), "IncrPostExpr");
+    }
+    
+    System.out.println("sw $v0, " + -4*offset + "($fp)");
+    return ""; 
+  }  
+
   // end arithmetic and binary expressions
   ////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////
@@ -703,7 +722,7 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("add $v0, $v0, $t2");
         break;
       case("-="):
-        System.out.println("sub $v0, $v0, $t2");
+        System.out.println("sub $v0, $t2, $v0");
         break;
       case("*="):
         System.out.println("mul $v0, $v0, $t2");
@@ -748,7 +767,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // Comparaison based expressions
 
 
-////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////
   // Relational expression
   @Override
   public String visitOpRelExpr(CParser.OpRelExprContext ctx){

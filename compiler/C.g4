@@ -31,8 +31,7 @@ postfixExpression
     |   expr=postfixExpression '(' args=argumentExpressionList? ')'             #funcInvocPostExpr
     |   expr=postfixExpression '.' id=Identifier                                #funcCallPostExpr
     |   expr=postfixExpression '->' id=Identifier                               #funcCallPtrPostExpr
-    |   expr=postfixExpression '++'                                             #incrPostExpr
-    |   expr=postfixExpression '--'                                             #decrPostExpr
+    |   expr=postfixExpression op=('++'|'--')                                   #incrPostExpr
     |   '(' type=typeName ')' '{' inits=initializerList '}'                     #singleCastPostExpr
     |   '(' type=typeName ')' '{' inits=initializerList ',' '}'                 #multCastPostExpr
     |   '__extension__' '(' type=typeName ')' '{' inits=initializerList '}'     #singleExtPostExpr
