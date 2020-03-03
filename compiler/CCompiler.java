@@ -9,7 +9,7 @@ import org.antlr.v4.runtime.misc.Interval;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.LinkedList; 
-import java.util.Queue;
+import java.util.Stack;
 
 public class CCompiler extends CBaseVisitor<String> {
 
@@ -25,17 +25,17 @@ public class CCompiler extends CBaseVisitor<String> {
   // Continue: while / for          (continue_context)
   // Return: functions              (return_context)
 
-  Queue<String> current_break_context = new LinkedList<>();   // Break: switch / while / for    (break_context)
-  Queue<String> current_continue_context = new LinkedList<>();   // Continue: while / for          (continue_context)
-  Queue<String> current_return_context = new LinkedList<>();   // Return: functions              (return_context)
-  Queue<Integer> current_switch_context = new LinkedList<>(); // Informs us of memory location of switch. Used for nested switches
+  Stack<String> current_break_context = new Stack<String>();   // Break: switch / while / for    (break_context)
+  Stack<String> current_continue_context = new Stack<String>();   // Continue: while / for          (continue_context)
+  Stack<String> current_return_context = new Stack<String>();   // Return: functions              (return_context)
+  Stack<Integer> current_switch_context = new Stack<Integer>(); // Informs us of memory location of switch. Used for nested switches
 
   // symbol table
   /*
   Two tables: one for global variables and one for scopes
   - Global variables include the function declaration and any variable declaration outside a scope (even structs, global arrays, etc...)
-  - A queue of tables (Level A) that resets whenever we enter a new function code gen:
-    - The queue has B-table that act like our previous implementation (hashmaps)
+  - A STACK of tables (Level A) that resets whenever we enter a new function code gen:
+    - The STACK has B-table that act like our previous implementation (hashmaps)
     - When entering a new scope within an A-table, we copy the content of the precedent table (so no need to recurse back within the queue)
   - When looking for a variable:
     - check the scope's B-table
@@ -43,7 +43,7 @@ public class CCompiler extends CBaseVisitor<String> {
   */
 
   Map<String, Integer> globalTable = new HashMap<String, Integer>();
-  Queue<Map<String, Integer>> functionTable = new LinkedList<>();
+  Stack<Map<String, Integer>> functionTable = new Stack<Map<String, Integer>>();
 
   /*
   Operations on ATables queue:
@@ -176,8 +176,10 @@ public class CCompiler extends CBaseVisitor<String> {
   public void extendSymbolTable(){
     if(debug) System.out.println("\t\t\t\t# Table was " + functionTable); 
     Map<String, Integer> extension = new HashMap<String, Integer>();
-    Map<String, Integer> current = functionTable.peek();
-    if(current != null) extension.putAll(current);
+    if(!functionTable.empty()) {
+      Map<String, Integer> current = functionTable.peek();
+      extension.putAll(current);
+    }
     functionTable.add(extension);
     if(debug) System.out.println("\t\t\t\t# Table is " + functionTable); 
   }
@@ -185,7 +187,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // remove from symbol table when leaving scope
   public void removeSymbolTable(){
     if(debug) System.out.println("\t\t\t\t# Table was " + functionTable); 
-    functionTable.poll();
+    functionTable.pop();
     if(debug) System.out.println("\t\t\t\t# Table is " + functionTable);
   }
 
@@ -203,8 +205,9 @@ public class CCompiler extends CBaseVisitor<String> {
     // - if still not found, look into the globalTable
     
     Integer val = globalTable.get(id); // just to init
-    if(functionTable.peek() != null){
+    if(!functionTable.empty()){
       val = functionTable.peek().get(id);
+      if(debug) System.out.println("\t\t\t\t#Returning " + val + " for ID " + id + " from function table");
       if(val == null) val = globalTable.get(id);
     }
     if(debug) System.out.println("\t\t\t\t#Returning " + val + " for ID " + id);
@@ -213,7 +216,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   // set ID object in symbol table
   public void setIDSymbolTable(String id, Integer val){
-    if(functionTable.peek() != null) functionTable.peek().put(id, val);
+    if(!functionTable.empty()) functionTable.peek().put(id, val);
     else globalTable.put(id, val);
   }
 
@@ -282,7 +285,7 @@ public class CCompiler extends CBaseVisitor<String> {
     insertLabel("# " + functionName + ": function return\n_return_" + functionName);
     // exit function: setback $fp and $sp as before. Get correct return address for subroutine
     System.out.println("move $sp, $fp\nlw $ra, 8($fp)\nlw $fp, 4($fp)\naddiu $sp, $sp, 12\njr $ra\nnop");
-    current_return_context.poll();
+    current_return_context.pop();
     clearSymbolTable(); // using remove means we did great xD test with remove later, should work
     return "";
   }
@@ -340,7 +343,7 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     System.out.println("jal " + functionName + "\nnop"); // jump and link
     System.out.println("addiu $sp, $sp, " + 4*(mem--)); // restore stack
-    current_switch_context.poll();
+    current_switch_context.pop();
     mem -= Math.min(4, argsCount)+1;
     return "";
   }
@@ -368,7 +371,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // function invocation arguments
   @Override
   public String visitSingleArgExprList(CParser.SingleArgExprListContext ctx) { 
-    Integer currentArgumentCount = current_switch_context.poll();
+    Integer currentArgumentCount = current_switch_context.pop();
     this.visit(ctx.expr); // value is in $v0. Only bottom part of stack is being used
     System.out.println("sw $v0, " + 4*currentArgumentCount + "($sp)");
     current_switch_context.add(currentArgumentCount+1);
@@ -377,7 +380,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitMultArgExprList(CParser.MultArgExprListContext ctx) { 
-    Integer currentArgumentCount = current_switch_context.poll();
+    Integer currentArgumentCount = current_switch_context.pop();
     this.visit(ctx.expr); // value is in $v0. Only bottom part of stack is being used
     System.out.println("sw $v0, " + 4*currentArgumentCount + "($sp)");
     current_switch_context.add(currentArgumentCount+1);
@@ -848,6 +851,20 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // Scoped contexts
 
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Compound Statement
+	@Override
+  public String visitCompoundStatement(CParser.CompoundStatementContext ctx) {
+    String ret = "";
+    if(ctx.itemL != null){
+      extendSymbolTable();
+      ret = this.visit(ctx.itemL);
+      removeSymbolTable();
+    }
+    return ret;
+  }
+
   ////////////////////////////////////////////////////////////////////////////////////
   // Selection statement
   /* for the if statement:
@@ -904,7 +921,7 @@ public class CCompiler extends CBaseVisitor<String> {
     this.visit(ctx.exec); // while loop execution body
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
-    current_break_context.poll();
+    current_break_context.pop();
     removeSymbolTable();
     return "";
   }
@@ -961,7 +978,7 @@ public class CCompiler extends CBaseVisitor<String> {
     //return to top of loop
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
-    current_break_context.poll();
+    current_break_context.pop();
     return "";
   }
 
@@ -988,7 +1005,7 @@ public class CCompiler extends CBaseVisitor<String> {
     //return to top of loop
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
-    current_break_context.poll();
+    current_break_context.pop();
     return "";
   }
 
@@ -1006,8 +1023,8 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("sw $v0, " + -4*(mem++) + "($sp)"); //save variable in stack
     this.visit(ctx.trueExec);
     insertLabel(endLabel);
-    current_break_context.poll();
-    current_switch_context.poll();
+    current_break_context.pop();
+    current_switch_context.pop();
     removeSymbolTable();
     return "";
   }
