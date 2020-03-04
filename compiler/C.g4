@@ -445,7 +445,7 @@ statement
 
 labeledStatement
     :   id=Identifier ':' exec=statement                                       #idLabelStat
-    |   'case' cond=constantExpression ':' exec=statement skip=jumpStatement?  #caseLabelStat
+    |   'case' cond=constantExpression ':' exec=statement                      #caseLabelStat
     |   'default' ':' exec=statement                                           #defLabelStat
     ;
 

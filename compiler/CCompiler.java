@@ -11,6 +11,10 @@ import java.util.HashMap;
 import java.util.LinkedList; 
 import java.util.Stack;
 
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptEngine;
+import javax.script.ScriptException;
+
 public class CCompiler extends CBaseVisitor<String> {
 
   int mem; 
@@ -28,8 +32,8 @@ public class CCompiler extends CBaseVisitor<String> {
   Stack<String> current_break_context = new Stack<String>();   // Break: switch / while / for    (break_context)
   Stack<String> current_continue_context = new Stack<String>();   // Continue: while / for          (continue_context)
   Stack<String> current_return_context = new Stack<String>();   // Return: functions              (return_context)
-  Stack<Integer> current_switch_context = new Stack<Integer>(); // Informs us of memory location of switch. Used for nested switches
-
+  Stack<Integer> current_arguments_context = new Stack<Integer>(); // Informs us of memory location of switch. Used for nested switches
+  Stack<Integer> current_mem_context = new Stack<Integer>();   // Mem context (retrieve stack offset context)
   // symbol table
   /*
   Two tables: one for global variables and one for scopes
@@ -45,11 +49,9 @@ public class CCompiler extends CBaseVisitor<String> {
   Map<String, Integer> globalTable = new HashMap<String, Integer>();
   Stack<Map<String, Integer>> functionTable = new Stack<Map<String, Integer>>();
 
-  /*
-  Operations on ATables queue:
-  - Init a new 
-  */
-
+  // interpreter for arithmetic expressions
+  ScriptEngineManager mgr;
+  ScriptEngine interpreter;
 
   CCompiler(boolean d) {
     mem = 0;
@@ -58,6 +60,8 @@ public class CCompiler extends CBaseVisitor<String> {
     enter_parent = true;
     dec_size = 0;
 
+    mgr = new ScriptEngineManager();
+    interpreter = mgr.getEngineByName("JavaScript");    
     
     // scratch[0] = "$t0";
     // scratch[1] = "$t1";
@@ -139,8 +143,7 @@ public class CCompiler extends CBaseVisitor<String> {
       line = line.replaceAll("\n", "\n# ");
       System.out.println("\n# " + line);
     }
-    this.visit(ctx.item);
-    return "";
+    return this.visit(ctx.item);
   }
 
   @Override
@@ -153,8 +156,7 @@ public class CCompiler extends CBaseVisitor<String> {
       line = line.replaceAll("\n", "\n# ");
       System.out.println("\n# " + line);
     }
-    this.visit(ctx.item);
-    return "";
+    return this.visit(ctx.item);
   }
 
   // illegal argument exception helper
@@ -181,7 +183,8 @@ public class CCompiler extends CBaseVisitor<String> {
       extension.putAll(current);
     }
     functionTable.add(extension);
-    if(debug) System.out.println("\t\t\t\t# Table is " + functionTable); 
+    if(debug) System.out.println("\t\t\t\t# Table is " + functionTable);
+    current_mem_context.add(mem);
   }
 
   // remove from symbol table when leaving scope
@@ -189,13 +192,16 @@ public class CCompiler extends CBaseVisitor<String> {
     if(debug) System.out.println("\t\t\t\t# Table was " + functionTable); 
     functionTable.pop();
     if(debug) System.out.println("\t\t\t\t# Table is " + functionTable);
+    mem = current_mem_context.pop();
   }
 
   // clear symbol table when leaving function
   public void clearSymbolTable(){
+    if(debug) System.out.println("\t\t\t\t# ATTENTION FUNCTION TABLE WAS CLEARED AT THAT POINT"); 
     if(debug) System.out.println("\t\t\t\t# Table was " + functionTable); 
     functionTable.clear();
-    if(debug) System.out.println("\t\t\t\t# Table is " + functionTable); 
+    if(debug) System.out.println("\t\t\t\t# Table is " + functionTable);
+    mem = 0;
   }
 
   // get ID object from symbol table
@@ -218,6 +224,16 @@ public class CCompiler extends CBaseVisitor<String> {
   public void setIDSymbolTable(String id, Integer val){
     if(!functionTable.empty()) functionTable.peek().put(id, val);
     else globalTable.put(id, val);
+  }
+
+  // interpret constant expression
+  public String interpret(String expression){
+    try{
+      return String.valueOf(interpreter.eval(expression));
+    }catch(Exception e){
+      System.out.println("#INTERPRETER EXCEPTION: " + e + " for input " + expression);
+      return null;
+    }
   }
 
   // END OF HELPERS AND COMMON FUNCTIONS
@@ -335,8 +351,8 @@ public class CCompiler extends CBaseVisitor<String> {
     String functionName = this.visit(ctx.expr); // get function ID. From symbol table with type return later
     int argsCount = globalTable.get(functionName); // prepare to move the stack pointer accordingly
     mem += Math.max(4, argsCount); // allocate at least 4 locations as subroutine is allowed to write over the 4 arguments
-    // current_switch_context.add(argsCount-1); // save the count state for parameters (for nested cases like f(g(1), h(2, 3)) where another function gets ready for parameters). -1 because index starts at 0
-    current_switch_context.add(0); // start at offset zero in the argument context
+    // current_arguments_context.add(argsCount-1); // save the count state for parameters (for nested cases like f(g(1), h(2, 3)) where another function gets ready for parameters). -1 because index starts at 0
+    current_arguments_context.add(0); // start at offset zero in the argument context
     System.out.println("addiu $sp, $sp, " + -4*(mem)); // secure memory locations for arguments
     if(ctx.args != null) this.visit(ctx.args); // get parameters
     for(int i=0; i<4 && i<argsCount; i++){  // store parameters in $a0-$a3
@@ -344,7 +360,7 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     System.out.println("jal " + functionName + "\nnop"); // jump and link
     System.out.println("addiu $sp, $sp, " + 4*(mem)); // restore stack
-    current_switch_context.pop();
+    current_arguments_context.pop();
     mem -= Math.max(4, argsCount);
     return "";
   }
@@ -372,19 +388,19 @@ public class CCompiler extends CBaseVisitor<String> {
   // function invocation arguments
   @Override
   public String visitSingleArgExprList(CParser.SingleArgExprListContext ctx) { 
-    Integer currentArgumentCount = current_switch_context.pop();
+    Integer currentArgumentCount = current_arguments_context.pop();
     this.visit(ctx.expr); // value is in $v0. Only bottom part of stack is being used
     System.out.println("sw $v0, " + 4*currentArgumentCount + "($sp)");
-    current_switch_context.add(currentArgumentCount+1);
+    current_arguments_context.add(currentArgumentCount+1);
     return "";
   }
 
   @Override
   public String visitMultArgExprList(CParser.MultArgExprListContext ctx) { 
-    Integer currentArgumentCount = current_switch_context.pop();
+    Integer currentArgumentCount = current_arguments_context.pop();
     this.visit(ctx.expr); // value is in $v0. Only bottom part of stack is being used
     System.out.println("sw $v0, " + 4*currentArgumentCount + "($sp)");
-    current_switch_context.add(currentArgumentCount+1);
+    current_arguments_context.add(currentArgumentCount+1);
     this.visit(ctx.args);
     return "";
   }
@@ -867,6 +883,13 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
+  // Block Item List (Multiple items -> append strings together in return)
+  @Override
+  public String visitMultBlockItemList(CParser.MultBlockItemListContext ctx) {
+    return this.visit(ctx.itemL) + "\n" + this.visit(ctx.item); 
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////
   // Selection statement
   /* for the if statement:
     - compile the condition into register _cond_
@@ -1016,56 +1039,62 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitSwitchSelecStat(CParser.SwitchSelecStatContext ctx){ 
     extendSymbolTable();
+    String conditionLabel = makeName("switch_stat_condition");
     String endLabel = makeName("switch_stat_end");
     current_break_context.add(endLabel);
     this.visit(ctx.cond); //switch value loaded into register 2 ($v0) 
-    //Save the variable
-    current_switch_context.add(mem);
-    System.out.println("sw $v0, " + -4*(mem++) + "($sp)"); //save variable in stack
-    this.visit(ctx.trueExec);
+    System.out.println("sw $v0, " + -4*(mem++) + "($sp)"); // save condition in stack in case of nested switches
+    System.out.println("j " + conditionLabel + "\nnop"); // check where to go (since the cases are compiled before that)
+    String cases = this.visit(ctx.trueExec); // now cases is a list of all labeled statement within the switch. They are compiled as well with labels
+    if(debug) System.out.println("\n#####\nRecived this:\n" + cases + "\n######\n");
+    System.out.println("j " + endLabel + "\nnop"); // avoid rechecking
+
+    insertLabel(conditionLabel); // this is where the swich determines to what labeled statement it has to jump
+    System.out.println("lw $v0, " + -4*(--mem) + "($sp)"); // load condition from stack
+    String[] lines = cases.split(System.getProperty("line.separator")); // each line has format LABEL:CONDITION (exception default:null)
+    for(String line: lines){
+      if(!line.contains(":")) continue;
+      String[] data = line.split(":");
+      if(data[1].equals("null")) System.out.println("j " + data[0] + "\nnop");
+      else {
+        System.out.println("ori $t1, $zero, " + data[1]);
+        System.out.println("beq $v0, $t1, " + data[0] + "\nnop");
+      }
+    }
     insertLabel(endLabel);
     current_break_context.pop();
-    current_switch_context.pop();
     removeSymbolTable();
     return "";
   }
 
-
   @Override
   public String visitCaseLabelStat(CParser.CaseLabelStatContext ctx){ 
     extendSymbolTable();
-    String endLabel = makeName("case_stat_end");
-    int case_mem = current_switch_context.peek();
-    this.visit(ctx.cond);
-    System.out.println("lw $t0, " + -4*(case_mem) + "($sp)"); //load variable saved from SwitchSelec
-    //compare switch value to case value
-    System.out.println("bne $v0, $t0, " + endLabel + "\nnop"); //if not equal, jump to the end
+    String beginLabel = makeName("case_stat_begin");
+    insertLabel(beginLabel);
+    // the condition is a constant expression, interpret and return to switch, which will jump accordingly
     this.visit(ctx.exec);
-    if(ctx.skip != null) this.visit(ctx.skip); // add the break BEFORE the end label
-    //if break appears during exec, jump to end
-    insertLabel(endLabel); 
     removeSymbolTable();
-    return "";
+    return beginLabel + ":" + interpret(ctx.cond.getText());
   }
 
   //Default case
   @Override
   public String visitDefLabelStat(CParser.DefLabelStatContext ctx){ 
     extendSymbolTable();
-    String endLabel = makeName("case_stat_end");
+    String beginLabel = makeName("default_stat_begin");
+    insertLabel(beginLabel); 
     //execute default
     this.visit(ctx.exec);
-    //if break appears during switch selec stat, jump to endLabel. recommend global var.
-    insertLabel(endLabel); 
     removeSymbolTable();
-    return "";
+    return beginLabel + ":null";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
   // one line conditional
   @Override
   public String visitConditionalExpression(CParser.ConditionalExpressionContext ctx) { 
-    this.visit(ctx.cond); // $v0 holds 0 or 1 from the condition if a conditional
+    String ret = this.visit(ctx.cond); // $v0 holds 0 or 1 from the condition if a conditional
     if(ctx.true_exec != null){
       extendSymbolTable();
       String falseExecLabel = makeName("if_stat_false");
@@ -1079,7 +1108,7 @@ public class CCompiler extends CBaseVisitor<String> {
       insertLabel(endLabel);
       removeSymbolTable();
     }
-    return "";
+    return ret;
   }
 
   
