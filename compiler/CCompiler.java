@@ -333,18 +333,18 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitFuncInvocPostExpr(CParser.FuncInvocPostExprContext ctx){
     String functionName = this.visit(ctx.expr); // get function ID. From symbol table with type return later
     int argsCount = globalTable.get(functionName); // prepare to move the stack pointer accordingly
-    mem += Math.min(4, argsCount)+1; // allocate at least 4 locations as subroutine is allowed to write over the 4 arguments
+    mem += Math.max(4, argsCount); // allocate at least 4 locations as subroutine is allowed to write over the 4 arguments
     // current_switch_context.add(argsCount-1); // save the count state for parameters (for nested cases like f(g(1), h(2, 3)) where another function gets ready for parameters). -1 because index starts at 0
     current_switch_context.add(0); // start at offset zero in the argument context
-    System.out.println("addiu $sp, $sp, " + -4*(++mem)); // secure memory locations for arguments
+    System.out.println("addiu $sp, $sp, " + -4*(mem)); // secure memory locations for arguments
     if(ctx.args != null) this.visit(ctx.args); // get parameters
     for(int i=0; i<4 && i<argsCount; i++){  // store parameters in $a0-$a3
       System.out.println("lw $a"+ i + ", " + 4*i + "($sp)");
     }
     System.out.println("jal " + functionName + "\nnop"); // jump and link
-    System.out.println("addiu $sp, $sp, " + 4*(mem--)); // restore stack
+    System.out.println("addiu $sp, $sp, " + 4*(mem)); // restore stack
     current_switch_context.pop();
-    mem -= Math.min(4, argsCount)+1;
+    mem -= Math.max(4, argsCount);
     return "";
   }
 
