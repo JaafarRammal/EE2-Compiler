@@ -19,7 +19,7 @@ bitwise_xor
 call_constant_external
 [97mcall_constant_external.c [92m[PASS]
 call_constant_internal
-[97mcall_constant_internal.c [31m[FAIL] [97mExpected 0 , got 139
+[97mcall_constant_internal.c [92m[PASS]
 call_five_args_external
 [97mcall_five_args_external.c [92m[PASS]
 call_five_args_internal
@@ -29,7 +29,7 @@ call_identity_external
 call_identity_internal
 [97mcall_identity_internal.c [92m[PASS]
 call_mutual_recursive
-[97mcall_mutual_recursive.c [31m[FAIL] [97mExpected 0 , got 139
+[97mcall_mutual_recursive.c [92m[PASS]
 call_recursive_internal
 [97mcall_recursive_internal.c [92m[PASS]
 call_two_args_external
@@ -159,7 +159,7 @@ test_RETURN
 typedef1
 [97mtypedef1.c [92m[PASS]
 typedef2
-[97mtypedef2.c [31m[FAIL] [97mExpected 0 , got 1
+[97mtypedef2.c [92m[PASS]
 unsigned
 [97munsigned.c [92m[PASS]
 while_multiple

@@ -261,6 +261,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
     extendSymbolTable();
+    mem = 0;
     String functionName = this.visit(ctx.func_dec);
     if(ctx.dec_list != null) this.visit(ctx.dec_list); // this is to intialize the function in the symbol table as well... for other functions and for its own good
     current_return_context.add("_return_" + functionName);
