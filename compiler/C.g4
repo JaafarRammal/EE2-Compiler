@@ -31,8 +31,7 @@ postfixExpression
     |   expr=postfixExpression '(' args=argumentExpressionList? ')'             #funcInvocPostExpr
     |   expr=postfixExpression '.' id=Identifier                                #funcCallPostExpr
     |   expr=postfixExpression '->' id=Identifier                               #funcCallPtrPostExpr
-    |   expr=postfixExpression '++'                                             #incrPostExpr
-    |   expr=postfixExpression '--'                                             #decrPostExpr
+    |   expr=postfixExpression op=('++'|'--')                                   #incrPostExpr
     |   '(' type=typeName ')' '{' inits=initializerList '}'                     #singleCastPostExpr
     |   '(' type=typeName ')' '{' inits=initializerList ',' '}'                 #multCastPostExpr
     |   '__extension__' '(' type=typeName ')' '{' inits=initializerList '}'     #singleExtPostExpr
@@ -46,8 +45,7 @@ argumentExpressionList
 
 unaryExpression
     :   expr=postfixExpression                                  #postUnaryExpr
-    |   '++' expr=unaryExpression                               #preIncUnaryExpr
-    |   '--' expr=unaryExpression                               #preDecUnaryExpr
+    |   op=('++'|'--') expr=unaryExpression                     #preIncUnaryExpr
     |   left=unaryOperator right=castExpression                 #castUnaryExpr
     |   'sizeof' expr=unaryExpression                           #sizeExprUnaryExpr
     |   'sizeof' '(' type=typeName ')'                          #sizeTypeUnaryExpe
@@ -447,7 +445,7 @@ statement
 
 labeledStatement
     :   id=Identifier ':' exec=statement                                       #idLabelStat
-    |   'case' cond=constantExpression ':' exec=statement skip=jumpStatement?  #caseLabelStat
+    |   'case' cond=constantExpression ':' exec=statement                      #caseLabelStat
     |   'default' ':' exec=statement                                           #defLabelStat
     ;
 
