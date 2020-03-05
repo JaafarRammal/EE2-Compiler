@@ -315,8 +315,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
 
-    System.out.println("IDDIRDEC: UPDATING ID " + ctx.id.getText() + " MEM "+ mem);
-    System.out.println("IDDIRDEC: UPDATING MEM_LOC " + mem + " Var SIZE "+ 1);
+    System.err.println("IDDIRDEC: UPDATING ID " + ctx.id.getText() + " MEM "+ mem);
+    System.err.println("IDDIRDEC: UPDATING MEM_LOC " + mem + " Var SIZE "+ 1);
 
     setIDSymbolTable(ctx.id.getText(), mem);
     setIDSymbolTable(Integer.toString(mem), 1);//TODO: replace value depending on variable type. e.g Double = 2;
@@ -389,7 +389,7 @@ public class CCompiler extends CBaseVisitor<String> {
     param_count += 1;
     this.visit(ctx.spec);
 
-    System.out.println("DECPARAMDEC: UPDATING ID " + this.visit(ctx.dec) + " MEM "+ mem);
+    System.err.println("DECPARAMDEC: UPDATING ID " + this.visit(ctx.dec) + " MEM "+ mem);
     setIDSymbolTable(this.visit(ctx.dec), mem++);
     return "";
   }
@@ -1213,7 +1213,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
     String enumConstId = this.visit(ctx.enume);
     setIDSymbolTable(enumConstId, mem);
-    setIDSymbolTable(Integer.toString(mem), enum_state); //storing variable value in symbol table
+    setIDSymbolTable(Integer.toString(mem), 1); //storing variable size in symbol table. TODO: double
 
     System.out.println("ori $v0, $zero, " + enum_state);
     System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
@@ -1227,10 +1227,10 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitAssgnEnum(CParser.AssgnEnumContext ctx){
     String enumConstId = this.visit(ctx.enume);
     setIDSymbolTable(enumConstId, mem);
+    setIDSymbolTable(Integer.toString(mem), 1); //storing variable size in symbol table. TODO: double
 
     String enumVal_s = this.visit(ctx.expr); 
     Integer enumVal = Integer.parseInt(enumVal_s);
-    setIDSymbolTable(Integer.toString(mem), enumVal); //storing variable value in symbol table
 
     System.out.println("ori $v0, $zero, " + enumVal);
     System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
