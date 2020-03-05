@@ -24,6 +24,7 @@ public class CCompiler extends CBaseVisitor<String> {
   boolean enter_parent = false;
   int param_count = 0;  // count parameters for function definition. No nested cases
   int dec_size; 
+  int enum_state;
 
   // Break: switch / while / for    (break_context)
   // Continue: while / for          (continue_context)
@@ -59,6 +60,7 @@ public class CCompiler extends CBaseVisitor<String> {
     debug = d;
     enter_parent = true;
     dec_size = 0;
+    enum_state = 0;
 
     mgr = new ScriptEngineManager();
     interpreter = mgr.getEngineByName("JavaScript");    
@@ -1186,8 +1188,61 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
+  // Enum
 
+  //E.g. enum point{x = 1, y, z = 4}
+  @Override
+  public String visitDecEnumSpec(CParser.DecEnumSpecContext ctx){
+    enum_state = 0;
+    this.visit(ctx.enumL); //evaluates each expression in brackets
 
+    return "";
+  }
+
+  //E.g. enum X;
+  @Override
+  public String visitEmptyEnumSpec(CParser.EmptyEnumSpecContext ctx){
+    enum_state = 0;
+
+    //TODO: type specifier
+    return "";
+  }
+
+  //e.g x
+  public String visitEmptyEnum(CParser.EmptyEnumContext ctx){
+
+    String enumConstId = this.visit(ctx.enume);
+    setIDSymbolTable(enumConstId, mem);
+    setIDSymbolTable(Integer.toString(mem), enum_state); //storing variable value in symbol table
+
+    System.out.println("ori $v0, $zero, " + enum_state);
+    System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
+    
+    enum_state++;
+
+    return "";
+  }
+
+  //e.g. x = 0;
+  public String visitAssgnEnum(CParser.AssgnEnumContext ctx){
+    String enumConstId = this.visit(ctx.enume);
+    setIDSymbolTable(enumConstId, mem);
+
+    String enumVal_s = this.visit(ctx.expr); 
+    Integer enumVal = Integer.parseInt(enumVal_s);
+    setIDSymbolTable(Integer.toString(mem), enumVal); //storing variable value in symbol table
+
+    System.out.println("ori $v0, $zero, " + enumVal);
+    System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
+
+    return "";
+  }
+
+  //returns id of enum const
+  @Override
+  public String visitEnumConst(CParser.EnumConstContext ctx){
+    return ctx.id.getText();
+  }
 
   ////////////////////////////////////////////////////////////////////////////////////
   // main class. create a tree and call a listener on the tree

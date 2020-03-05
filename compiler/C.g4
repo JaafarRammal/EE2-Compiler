@@ -269,7 +269,7 @@ enumerator
     ;
 
 enumerationConstant
-    :   id=Identifier
+    :   id=Identifier                                #enumConst                                           
     ;
 
 atomicTypeSpecifier
