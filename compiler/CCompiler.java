@@ -101,10 +101,71 @@ public class CCompiler extends CBaseVisitor<String> {
 
 
     Conventions:
-    -------------
+    ------------
 
     - Any scratch register is undefined when leaving a context function and therefore can be used freely in another context
-    - Return registers should always contain the correct / expected return value of the context    
+    - Return registers should always contain the correct / expected return value of the context
+
+
+    Symbol Table:
+    -------------
+
+    // THIS IS A SCRATCH
+
+    Current method:
+    
+    a[2][3][1] = {{{}, {}, {}}, {}...}
+    b[1][2][3]
+
+    loc(a[0][1][2]) != loc(b[0][1][2])
+
+    a[2]
+
+    [{a:24}, {24:2}]
+
+    a[1] = 3
+
+    [{a:Object(a)}]
+    a:
+    - Type: array
+    - Global: true / false
+    - Vector(size): Int: {1}, a[2][3]: {2,3}, {1,1}
+    - Stack offset: 24
+
+    a:
+    - Size: {2,3,1} Total = 6
+
+    enum:
+    - ID: days
+    - data = {M=0, T=3, W=4}
+
+
+    enum days = {M, T=3, W}
+
+    enum days x = T
+
+    ori $v0, 3
+    sw $v0
+
+
+
+
+    enum{
+      getEnumValue(data_id) -> Int
+      data: Map<String, Integer>;
+      ID: String;
+    }
+
+    setIDSymbolTable("days", e);
+    getIDSymbolTable("days"); -> _returns an enum object_ e
+
+    
+    value of x = getIDSymbolTable("days").getEnumValue("Monday");
+
+
+    // END OF SCRATCH
+
+
     */
   }
 
@@ -262,17 +323,47 @@ public class CCompiler extends CBaseVisitor<String> {
   .----------.
   | fp (old) |
   .----------.
-  |     3    |  <- $fp
+  |     3    |  <- $fp and $sp
   .----------.
   |     6    |  
   .----------.
-  |          |  <- $sp
+  |          | 
   .----------.
   |          |
   .----------.
   20...(LOW)
 
   Note that in our implementation, we relatively offset to $sp. Therefore $sp is always at $fp unless preparing arguments
+
+  Figure 2
+  --------
+
+  Once we have a function call
+
+  80...(HIGH)
+  .----------.
+  |    ra    |
+  .----------.
+  | fp (old) |
+  .----------.
+  |     3    |  <- $fp
+  .----------.
+  |     6    |  
+  .----------.
+  |    ...   | 
+  .----------.
+  |     D    |
+  .----------.
+  |     C    |
+  .----------.
+  |     B    |
+  .----------.
+  |     A    | <- $sp (ready for next function to access and store its argumentss)
+  .----------.
+  
+  20...(LOW)
+
+  A-D are resevered for the callee subroutine to store on the caller frame $a0-$a3
 
   */
 
