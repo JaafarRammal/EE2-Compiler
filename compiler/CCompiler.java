@@ -965,16 +965,15 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitForIterStat(CParser.ForIterStatContext ctx){
-
+    extendSymbolTable();
     if(enter_parent){
       enter_parent = false;
       this.visit(ctx.cond);
     } else {
       enter_parent = true;
-      extendSymbolTable();
       this.visit(ctx.exec);
-      removeSymbolTable();
     }
+    removeSymbolTable();
     return "";
   }
 
@@ -990,14 +989,16 @@ public class CCompiler extends CBaseVisitor<String> {
     String endLabel = makeName("for_stat_end");
     current_break_context.add(endLabel);
     insertLabel(beginLabel);
-    this.visit(ctx.cond);
+    
+    if(ctx.cond != null){
+      this.visit(ctx.cond);
+      System.out.println("beq $v0, $zero, " + endLabel + "\nnop"); // skip if condition was not met
+    }
 
-    //execution body
-    System.out.println("beq $v0, $zero, " + endLabel + "\nnop");
+    // compiles body from parent
     this.visit(ctx.getParent());
 
-    //increment variable
-    this.visit(ctx.update);
+    if(ctx.update != null)  this.visit(ctx.update); // increment variable (or whatever update)
 
     //return to top of loop
     System.out.println("j " + beginLabel + "\nnop");
@@ -1009,22 +1010,23 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitExpForCond(CParser.ExpForCondContext ctx){ //For loop 2
     //variable init
-    this.visit(ctx.init);
+    if(ctx.init != null) this.visit(ctx.init);
 
     //for loop
     String beginLabel = makeName("for_stat_begin");
     String endLabel = makeName("for_stat_end");
     current_break_context.add(endLabel);
     insertLabel(beginLabel);
-    this.visit(ctx.cond);
 
-    //print statement
-    System.out.println("beq $v0, $zero, " + endLabel + "\nnop");
+    if(ctx.cond != null){
+      this.visit(ctx.cond);
+      System.out.println("beq $v0, $zero, " + endLabel + "\nnop"); // skip if condition was not met
+    }
+
+    // compiles body from parent
     this.visit(ctx.getParent());
 
-
-    //increment variable
-    this.visit(ctx.update);
+    if(ctx.update != null)  this.visit(ctx.update); // increment variable (or whatever update)
 
     //return to top of loop
     System.out.println("j " + beginLabel + "\nnop");
