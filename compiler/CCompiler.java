@@ -470,15 +470,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitTermInitDec(CParser.TermInitDecContext ctx){
     String id = this.visit(ctx.dec);
-<<<<<<< HEAD
-
-    // System.out.println("Term Init: UPDATING ID " + id + " MEM "+ mem);
-    // setIDSymbolTable(id, mem++); // overwrites variable in sub-context yey!
-    // System.out.println("sw $zero, " + -4*(mem) + "($sp)");
-=======
     setIDSymbolTable(id, mem); // overwrites variable in sub-context yey!
     System.out.println("sw $zero, " + -4*(mem++) + "($sp)");
->>>>>>> 82a995c5324a22b3ae8ca20e4fe0040da1e2a22a
     return "";
   }
   
@@ -1213,11 +1206,7 @@ public class CCompiler extends CBaseVisitor<String> {
     compiler.visit(tree);
     System.err.println("Global table: " + compiler.globalTable);
     System.err.println("Function table: " + compiler.functionTable);
-<<<<<<< HEAD
-    System.out.println("Final mem offset: "+compiler.mem);
-=======
     System.err.println("Final mem: "+compiler.mem);
->>>>>>> 82a995c5324a22b3ae8ca20e4fe0040da1e2a22a
 
   }
 
