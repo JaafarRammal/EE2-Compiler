@@ -641,7 +641,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
     String id = ctx.id.getText();
     if(getIDSymbolTable(id) != null){
-      System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset();+ "($fp)");
+      System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
     }
     return id;  // return function name to caller (invoke in case of function at parent level)
   }
