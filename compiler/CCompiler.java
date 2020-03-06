@@ -162,8 +162,7 @@ public class CCompiler extends CBaseVisitor<String> {
     - if still not found, look into the globalTable
   */
 
-  Map<String, Integer> globalTable = new HashMap<String, Integer>();
-  Stack<Map<String, Integer>> functionTable = new Stack<Map<String, Integer>>();
+  Stack<Map<String, STO>> symbolTable = new Stack<Map<String, STO>>();
 
   // interpreter for arithmetic expressions
   ScriptEngineManager mgr;
@@ -176,7 +175,7 @@ public class CCompiler extends CBaseVisitor<String> {
   STO current_enum_object;
 
   // type sizes
-  HashMap<types, Integer> typeSize;
+  HashMap<String, Integer> typeSize;
 
   CCompiler(boolean d) {
     mem = 0;
