@@ -521,7 +521,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
     setIDSymbolTable(ctx.id.getText(), mem);
     setIDSymbolTable(Integer.toString(mem), 1);//TODO: replace value depending on variable type. e.g Double = 2;
-    System.out.println("sw $zero, " + -4*(mem) + "($sp)");
+    System.out.println("sw $zero, " + -4*(mem) + "($sp)"); //NOTE: sometimes redundant. i.e. int main(){enum point{x,y,z}; int a = z;}
 
     mem++;
 
