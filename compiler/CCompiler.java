@@ -10,10 +10,109 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.LinkedList; 
 import java.util.Stack;
+import java.util.ArrayList;
 
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
+
+
+enum types {INT, ARRAY, ENUM};
+
+abstract class STO {
+
+  // all elements have the following
+  protected int size;
+  protected int offset;
+  protected String ID;
+  protected boolean isGlobal;
+  protected types type;
+
+  // arrays extra
+  public ArrayList<Integer> dimensions;
+
+  // enums extra
+  public Map<String, Integer> enumData;
+
+  // initializers for factory
+  protected void initSTO(){
+    size = 0;
+    offset = 0;
+    ID = "";
+    isGlobal = false;
+    type = types.INT;
+    dimensions = null;
+    enumData = null;
+  }
+
+  protected void initSTO(int s, int o, String i, boolean g, types t, ArrayList<Integer> v, Map<String, Integer> m){
+    size = s;
+    offset = o;
+    ID = i;
+    isGlobal = g;
+    type = t;
+    dimensions = v;
+    enumData = m;
+  }
+
+  // common functions
+  public int getSize(){return this.size;}
+  public void setSize(int s){this.size = s;}
+  public int getOffset(){return this.offset;}
+  public void setOffset(int o){this.offset = o;}
+  public String getID(){return this.ID;}
+  public void setID(String s){this.ID = s;}
+  public boolean isGlobal(){return this.isGlobal;}
+  public void setGlobal(boolean g){this.isGlobal = g;}
+  public types getType(){return this.type;}
+  public void setType(types t){this.type = t;}
+
+  // array functions
+  public ArrayList<Integer> getDimensions(){return this.dimensions;}
+  public int getDimensions(int i){return this.dimensions.get(i);}
+  public void addDimension(int i){this.dimensions.add(i);}
+  public void updateArraySize(){
+    size = 0;
+    for(Integer i : dimensions){
+      size += 4*i; // assuming only arrays of integers for now
+    }
+  }
+
+  // enum functions
+  public Map<String, Integer> getEnumData(){return this.enumData;}
+  public int getEnumValue(String i){return this.enumData.get(i);}
+  public void setEnumData(String s, int i){this.enumData.put(s, i);}
+  
+
+}
+
+class Variable extends STO{
+  Variable(){initSTO();}
+  Variable(int size, int offset, String ID, boolean isGlobal, types type){initSTO(size, offset, ID, isGlobal, type, null, null);}
+}
+
+class Array extends STO{
+  Array(){initSTO();}
+  Array(int size, int offset, String ID, boolean isGlobal, ArrayList<Integer> dimensions){initSTO(size, offset, ID, isGlobal, types.ARRAY, dimensions, null);}
+  
+}
+
+class Enum extends STO{
+  Enum(){initSTO();}
+  Enum(String ID, boolean isGlobal, Map<String, Integer> enumData){initSTO(-1, -1, ID, isGlobal, types.ENUM, null, enumData);}
+}
+
+// class Variable extends STO{
+
+//   Variable(){
+//     initSTO();
+//   }
+
+//   Variable(int size, int offset, String ID, boolean isGlobal, types type){
+//     initSTO(size, offset, ID, isGlobal, type, null, null);
+//   }
+
+// }
 
 public class CCompiler extends CBaseVisitor<String> {
 
@@ -168,8 +267,6 @@ public class CCompiler extends CBaseVisitor<String> {
 
     */
   }
-
-
 
   ////////////////////////////////////////////////////////////////////////////////////
   // HELPERS
