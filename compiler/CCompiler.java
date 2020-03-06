@@ -71,6 +71,7 @@ abstract class STO {
   public ArrayList<Integer> getDimensions(){return this.dimensions;}
   public int getDimensions(int i){return this.dimensions.get(i);}
   public void addDimension(int i){this.dimensions.add(i);}
+  public void setDimensions(ArrayList<Integer> d){this.dimensions = d;}
   public void updateArraySize(){
     size = 0;
     for(Integer i : dimensions){
@@ -83,7 +84,13 @@ abstract class STO {
   public int getEnumValue(String i){return this.enumData.get(i);}
   public void setEnumData(String s, int i){this.enumData.put(s, i);}
   
-
+  // function functions
+  public ArrayList<Integer> getParameters(){return this.dimensions;}
+  public int getParameter(int i){return this.dimensions.get(i);}
+  public void addParameter(int i){this.dimensions.add(i);}
+  public void setParamCount(int s){this.size = s;}
+  public int getParamCount(){return this.size;}
+  public void setParameters(ArrayList<Integer> params){this.dimensions = params;}
 }
 
 class Variable extends STO{
@@ -100,6 +107,12 @@ class Array extends STO{
 class Enum extends STO{
   Enum(){initSTO();}
   Enum(String ID, boolean isGlobal, Map<String, Integer> enumData){initSTO(-1, -1, ID, isGlobal, types.ENUM, null, enumData);}
+}
+
+class Function extends STO{
+  Function(){initSTO();}
+  Function(int paramCount, String ID, types type, ArrayList<Integer> params){initSTO(paramCount, -1, ID, true, type, params, null);}
+  
 }
 
 // class Variable extends STO{
