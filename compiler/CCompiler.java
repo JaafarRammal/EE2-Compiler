@@ -123,7 +123,10 @@ public class CCompiler extends CBaseVisitor<String> {
   boolean enter_parent = false;
   int param_count = 0;  // count parameters for function definition. No nested cases
   int dec_size; 
-  int enum_state;
+
+  //TODO: incorporate with Enum object
+  int enum_state; //Keeps latest value of enum
+  Map<String, Integer> enum_temp = new HashMap<String, Integer>(); //Stores temporary enum values for enumData insertion in InitSto
 
   // Break: switch / while / for    (break_context)
   // Continue: while / for          (continue_context)
@@ -1382,46 +1385,52 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitDecEnumSpec(CParser.DecEnumSpecContext ctx){
     enum_state = 0;
+    enum_temp.clear();
+
+    String enumID;
+    if(ctx.id!=null){
+      enumID = ctx.id.toString();
+    } else{
+      enumID = "";
+    }
+
     this.visit(ctx.enumL); //evaluates each expression in brackets
+
+    //TODO: bind enum_temp to symbol table, along with enumID, enum_state
 
     return "";
   }
 
-  //E.g. enum X;
+  //E.g. the "enum day" part in enum day X = tuesday;
+  //Must communicate the ID of enum for symbol table access
   @Override
   public String visitEmptyEnumSpec(CParser.EmptyEnumSpecContext ctx){
     enum_state = 0;
+    enum_temp.clear();
+    //Set enum specifier to ID. for enum day X = tuesday;
+    //Return "day", as higher up in the tree can be accessed in symbol table
 
-    //TODO: type specifier
     return "";
   }
 
-  //e.g x
+  //e.g {x}
   public String visitEmptyEnum(CParser.EmptyEnumContext ctx){
 
     String enumConstId = this.visit(ctx.enume);
-    setIDSymbolTable(enumConstId, mem);
-    setIDSymbolTable(Integer.toString(mem), 1); //storing variable size in symbol table. TODO: double
-
-    System.out.println("ori $v0, $zero, " + enum_state);
-    System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
-    
-    enum_state++;
+    enum_temp.put(enumConstId, enum_state++);
 
     return "";
   }
 
-  //e.g. x = 0;
+  //e.g. {x = 0;}
   public String visitAssgnEnum(CParser.AssgnEnumContext ctx){
     String enumConstId = this.visit(ctx.enume);
-    setIDSymbolTable(enumConstId, mem);
-    setIDSymbolTable(Integer.toString(mem), 1); //storing variable size in symbol table. TODO: double
 
     String enumVal_s = this.visit(ctx.expr); 
     Integer enumVal = Integer.parseInt(enumVal_s);
+    enum_temp.put(enumConstId, enumVal);
 
-    System.out.println("ori $v0, $zero, " + enumVal);
-    System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
+    enum_state = enumVal;
 
     return "";
   }
