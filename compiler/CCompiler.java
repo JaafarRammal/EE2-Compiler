@@ -137,10 +137,6 @@ public class CCompiler extends CBaseVisitor<String> {
   int param_count = 0;  // count parameters for function definition. No nested cases
   int dec_size; 
 
-  //TODO: incorporate with Enum object
-  int enum_state; //Keeps latest value of enum
-  Map<String, Integer> enum_temp = new HashMap<String, Integer>(); //Stores temporary enum values for enumData insertion in InitSto
-
   // Break: switch / while / for    (break_context)
   // Continue: while / for          (continue_context)
   // Return: functions              (return_context)
@@ -150,6 +146,11 @@ public class CCompiler extends CBaseVisitor<String> {
   Stack<String> current_return_context = new Stack<String>();   // Return: functions              (return_context)
   Stack<Integer> current_arguments_context = new Stack<Integer>(); // Informs us of memory location of switch. Used for nested switches
   Stack<Integer> current_mem_context = new Stack<Integer>();   // Mem context (retrieve stack offset context)
+
+    //Enum
+    int enum_state; //Keeps latest value of enum
+    Map<String, Integer> enum_temp = new HashMap<String, Integer>(); //Stores temporary enum values for enumData insertion in InitSto
+
   // symbol table
   /*
   Two tables: one for global variables and one for scopes
@@ -178,8 +179,8 @@ public class CCompiler extends CBaseVisitor<String> {
     enum_state = 0;
 
     mgr = new ScriptEngineManager();
-    interpreter = mgr.getEngineByName("JavaScript");    
-    
+    interpreter = mgr.getEngineByName("JavaScript"); 
+        
     // scratch[0] = "$t0";
     // scratch[1] = "$t1";
     // scratch[2] = "$t2"; // r8-r15	($t0-$t7)	Temporaries, not saved
@@ -1409,8 +1410,9 @@ public class CCompiler extends CBaseVisitor<String> {
 
     this.visit(ctx.enumL); //evaluates each expression in brackets
 
-    //TODO: bind enum_temp to symbol table, along with enumID, enum_state
-
+    //TODO: make setIDSymbolTable <String, STO>
+    // STO enumObj = new Enum(enumID, false, enum_temp);
+    // setIDSymbolTable(enumID, enumObj);
     return "";
   }
 
