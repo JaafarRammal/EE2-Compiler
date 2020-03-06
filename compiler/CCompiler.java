@@ -28,7 +28,7 @@ abstract class STO {
   protected boolean isGlobal;
   protected types type;
 
-  // arrays extra
+  // arrays extra (used by functions as well)
   public ArrayList<Integer> dimensions;
 
   // enums extra
@@ -166,6 +166,15 @@ public class CCompiler extends CBaseVisitor<String> {
   ScriptEngineManager mgr;
   ScriptEngine interpreter;
 
+  // STO context passing
+  STO current_function_object;
+  STO current_variable_object;
+  STO current_array_object;
+  STO current_enum_object;
+
+  // type sizes
+  HashMap<types, Integer> typeSize;
+
   CCompiler(boolean d) {
     mem = 0;
     label_id = 0;
@@ -175,12 +184,13 @@ public class CCompiler extends CBaseVisitor<String> {
     enum_state = 0;
 
     mgr = new ScriptEngineManager();
-    interpreter = mgr.getEngineByName("JavaScript");    
-    
-    // scratch[0] = "$t0";
-    // scratch[1] = "$t1";
-    // scratch[2] = "$t2"; // r8-r15	($t0-$t7)	Temporaries, not saved
-    // update: just manually use these scratch registers, easier to play around with order?
+    interpreter = mgr.getEngineByName("JavaScript");
+
+    extendSymbolTable(); // init entry for globals
+
+    typeSize = new HashMap<String, Integer>() {{
+      put("int", 1); // make 4 later when chars are introduced
+    }};
     
     /*
 
@@ -349,54 +359,49 @@ public class CCompiler extends CBaseVisitor<String> {
 
   // extend symbol table to new scope
   public void extendSymbolTable(){
-    if(debug) System.out.println("\t\t\t\t# Table was " + functionTable); 
-    Map<String, Integer> extension = new HashMap<String, Integer>();
-    if(!functionTable.empty()) {
-      Map<String, Integer> current = functionTable.peek();
+    if(debug) System.out.println("\t\t\t\t# Table was " + symbolTable); 
+    Map<String, STO> extension = new HashMap<String, STO>();
+    if(!symbolTable.empty()) {
+      Map<String, STO> current = symbolTable.peek();
       extension.putAll(current);
     }
-    functionTable.add(extension);
-    if(debug) System.out.println("\t\t\t\t# Table is " + functionTable);
+    symbolTable.add(extension);
+    if(debug) System.out.println("\t\t\t\t# Table is " + symbolTable);
     current_mem_context.add(mem);
   }
 
   // remove from symbol table when leaving scope
   public void removeSymbolTable(){
-    if(debug) System.out.println("\t\t\t\t# Table was " + functionTable); 
-    functionTable.pop();
-    if(debug) System.out.println("\t\t\t\t# Table is " + functionTable);
+    if(debug) System.out.println("\t\t\t\t# Table was " + symbolTable); 
+    symbolTable.pop();
+    if(debug) System.out.println("\t\t\t\t# Table is " + symbolTable);
     mem = current_mem_context.pop();
   }
 
   // clear symbol table when leaving function
   public void clearSymbolTable(){
     if(debug) System.out.println("\t\t\t\t# ATTENTION FUNCTION TABLE WAS CLEARED AT THAT POINT"); 
-    if(debug) System.out.println("\t\t\t\t# Table was " + functionTable); 
-    functionTable.clear();
-    if(debug) System.out.println("\t\t\t\t# Table is " + functionTable);
+    if(debug) System.out.println("\t\t\t\t# Table was " + symbolTable); 
+    symbolTable.clear();
+    if(debug) System.out.println("\t\t\t\t# Table is " + symbolTable);
     mem = 0;
   }
 
   // get ID object from symbol table
-  public int getIDSymbolTable(String id){
-    // - When looking for a variable:
-    // - check the scope's B-table
-    // - if still not found, look into the globalTable
-    
-    Integer val = globalTable.get(id); // just to init
-    if(!functionTable.empty()){
-      val = functionTable.peek().get(id);
-      if(debug) System.out.println("\t\t\t\t#Returning " + val + " for ID " + id + " from function table");
-      if(val == null) val = globalTable.get(id);
-    }
-    if(debug) System.out.println("\t\t\t\t#Returning " + val + " for ID " + id);
-    return val;
+  public STO getIDSymbolTable(String id){
+    STO obj = symbolTable.peek().get(id);
+    if(debug) System.out.println("\t\t\t\t#Returning " + obj.getID() + " for ID " + id);
+    return obj;
   }
 
   // set ID object in symbol table
-  public void setIDSymbolTable(String id, Integer val){
-    if(!functionTable.empty()) functionTable.peek().put(id, val);
-    else globalTable.put(id, val);
+  public void setIDSymbolTable(String id, STO obj){
+    symbolTable.peek().put(id, obj);
+  }
+
+  // check if global scope
+  public boolean isGlobalScope(){
+   return symbolTable.size() == 1;
   }
 
   // interpret constant expression
