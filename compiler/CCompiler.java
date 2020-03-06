@@ -506,7 +506,7 @@ public class CCompiler extends CBaseVisitor<String> {
     // exit function: setback $fp and $sp as before. Get correct return address for subroutine
     System.out.println("move $sp, $fp\nlw $ra, 8($fp)\nlw $fp, 4($fp)\naddiu $sp, $sp, 12\njr $ra\nnop");
     current_return_context.pop();
-    clearSymbolTable(); // using remove means we did great xD test with remove later, should work
+    removeSymbolTable(); // using remove means we did great xD test with remove later, should work
     return "";
   }
 
@@ -640,9 +640,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
     String id = ctx.id.getText();
-    Integer mem_loc = getIDSymbolTable(id).getOffset(); // again, assume this is a variable Int with size 1
-    if(mem_loc != null){
-      System.out.println("lw $v0, " + -4*mem_loc+ "($fp)");
+    if(getIDSymbolTable(id) != null){
+      System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset();+ "($fp)");
     }
     return id;  // return function name to caller (invoke in case of function at parent level)
   }
