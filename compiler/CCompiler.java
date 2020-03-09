@@ -16,8 +16,11 @@ import javax.script.ScriptEngineManager;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
 
+import java.lang.Float.*;
+import java.lang.Double.*;
 
-enum types {INT, ARRAY, ENUM, CHAR};
+
+enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED};
 
 abstract class STO {
 
@@ -100,13 +103,13 @@ class Variable extends STO{
 
 class Array extends STO{
   Array(){initSTO();}
-  Array(int size, int offset, String ID, boolean isGlobal, ArrayList<Integer> dimensions){initSTO(size, offset, ID, isGlobal, types.ARRAY, dimensions, null);}
+  Array(int size, int offset, String ID, boolean isGlobal, types type, ArrayList<Integer> dimensions){initSTO(size, offset, ID, isGlobal, type, dimensions, null);}
   
 }
 
 class Enum extends STO{
   Enum(){initSTO();}
-  Enum(String ID, boolean isGlobal, Map<String, Integer> enumData){initSTO(-1, -1, ID, isGlobal, types.ENUM, null, enumData);}
+  Enum(String ID, boolean isGlobal, Map<String, Integer> enumData){initSTO(-1, -1, ID, isGlobal, types.INT, null, enumData);}
 }
 
 class Function extends STO{
@@ -158,10 +161,12 @@ public class CCompiler extends CBaseVisitor<String> {
   ScriptEngine interpreter;
 
   // STO context passing
-  STO current_function_object;
-  STO current_variable_object;
-  STO current_array_object;
-  STO current_enum_object;
+  STO current_function_object = null;
+  STO current_variable_object = null;
+  STO current_array_object = null;
+  STO current_enum_object = null;
+
+  types current_type = null;
 
   // type sizes
   HashMap<String, Integer> typeSize;
@@ -183,6 +188,9 @@ public class CCompiler extends CBaseVisitor<String> {
       put("int", 1); // make 4 later when chars are introduced
     }};
     
+    System.out.println(doubleBits(4.544)[0]);
+    System.out.println(doubleBits(4.544)[1]);
+
     /*
 
     MIPS allocation
@@ -396,6 +404,37 @@ public class CCompiler extends CBaseVisitor<String> {
     }
   }
 
+  // parse type to enum
+  public types parseType(String type){
+     switch(type){
+      case "int":
+        return types.INT;
+      case "char":
+        return types.CHAR;
+      case "double":
+        return types.DOUBLE;
+      case "float":
+        return types.FLOAT;
+      case "unsigned":
+        return types.UNSIGNED;
+      default:
+        return null;
+    }
+  }
+
+  // get floats (32 bits) / double (64 bits) binary representation
+  public int floatBits(float f){
+    return Float.floatToIntBits(f);
+  }
+
+  public int[] doubleBits(double d){
+    int arr[] = new int[2];
+    long v = Double.doubleToLongBits(d);
+    arr[0] = (int) (v >> 32);
+    arr[1] = (int) (v - ((v >> 32) << 32));
+    return arr;
+  }
+
   // END OF HELPERS AND COMMON FUNCTIONS
   ////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////
@@ -510,7 +549,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
     String ID = ctx.id.getText();
     if((current_function_object == null) == isGlobalScope()){
-      STO varObj = new Variable(1, mem++, ID, isGlobalScope(), types.INT);
+      STO varObj = new Variable(1, mem++, ID, isGlobalScope(), current_type);
       current_variable_object = varObj;
       setIDSymbolTable(ID, varObj);
     }else{
@@ -667,8 +706,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
     String id = this.visit(ctx.left); // creates the variable object
-    if(!current_variable_object.isGlobal()){
-      int offset = current_variable_object.getOffset();
+    if(!getIDSymbolTable(id).isGlobal()){
+      int offset = getIDSymbolTable(id).getOffset();
       this.visit(ctx.right);
       System.out.println("sw $v0, " + -4*offset + "($sp)");
     }else{
@@ -704,11 +743,22 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitTermInitDec(CParser.TermInitDecContext ctx){
     String id = this.visit(ctx.dec);
-    if(!current_variable_object.isGlobal()){
-      int offset = current_variable_object.getOffset();
+    if(!getIDSymbolTable(id).isGlobal()){
+      int offset = getIDSymbolTable(id).getOffset();
       System.out.println("sw $zero, " + -4*offset + "($sp)");
     }else{
-      System.out.println(id + ":\n\t.word " + 0);
+      switch(getIDSymbolTable(id).getType()){
+        case INT:{
+            System.out.println(id + ":\n\t.word 0");
+            break;
+        }
+        case CHAR:{
+            System.out.println(id + ":\n\t.byte 0");
+            break;
+        }
+        default:
+          break;
+      }
     }
     return "";
   }
@@ -756,6 +806,18 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitUnaryOperator(CParser.UnaryOperatorContext ctx) { 
     return ctx.op.getText(); 
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Getting variable type
+  @Override public String visitInitSpecDeclaration(CParser.InitSpecDeclarationContext ctx) { 
+    current_type = parseType(this.visit(ctx.spec));
+    String id = this.visit(ctx.initList);
+    return id;
+  }
+
+  @Override public String visitBaseTypeSpec(CParser.BaseTypeSpecContext ctx) { 
+    return ctx.type.getText();
   }
 
   // end variable manipulation
@@ -1378,52 +1440,34 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitQArrDirDec(CParser.QArrDirDecContext ctx){ 
 
-    //Evaluates expression -> adds constant in $v0
-    String primary_expression_string = this.visit(ctx.expr);
-    int initial_mem = mem;
-    int array_size = Integer.parseInt(primary_expression_string);			
-
-    //Store start of array in symbol table
-    String id = this.visit(ctx.dec);
-
-    //In case other function is already initialising it in the same scope
-    STO idArr = getIDSymbolTable(id);
-     if(idArr==null){
-      System.out.println("MEM LOC IS NULL");
-      STO arr = new Array();
-      arr.setID(id); arr.setOffset(mem); arr.setSize(3);
-      setIDSymbolTable(id, arr);
-      System.out.println("sw $zero, " + -4*(mem) + "($sp)");
-    } else{ //update memory size
-      System.out.println("UPDATING MEM_LOC " + idArr.getOffset() + " ARRAY SIZE "+ array_size);
-      idArr.setSize(array_size);
-      setIDSymbolTable(idArr.getID(), idArr);
+    if(current_array_object == null){
+      current_array_object = new Array();
     }
 
-    mem = initial_mem + array_size; 
+    //Evaluates expression -> adds constant in $v0
+    int array_size = Integer.parseInt(interpret(ctx.expr.getText()));
+    int initial_mem = mem;
+
+    //Store start of array in symbol table
+    String id = ctx.dec.getText();
+
+    // //In case other function is already initialising it in the same scope
+    // STO idArr = getIDSymbolTable(id);
+    //  if(idArr==null){
+    //   System.out.println("MEM LOC IS NULL");
+    //   STO arr = new Array();
+    //   arr.setID(id); arr.setOffset(mem); arr.setSize(3);
+    //   setIDSymbolTable(id, arr);
+    //   System.out.println("sw $zero, " + -4*(mem) + "($sp)");
+    // } else{ //update memory size
+    //   System.out.println("UPDATING MEM_LOC " + idArr.getOffset() + " ARRAY SIZE "+ array_size);
+    //   idArr.setSize(array_size);
+    //   setIDSymbolTable(idArr.getID(), idArr);
+    // }
+
+    // mem = initial_mem + array_size; 
 
     return id;
-  }
-
-  //TODO: static qualifier array implementation
-  @Override
-  public String visitSqArrDirDec(CParser.SqArrDirDecContext ctx){ 
-    System.out.println("Inside SqArr");
-    return "u";
-  }
-
-  //TODO: qualifier static array implementation
-  @Override
-  public String visitQsArrDirDec(CParser.QsArrDirDecContext ctx){ 
-    System.out.println("Inside QsArr");
-    return "u";
-  }
-
-  //TODO: dynamic array implementation
-  @Override
-  public String visitEArrDirDec(CParser.EArrDirDecContext ctx){ 
-    System.out.println("Inside EArr");
-    return "u";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
