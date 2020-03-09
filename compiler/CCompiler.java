@@ -17,7 +17,7 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptException;
 
 
-enum types {INT, ARRAY, ENUM};
+enum types {INT, ARRAY, ENUM, CHAR};
 
 abstract class STO {
 
@@ -637,8 +637,26 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
     String id = ctx.id.getText();
-    if(getIDSymbolTable(id) != null){
-      System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+    STO var = getIDSymbolTable(id);
+    if(var != null){
+      if(!var.isGlobal()){
+        System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+      }else{
+        switch(var.getType()){
+        case INT:{
+            System.out.println("lui $v0,%hi(" + id + ")\nlw $v0,%lo(" + id + ")($v0)");
+            break;
+        }
+        case CHAR:{
+            System.out.println("lui $v0,%hi(" + id + ")\nlb $v0,%lo(" + id + ")($v0)");
+            break;
+        }
+        default:
+          break;
+      }
+      }
+    }else{
+      throwIllegalArgument(id, "IdPrimaryExpr (ID NOT FOUND)");
     }
     return id;  // return function name to caller (invoke in case of function at parent level)
   }
@@ -648,10 +666,30 @@ public class CCompiler extends CBaseVisitor<String> {
   // TYPE ID = VAL
   @Override
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
-    this.visit(ctx.right);
     String id = this.visit(ctx.left); // creates the variable object
-    System.out.println("sw $v0, " + -4*current_variable_object.getOffset() + "($sp)");
-
+    if(!current_variable_object.isGlobal()){
+      int offset = current_variable_object.getOffset();
+      this.visit(ctx.right);
+      System.out.println("sw $v0, " + -4*offset + "($sp)");
+    }else{
+      // the variable is global
+      String value = interpret(ctx.right.getText());
+      if(value.equals("true")) value = "1";
+      if(value.equals("false")) value = "0";
+      Integer intValue = (int) Math.round(Double.parseDouble(value));
+      switch(getIDSymbolTable(id).getType()){
+        case INT:{
+            System.out.println(id + ":\n\t.word " + intValue);
+            break;
+        }
+        case CHAR:{
+            System.out.println(id + ":\n\t.byte " + intValue);
+            break;
+        }
+        default:
+          break;
+      }
+    }
     // I honestly don't remember why I wrote this ages ago, but it must have a future usage
     // int mem_loc = getIDSymbolTable(id).getOffset();
     // int var_size = getIDSymbolTable(id).getSize(); //getting size of variable ID
@@ -666,12 +704,11 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitTermInitDec(CParser.TermInitDecContext ctx){
     String id = this.visit(ctx.dec);
-    STO currentVar = getIDSymbolTable(id);
-    currentVar.setOffset(mem);
-    setIDSymbolTable(id, currentVar); // overwrites variable in sub-context yey!
-    if(!currentVar.isGlobal()) System.out.println("sw $zero, " + -4*(mem++) + "($sp)");
-    else{
-      System.err.println("We will implement this global variable soon");
+    if(!current_variable_object.isGlobal()){
+      int offset = current_variable_object.getOffset();
+      System.out.println("sw $zero, " + -4*offset + "($sp)");
+    }else{
+      System.out.println(id + ":\n\t.word " + 0);
     }
     return "";
   }
