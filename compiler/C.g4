@@ -405,14 +405,13 @@ typedefName
     ;
 
 initializer
-    :   expr=assignmentExpression           #assgnInit
-    |   '{' initL=initializerList '}'       #singleInit
-    |   '{' initL=initializerList ',' '}'   #multInit
+    :   expr=assignmentExpression               #assgnInit
+    |   '{' initL=initializerList (',')? '}'    #listInit
     ;
 
 initializerList
-    :   des=designation? init=initializer                           #preDesInitList
-    |   initL=initializerList ',' des=designation? ini=initializer  #postDesInitList
+    :   des=designation? init=initializer                           #singleInitList
+    |   initL=initializerList ',' des=designation? init=initializer #multInitList
     ;
 
 designation

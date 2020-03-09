@@ -18,6 +18,7 @@ import javax.script.ScriptException;
 
 import java.lang.Float.*;
 import java.lang.Double.*;
+import java.util.Arrays;
 
 
 enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED};
@@ -76,10 +77,17 @@ abstract class STO {
   public void addDimension(int i){this.dimensions.add(i);}
   public void setDimensions(ArrayList<Integer> d){this.dimensions = d;}
   public void updateArraySize(){
-    size = 0;
-    for(Integer i : dimensions){
-      size += 4*i; // assuming only arrays of integers for now
+    size = typeSize(type)*dimensions.get(0);
+    for(int i=1; i<dimensions.size(); i++){
+      size *= typeSize(type)*dimensions.get(i);
     }
+  }
+  public int getElementsCount(){
+    int count = dimensions.get(0);
+    for(int i=1; i<dimensions.size(); i++){
+      count *= dimensions.get(i);
+    }
+    return count;
   }
 
   // enum functions
@@ -94,6 +102,25 @@ abstract class STO {
   public void setParamCount(int s){this.size = s;}
   public int getParamCount(){return this.size;}
   public void setParameters(ArrayList<Integer> params){this.dimensions = params;}
+
+
+  // parse eunm to int size
+  protected int typeSize(types type){
+    switch(type){
+      case INT:
+        return 4;
+      case CHAR:
+        return 1;
+      case DOUBLE:
+        return 8;
+      case FLOAT:
+        return 4;
+      case UNSIGNED:
+        return 4;
+      default:
+        return -1;
+    }
+  }
 }
 
 class Variable extends STO{
@@ -134,19 +161,13 @@ public class CCompiler extends CBaseVisitor<String> {
 
   int mem; 
   int label_id; // for unique identification of each label (branch)
-  // Map<String, Integer> table = new HashMap<String, Integer>();
   boolean debug = false;
   boolean enter_parent = false;
   int param_count = 0;  // count parameters for function definition. No nested cases
   int dec_size; 
 
-  //TODO: incorporate with Enum object
   int enum_state; //Keeps latest value of enum
   Map<String, Integer> enum_temp = new HashMap<String, Integer>(); //Stores temporary enum values for enumData insertion in InitSto
-
-  // Break: switch / while / for    (break_context)
-  // Continue: while / for          (continue_context)
-  // Return: functions              (return_context)
 
   Stack<String> current_break_context = new Stack<String>();   // Break: switch / while / for    (break_context)
   Stack<String> current_continue_context = new Stack<String>();   // Continue: while / for          (continue_context)
@@ -168,8 +189,10 @@ public class CCompiler extends CBaseVisitor<String> {
 
   types current_type = null;
 
-  // type sizes
-  HashMap<String, Integer> typeSize;
+  // array initialization
+  int index_position = -1;
+  int[] indexes;
+  int[] values;
 
   CCompiler(boolean d) {
     mem = 0;
@@ -183,14 +206,7 @@ public class CCompiler extends CBaseVisitor<String> {
     interpreter = mgr.getEngineByName("JavaScript");
 
     extendSymbolTable(); // init entry for globals
-
-    typeSize = new HashMap<String, Integer>() {{
-      put("int", 1); // make 4 later when chars are introduced
-    }};
     
-    System.out.println(doubleBits(4.544)[0]);
-    System.out.println(doubleBits(4.544)[1]);
-
     /*
 
     MIPS allocation
@@ -422,6 +438,25 @@ public class CCompiler extends CBaseVisitor<String> {
     }
   }
 
+  // parse type to int size
+  public int typeSize(types type){
+    switch(type){
+      case INT:
+        return 4;
+      case CHAR:
+        return 1;
+      case DOUBLE:
+        return 8;
+      case FLOAT:
+        return 4;
+      case UNSIGNED:
+        return 4;
+      default:
+        throwIllegalArgument(type.toString(), "typeSize conversion");
+        return -1;
+    }
+  }
+
   // get floats (32 bits) / double (64 bits) binary representation
   public int floatBits(float f){
     return Float.floatToIntBits(f);
@@ -433,6 +468,16 @@ public class CCompiler extends CBaseVisitor<String> {
     arr[0] = (int) (v >> 32);
     arr[1] = (int) (v - ((v >> 32) << 32));
     return arr;
+  }
+
+  // array count update
+  public void updateArrayCount(){
+    if(index_position < indexes.length && index_position > -1){
+      indexes[index_position] += 1;
+      for(int i=index_position+1; i<indexes.length; i++){
+        indexes[i] = 0;
+      }
+    }
   }
 
   // END OF HELPERS AND COMMON FUNCTIONS
@@ -626,7 +671,7 @@ public class CCompiler extends CBaseVisitor<String> {
     param_count += 1;
     String type = ctx.spec.getText();
     this.visit(ctx.dec);
-    current_function_object.addParameter(typeSize.get(type));
+    current_function_object.addParameter(typeSize(parseType(type)));
     return "";
   }
 
@@ -667,7 +712,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
     String intConst_val = ctx.val.getText();
-    System.out.println("ori $v0, $zero, " + intConst_val);
+    if(!isGlobalScope()) System.out.println("ori $v0, $zero, " + intConst_val);
     return intConst_val;
   }
 
@@ -702,47 +747,57 @@ public class CCompiler extends CBaseVisitor<String> {
 
   ////////////////////////////////////////////////////////////////////////////////////
   // declaring a variable with initialization
-  // TYPE ID = VAL
+  // TYPE DEC = VAL
   @Override
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
     String id = this.visit(ctx.left); // creates the variable object
-    if(!getIDSymbolTable(id).isGlobal()){
-      int offset = getIDSymbolTable(id).getOffset();
+    // currently supported creations on the left: INT, ARRAY
+    // current_TYPE_object contains ref to symbol table (or just use the ID)
+    if(current_array_object != null){
+      values = new int[current_array_object.getElementsCount()];
+      System.out.println(Arrays.toString(values));
+      indexes = new int[current_array_object.getDimensions().size()];
       this.visit(ctx.right);
-      System.out.println("sw $v0, " + -4*offset + "($sp)");
-    }else{
-      // the variable is global
-      String value = interpret(ctx.right.getText());
-      if(value.equals("true")) value = "1";
-      if(value.equals("false")) value = "0";
-      Integer intValue = (int) Math.round(Double.parseDouble(value));
-      switch(getIDSymbolTable(id).getType()){
-        case INT:{
-            System.out.println(id + ":\n\t.word " + intValue);
-            break;
-        }
-        case CHAR:{
-            System.out.println(id + ":\n\t.byte " + intValue);
-            break;
-        }
-        default:
-          break;
-      }
+      System.out.println(Arrays.toString(values));
     }
-    // I honestly don't remember why I wrote this ages ago, but it must have a future usage
-    // int mem_loc = getIDSymbolTable(id).getOffset();
-    // int var_size = getIDSymbolTable(id).getSize(); //getting size of variable ID
-
+    // this.visit(ctx.right);
+    // if(!getIDSymbolTable(id).isGlobal()){
+    //   int offset = getIDSymbolTable(id).getOffset();
+    //   this.visit(ctx.right);
+    //   System.out.println("sw $v0, " + -4*offset + "($sp)");
+    // }else{
+    //   // the variable is global
+    //   String value = interpret(ctx.right.getText());
+    //   if(value.equals("true")) value = "1";
+    //   if(value.equals("false")) value = "0";
+    //   Integer intValue = (int) Math.round(Double.parseDouble(value));
+    //   switch(getIDSymbolTable(id).getType()){
+    //     case INT:{
+    //         System.out.println(id + ":\n\t.word " + intValue);
+    //         break;
+    //     }
+    //     case CHAR:{
+    //         System.out.println(id + ":\n\t.byte " + intValue);
+    //         break;
+    //     }
+    //     default:
+    //       break;
+    //   }
+    // }
+    current_array_object = null; // we are done initializing the array
     return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
   // declaring a variable without initialization
-  // TYPE ID;
+  // TYPE DEC;
   // default value to zero
   @Override
   public String visitTermInitDec(CParser.TermInitDecContext ctx){
-    String id = this.visit(ctx.dec);
+    String id = this.visit(ctx.dec); // creates the variable object
+    // currently supported creations on the left: INT, ARRAY
+    // current_TYPE_object contains ref to symbol table (or just use the ID)
+
     if(!getIDSymbolTable(id).isGlobal()){
       int offset = getIDSymbolTable(id).getOffset();
       System.out.println("sw $zero, " + -4*offset + "($sp)");
@@ -760,6 +815,7 @@ public class CCompiler extends CBaseVisitor<String> {
           break;
       }
     }
+    current_array_object = null; // we are done initializing the array
     return "";
   }
   
@@ -768,10 +824,24 @@ public class CCompiler extends CBaseVisitor<String> {
   //I.e. {4, 3, 2} - 4, 3, 2 each will have single call to AssgnInit
   @Override
   public String visitAssgnInit(CParser.AssgnInitContext ctx){
-    this.visit(ctx.expr); //evaluate expression
-    // System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
-    // CANT JUST PUT ANYTHING ON STACK TWICE NEED TO CHECK CONTEXT
-    return "";
+    int index = indexes[indexes.length-1];
+    for(int i=0; i<indexes.length-1; i++){
+      index += indexes[i]*current_array_object.getDimensions(indexes.length - 1 - i);
+    }
+    values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
+    indexes[index_position]++;
+    System.out.println(Arrays.toString(indexes));
+    return this.visit(ctx.expr);
+  }
+
+  @Override
+  public String visitListInit(CParser.ListInitContext ctx) {
+    index_position += 1;
+    String ret = visitChildren(ctx);
+    System.out.println("I just left");
+    index_position -= 1;
+    updateArrayCount();
+    return ret;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -1436,37 +1506,28 @@ public class CCompiler extends CBaseVisitor<String> {
   //i.e. int a[3];  
   //returns ID, to be evalutated in OpInit
 
-  // FOR NOW I MADE IT A VARIABLE OBJECT
   @Override
   public String visitQArrDirDec(CParser.QArrDirDecContext ctx){ 
 
-    if(current_array_object == null){
-      current_array_object = new Array();
+    String id = "";
+
+    // recursive visit for multidimensional and avoid declaraing as variable for the ID
+    if(ctx.dec.getChildCount() == 1){
+      id = ctx.dec.getText();
+    }else{
+      id = this.visit(ctx.dec);
     }
 
-    //Evaluates expression -> adds constant in $v0
+    if(current_array_object == null){
+      current_array_object = new Array(0, 0, id, isGlobalScope(), current_type, new ArrayList<Integer>());
+    }
+
+    current_array_object.addDimension(Integer.parseInt(interpret(ctx.expr.getText())));
+
     int array_size = Integer.parseInt(interpret(ctx.expr.getText()));
-    int initial_mem = mem;
 
-    //Store start of array in symbol table
-    String id = ctx.dec.getText();
-
-    // //In case other function is already initialising it in the same scope
-    // STO idArr = getIDSymbolTable(id);
-    //  if(idArr==null){
-    //   System.out.println("MEM LOC IS NULL");
-    //   STO arr = new Array();
-    //   arr.setID(id); arr.setOffset(mem); arr.setSize(3);
-    //   setIDSymbolTable(id, arr);
-    //   System.out.println("sw $zero, " + -4*(mem) + "($sp)");
-    // } else{ //update memory size
-    //   System.out.println("UPDATING MEM_LOC " + idArr.getOffset() + " ARRAY SIZE "+ array_size);
-    //   idArr.setSize(array_size);
-    //   setIDSymbolTable(idArr.getID(), idArr);
-    // }
-
-    // mem = initial_mem + array_size; 
-
+    current_array_object.updateArraySize();
+    setIDSymbolTable(id, current_array_object);
     return id;
   }
 
