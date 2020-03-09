@@ -369,19 +369,10 @@ public class CCompiler extends CBaseVisitor<String> {
     mem = current_mem_context.pop();
   }
 
-  // clear symbol table when leaving function
-  public void clearSymbolTable(){
-    if(debug) System.out.println("\t\t\t\t# ATTENTION FUNCTION TABLE WAS CLEARED AT THAT POINT"); 
-    if(debug) System.out.println("\t\t\t\t# Table was " + symbolTable); 
-    symbolTable.clear();
-    if(debug) System.out.println("\t\t\t\t# Table is " + symbolTable);
-    mem = 0;
-  }
-
   // get ID object from symbol table
   public STO getIDSymbolTable(String id){
     STO obj = symbolTable.peek().get(id);
-    if(debug) System.out.println("\t\t\t\t#Returning " + obj.getID() + " for ID " + id);
+    if(debug) System.out.println("\t\t\t\t#Returning " + obj + " for ID " + id);
     return obj;
   }
 
@@ -475,14 +466,12 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
-    extendSymbolTable();
     mem = 0;
     String functionName = this.visit(ctx.func_dec);
-    STO functionObj = new Function(0, functionName, types.INT, new ArrayList<Integer>());
-    current_function_object = functionObj;
-    setIDSymbolTable(functionName, functionObj);
-
-    if(ctx.dec_list != null) this.visit(ctx.dec_list); // this is to intialize the function in the symbol table as well... for other functions and for its own good
+    current_function_object = new Function(0, functionName, types.INT, new ArrayList<Integer>());
+    setIDSymbolTable(functionName, current_function_object);
+    extendSymbolTable();
+    this.visit(ctx.func_dec);
     current_return_context.add("_return_" + functionName);
     System.out.println("# " + functionName + ": function full");
     insertLabel(functionName);
@@ -495,7 +484,9 @@ public class CCompiler extends CBaseVisitor<String> {
     // figure 1: get function header ready
     System.out.println("addiu $sp, $sp, -12\nsw $fp, 4($sp)\nsw $ra, 8($sp)\nmove $fp, $sp\n");
     // now load all input parameters on the function stack
-    mem = 0; // REMOVE LATER. USE SYMBOL TABLE
+    mem = 0;
+    // current_function_object.setParamCount(param_count);
+    setIDSymbolTable(functionName, current_function_object);
     for(int i=0; i<param_count; i++){
       System.out.println("lw $t1, " + 4*i + "($t0)");
       System.out.println("sw $t1, " + -4*(mem++) + "($sp)");
@@ -507,6 +498,8 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("move $sp, $fp\nlw $ra, 8($fp)\nlw $fp, 4($fp)\naddiu $sp, $sp, 12\njr $ra\nnop");
     current_return_context.pop();
     removeSymbolTable(); // using remove means we did great xD test with remove later, should work
+    setIDSymbolTable(functionName, current_function_object);
+    current_function_object = null;
     return "";
   }
 
@@ -516,10 +509,14 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
     String ID = ctx.id.getText();
-    STO varObj = new Variable(1, mem, ID, isGlobalScope(), types.INT);
-    current_variable_object = varObj;
-    setIDSymbolTable(ID, varObj);
-    return ctx.id.getText();
+    if((current_function_object == null) == isGlobalScope()){
+      STO varObj = new Variable(1, mem++, ID, isGlobalScope(), types.INT);
+      current_variable_object = varObj;
+      setIDSymbolTable(ID, varObj);
+    }else{
+      mem++;
+    }
+    return ID;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -529,6 +526,7 @@ public class CCompiler extends CBaseVisitor<String> {
     String functionName = this.visit(ctx.dec);
     param_count = 0;
     current_function_object = new Function(param_count, functionName, types.INT, new ArrayList<Integer>());
+    mem = 0;
     this.visit(ctx.paramL);
     current_function_object.setParamCount(param_count);
     setIDSymbolTable(functionName, current_function_object);
@@ -541,11 +539,11 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitIdlDirDec(CParser.IdlDirDecContext ctx){
     String functionName = this.visit(ctx.dec);
     param_count = 0;
-    STO funcObj = new Function(param_count, functionName, types.INT, new ArrayList<Integer>());
-    current_function_object = funcObj;
+    current_function_object = new Function(param_count, functionName, types.INT, new ArrayList<Integer>());
+    mem = 0;
     if(ctx.idL != null) this.visit(ctx.idL);
-    funcObj.setParamCount(param_count);
-    setIDSymbolTable(functionName, funcObj);
+    current_function_object.setParamCount(param_count);
+    setIDSymbolTable(functionName, current_function_object);
     return functionName;
   }
 
@@ -587,9 +585,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitDecParamDec(CParser.DecParamDecContext ctx){
     param_count += 1;
-    // setIDSymbolTable(this.visit(ctx.dec), mem++); // we don't care about the declarator
     String type = ctx.spec.getText();
-    STO v = new Variable();
+    this.visit(ctx.dec);
     current_function_object.addParameter(typeSize.get(type));
     return "";
   }
@@ -651,9 +648,9 @@ public class CCompiler extends CBaseVisitor<String> {
   // TYPE ID = VAL
   @Override
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
-    String id = this.visit(ctx.left);
-
     this.visit(ctx.right);
+    String id = this.visit(ctx.left); // creates the variable object
+    System.out.println("sw $v0, " + -4*current_variable_object.getOffset() + "($sp)");
 
     // I honestly don't remember why I wrote this ages ago, but it must have a future usage
     // int mem_loc = getIDSymbolTable(id).getOffset();
@@ -672,7 +669,10 @@ public class CCompiler extends CBaseVisitor<String> {
     STO currentVar = getIDSymbolTable(id);
     currentVar.setOffset(mem);
     setIDSymbolTable(id, currentVar); // overwrites variable in sub-context yey!
-    System.out.println("sw $zero, " + -4*(mem++) + "($sp)");
+    if(!currentVar.isGlobal()) System.out.println("sw $zero, " + -4*(mem++) + "($sp)");
+    else{
+      System.err.println("We will implement this global variable soon");
+    }
     return "";
   }
   
@@ -682,8 +682,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitAssgnInit(CParser.AssgnInitContext ctx){
     this.visit(ctx.expr); //evaluate expression
-    System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
-
+    // System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
+    // CANT JUST PUT ANYTHING ON STACK TWICE NEED TO CHECK CONTEXT
     return "";
   }
 
@@ -1454,7 +1454,6 @@ public class CCompiler extends CBaseVisitor<String> {
     compiler.visit(tree);
     System.err.println("Symbol table (should have one entry of global declarations): " + compiler.symbolTable);
     System.err.println("Final mem: "+compiler.mem);
-
   }
 
 }
