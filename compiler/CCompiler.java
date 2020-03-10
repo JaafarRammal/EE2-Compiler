@@ -196,6 +196,23 @@ class Array extends STO{
         }
         
       }
+    }else{
+      for(int i=0; i<values.length; i++){
+        switch(getType()){
+          case INT:{
+            System.out.println("ori $v0, $zero, " + (int)values[i]);
+            System.out.println("sw $v0, " + -4*(offset+i) + "($sp)");
+            break;
+        }
+        case CHAR:{
+            System.out.println("ori $v0, $zero, " + ((((int)values[i])<<24) >> 24));
+            System.out.println("sb $v0, " + -4*(offset+i) + "($sp)");
+            break;
+        }
+          default:
+            break;
+        } 
+      }
     }
   }
 }
@@ -251,8 +268,8 @@ public class CCompiler extends CBaseVisitor<String> {
 
   // array initialization
   int index_position = -1;
-  int[] indexes;
-  double[] values;
+  int[] indexes = null;
+  double[] values = null;
 
   CCompiler(boolean d) {
     mem = 0;
@@ -821,8 +838,10 @@ public class CCompiler extends CBaseVisitor<String> {
       values = new double[current_array_object.getElementsCount()];
       indexes = new int[current_array_object.getDimensions().size()];
       this.visit(ctx.right);
-      System.out.println(Arrays.toString(values));
-      // getIDSymbolTable(id).initialize(values);
+      // System.out.println(Arrays.toString(values));
+      getIDSymbolTable(id).initialize(values);
+      mem += current_array_object.getElementsCount(); // ints for now
+      indexes = null; // so other functions can use it now
     }else{
       if(!getIDSymbolTable(id).isGlobal()){
         this.visit(ctx.right);
@@ -843,9 +862,10 @@ public class CCompiler extends CBaseVisitor<String> {
     String id = this.visit(ctx.dec); // creates the variable object
     // currently supported creations on the left: INT, ARRAY
     // current_TYPE_object contains ref to symbol table (or just use the ID)
-     if(current_array_object != null){
+    if(current_array_object != null){
       values = new double[current_array_object.getElementsCount()];
       getIDSymbolTable(id).initialize(values);
+      mem += current_array_object.getElementsCount(); // ints for now
     }else{
       getIDSymbolTable(id).initialize("0");
     }
@@ -867,10 +887,12 @@ public class CCompiler extends CBaseVisitor<String> {
       }
       index += indexes[indexes.length-1];
       values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
-      System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
+      // System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
       indexes[index_position]++;
+    }else{
+      this.visit(ctx.expr);
     }
-    return this.visit(ctx.expr);
+    return ctx.expr.getText();
   }
 
   @Override
@@ -1168,11 +1190,17 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpAssgnExpr(CParser.OpAssgnExprContext ctx) {
     // currently storing into int variable
     // will be modified later for arrays
-    Integer destination = getIDSymbolTable(ctx.left.getText()).getOffset();
     this.visit(ctx.right);
     // $v0 contains the value of whatever was on the right
     System.out.println("sw $v0, " + -4*(mem++) + "($sp)"); // push right on stack
-    this.visit(ctx.left); // evaluate current value (left)
+    indexes = null;
+    String id = this.visit(ctx.left); // an array will return the destination instead
+    int destination = 0;
+    if(getIDSymbolTable(id) != null)
+      destination = getIDSymbolTable(id).getOffset();
+    else
+      destination = Integer.parseInt(id);
+    
     System.out.println("addu $t2, $v0, $zero"); // store current value in $t2
     System.out.println("lw $v0, " + -4*(--mem) + "($sp)"); // pop right from stack. Ready to evaluate
     switch(ctx.op.getText()){
@@ -1537,6 +1565,8 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
 
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Multidimensional objects
 
   ////////////////////////////////////////////////////////////////////////////////////
   // Array declarations
@@ -1557,7 +1587,7 @@ public class CCompiler extends CBaseVisitor<String> {
     }
 
     if(current_array_object == null){
-      current_array_object = new Array(0, 0, id, isGlobalScope(), current_type, new ArrayList<Integer>());
+      current_array_object = new Array(0, mem, id, isGlobalScope(), current_type, new ArrayList<Integer>());
     }
 
     current_array_object.addDimension(Integer.parseInt(interpret(ctx.expr.getText())));
@@ -1566,6 +1596,50 @@ public class CCompiler extends CBaseVisitor<String> {
 
     current_array_object.updateArraySize();
     setIDSymbolTable(id, current_array_object);
+    return id;
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Array access
+  // all we want is to have the offset of the corresponding location returned
+  // and then treat as a single object in operations
+  // value is outputed into $v0 (and later into $f0 for floats / doubles)
+  @Override
+  public String visitArrPostExpr(CParser.ArrPostExprContext ctx) {
+    String id = "";
+    if(ctx.left.getChildCount() != 1){
+      id = this.visit(ctx.left);
+    }else{
+      id = ctx.left.getText();
+      indexes = new int[getIDSymbolTable(id).getDimensions().size()];
+    }
+    indexes[++index_position] = Integer.parseInt(ctx.right.getText());
+    if(index_position == indexes.length-1){
+      // now indexes contains what element we want to access. we can calculate the offset of that element and put in $v0 / $f0 the value of the element
+      int index = 0;
+      for(int i=0; i<indexes.length-1; i++){
+        index += indexes[i];
+        index *= getIDSymbolTable(id).getDimensions().get(i+1);
+      }
+      index += indexes[indexes.length-1];
+      index = (getIDSymbolTable(id).getOffset() + index);
+      // load in $v0 or $f0
+      switch(getIDSymbolTable(id).getType()){
+        case INT:{
+          System.out.println("lw $v0, " + -4*(index) + "($sp)");
+          break;
+        }
+        case CHAR:{
+          System.out.println("lb $v0, " + -4*(index) + "($sp)");
+          break;
+        }
+        default:
+          break;
+      } 
+      indexes = null; // clean indexing for next array
+      index_position = -1;
+      return Integer.toString(index);
+    }
     return id;
   }
 
