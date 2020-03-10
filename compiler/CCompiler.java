@@ -17,6 +17,7 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptException;
 
 import java.lang.Float.*;
+import java.sql.Types;
 import java.lang.Double.*;
 import java.util.Arrays;
 
@@ -199,11 +200,6 @@ class Array extends STO{
   }
 }
 
-class Enum extends STO{
-  Enum(){initSTO();}
-  Enum(String ID, boolean isGlobal, Map<String, Integer> enumData){initSTO(-1, -1, ID, isGlobal, types.INT, null, enumData);}
-}
-
 class Function extends STO{
   Function(){initSTO();}
   Function(int paramCount, String ID, types type, ArrayList<Integer> params){initSTO(paramCount, -1, ID, true, type, params, null);}
@@ -232,7 +228,6 @@ public class CCompiler extends CBaseVisitor<String> {
   int dec_size; 
 
   int enum_state; //Keeps latest value of enum
-  Map<String, Integer> enum_temp = new HashMap<String, Integer>(); //Stores temporary enum values for enumData insertion in InitSto
 
   Stack<String> current_break_context = new Stack<String>();   // Break: switch / while / for    (break_context)
   Stack<String> current_continue_context = new Stack<String>();   // Continue: while / for          (continue_context)
@@ -1581,11 +1576,9 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitDecEnumSpec(CParser.DecEnumSpecContext ctx){
     enum_state = 0;
+    System.err.println("In dec enum");
+    String enumID = ctx.id.getText();
     this.visit(ctx.enumL); //evaluates each expression in brackets
-
-    //TODO: make setIDSymbolTable <String, STO>
-    STO enumObj = new Enum(enumID, isGlobalScope(), enum_temp);
-    setIDSymbolTable(enumID, enumObj);
     
     return "";
   }
@@ -1594,28 +1587,43 @@ public class CCompiler extends CBaseVisitor<String> {
   //Must communicate the ID of enum for symbol table access
   @Override
   public String visitEmptyEnumSpec(CParser.EmptyEnumSpecContext ctx){
-    enum_state = 0;
+    //enum_state = 0;
 
-    return "";
+    //return ctx.id.getText(); //Only necessary if storing "day"
+    return ""; 
   }
 
   //e.g {x}
   public String visitEmptyEnum(CParser.EmptyEnumContext ctx){
 
+    //create new var
+    //interpret RHS
     String enumConstId = this.visit(ctx.enume);
-    enum_temp.put(enumConstId, enum_state++);
+    String enumVal_s = Integer.toString(enum_state);
 
+    STO varObj = new Variable(1, mem++, enumConstId, isGlobalScope(), types.INT);
+    current_enum_object = varObj;
+    setIDSymbolTable(enumConstId,varObj);
+    getIDSymbolTable(enumConstId).initialize(interpret(enumVal_s));
+
+    enum_state++;
+    
     return "";
   }
 
   //e.g. {x = 0;}
   public String visitAssgnEnum(CParser.AssgnEnumContext ctx){
-    String enumConstId = this.visit(ctx.enume);
 
+    String enumConstId = this.visit(ctx.enume);
     String enumVal_s = this.visit(ctx.expr); 
     Integer enumVal = Integer.parseInt(enumVal_s);
 
-    enum_state = enumVal;
+    enum_state = enumVal; //reset enum to previous value
+
+    STO varObj = new Variable(1, mem++, enumConstId, isGlobalScope(), types.INT);
+    current_enum_object = varObj;
+    setIDSymbolTable(enumConstId, varObj);
+    getIDSymbolTable(enumConstId).initialize(interpret(enumVal_s));
 
     return "";
   }
@@ -1623,6 +1631,7 @@ public class CCompiler extends CBaseVisitor<String> {
   //returns id of enum const
   @Override
   public String visitEnumConst(CParser.EnumConstContext ctx){
+
     return ctx.id.getText();
   }
 
