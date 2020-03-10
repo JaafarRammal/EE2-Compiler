@@ -121,17 +121,82 @@ abstract class STO {
         return -1;
     }
   }
+
+  // intialization and declaration functions
+  public void initialize(double[] values){
+    throw new IllegalStateException("Operation init(int[]) not implemented for current object " + getID());
+  }
+
+  public void initialize(String value){
+    throw new IllegalStateException("Operation init(String) not implemented for current object " + getID());
+  }
+
 }
 
 class Variable extends STO{
   Variable(){initSTO();}
   Variable(int size, int offset, String ID, boolean isGlobal, types type){initSTO(size, offset, ID, isGlobal, type, null, null);}
+  @Override public void initialize(String value){
+    if(!isGlobal()){
+      int offset = getOffset();
+      String reg = "$v0";
+      if(value == "0")
+        reg = "$zero";
+      switch(getType()){
+        case INT:{
+            System.out.println("sw " + reg + ", " + -4*offset + "($sp)");
+            break;
+        }
+        case CHAR:{
+            System.out.println("sb " + reg + ", " + -4*offset + "($sp)");
+            break;
+        }
+        default:
+          break;
+      }
+    }else{
+      if(value.equals("true")) value = "1";
+      if(value.equals("false")) value = "0";
+      Integer intValue = (int) Math.round(Double.parseDouble(value));
+      switch(getType()){
+        case INT:{
+            System.out.println(getID() + ":\n\t.word " + intValue);
+            break;
+        }
+        case CHAR:{
+            System.out.println(getID() + ":\n\t.byte " + intValue);
+            break;
+        }
+        default:
+          break;
+      }
+    }
+  }
 }
 
 class Array extends STO{
   Array(){initSTO();}
   Array(int size, int offset, String ID, boolean isGlobal, types type, ArrayList<Integer> dimensions){initSTO(size, offset, ID, isGlobal, type, dimensions, null);}
-  
+  @Override public void initialize(double[] values){
+    if(isGlobal()){
+      System.out.println(getID()+":");
+      for(double val: values){
+        switch(getType()){
+          case INT:{
+              System.out.println("\t.word " + (int)val);
+              break;
+          }
+          case CHAR:{
+              System.out.println("\t.byte " + ((((int)val)<<24) >> 24));
+              break;
+          }
+          default:
+            break;
+        }
+        
+      }
+    }
+  }
 }
 
 class Enum extends STO{
@@ -192,7 +257,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // array initialization
   int index_position = -1;
   int[] indexes;
-  int[] values;
+  double[] values;
 
   CCompiler(boolean d) {
     mem = 0;
@@ -412,6 +477,10 @@ public class CCompiler extends CBaseVisitor<String> {
 
   // interpret constant expression
   public String interpret(String expression){
+    if(expression.charAt(0) == '\''){
+      int v = (expression.charAt(1) - '0');
+      return "" + v;
+    }
     try{
       return String.valueOf(interpreter.eval(expression));
     }catch(Exception e){
@@ -754,36 +823,18 @@ public class CCompiler extends CBaseVisitor<String> {
     // currently supported creations on the left: INT, ARRAY
     // current_TYPE_object contains ref to symbol table (or just use the ID)
     if(current_array_object != null){
-      values = new int[current_array_object.getElementsCount()];
-      System.out.println(Arrays.toString(values));
+      values = new double[current_array_object.getElementsCount()];
       indexes = new int[current_array_object.getDimensions().size()];
       this.visit(ctx.right);
       System.out.println(Arrays.toString(values));
+      // getIDSymbolTable(id).initialize(values);
+    }else{
+      if(!getIDSymbolTable(id).isGlobal()){
+        this.visit(ctx.right);
+        getIDSymbolTable(id).initialize("");
+      }else
+        getIDSymbolTable(id).initialize(interpret(ctx.right.getText()));
     }
-    // this.visit(ctx.right);
-    // if(!getIDSymbolTable(id).isGlobal()){
-    //   int offset = getIDSymbolTable(id).getOffset();
-    //   this.visit(ctx.right);
-    //   System.out.println("sw $v0, " + -4*offset + "($sp)");
-    // }else{
-    //   // the variable is global
-    //   String value = interpret(ctx.right.getText());
-    //   if(value.equals("true")) value = "1";
-    //   if(value.equals("false")) value = "0";
-    //   Integer intValue = (int) Math.round(Double.parseDouble(value));
-    //   switch(getIDSymbolTable(id).getType()){
-    //     case INT:{
-    //         System.out.println(id + ":\n\t.word " + intValue);
-    //         break;
-    //     }
-    //     case CHAR:{
-    //         System.out.println(id + ":\n\t.byte " + intValue);
-    //         break;
-    //     }
-    //     default:
-    //       break;
-    //   }
-    // }
     current_array_object = null; // we are done initializing the array
     return "";
   }
@@ -797,40 +848,33 @@ public class CCompiler extends CBaseVisitor<String> {
     String id = this.visit(ctx.dec); // creates the variable object
     // currently supported creations on the left: INT, ARRAY
     // current_TYPE_object contains ref to symbol table (or just use the ID)
-
-    if(!getIDSymbolTable(id).isGlobal()){
-      int offset = getIDSymbolTable(id).getOffset();
-      System.out.println("sw $zero, " + -4*offset + "($sp)");
+     if(current_array_object != null){
+      values = new double[current_array_object.getElementsCount()];
+      getIDSymbolTable(id).initialize(values);
     }else{
-      switch(getIDSymbolTable(id).getType()){
-        case INT:{
-            System.out.println(id + ":\n\t.word 0");
-            break;
-        }
-        case CHAR:{
-            System.out.println(id + ":\n\t.byte 0");
-            break;
-        }
-        default:
-          break;
-      }
+      getIDSymbolTable(id).initialize("0");
     }
     current_array_object = null; // we are done initializing the array
     return "";
   }
   
   ////////////////////////////////////////////////////////////////////////////////////
-  //Initializing a variable in an initializer list
-  //I.e. {4, 3, 2} - 4, 3, 2 each will have single call to AssgnInit
+  // Initializing a variable in an initializer list
+  // I.e. {4, 3, 2} - 4, 3, 2 each will have single call to AssgnInit
+  // https://stackoverflow.com/questions/7367770/how-to-flatten-or-index-3d-array-in-1d-array
   @Override
   public String visitAssgnInit(CParser.AssgnInitContext ctx){
-    int index = indexes[indexes.length-1];
-    for(int i=0; i<indexes.length-1; i++){
-      index += indexes[i]*current_array_object.getDimensions(indexes.length - 1 - i);
+    if(current_array_object != null){
+      int index = 0;
+      for(int i=0; i<indexes.length-1; i++){
+        index += indexes[i];
+        index *= current_array_object.getDimensions().get(i);
+      }
+      index += indexes[indexes.length-1];
+      values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
+      System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
+      indexes[index_position]++;
     }
-    values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
-    indexes[index_position]++;
-    System.out.println(Arrays.toString(indexes));
     return this.visit(ctx.expr);
   }
 
@@ -838,7 +882,6 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitListInit(CParser.ListInitContext ctx) {
     index_position += 1;
     String ret = visitChildren(ctx);
-    System.out.println("I just left");
     index_position -= 1;
     updateArrayCount();
     return ret;
