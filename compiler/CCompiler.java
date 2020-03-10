@@ -195,6 +195,23 @@ class Array extends STO{
         }
         
       }
+    }else{
+      for(int i=0; i<values.length; i++){
+        switch(getType()){
+          case INT:{
+            System.out.println("ori $v0, $zero, " + (int)values[i]);
+            System.out.println("sw $v0, " + -4*(offset+i) + "($sp)");
+            break;
+        }
+        case CHAR:{
+            System.out.println("ori $v0, $zero, " + ((((int)values[i])<<24) >> 24));
+            System.out.println("sb $v0, " + -4*(offset+i) + "($sp)");
+            break;
+        }
+          default:
+            break;
+        } 
+      }
     }
   }
 }
@@ -826,8 +843,9 @@ public class CCompiler extends CBaseVisitor<String> {
       values = new double[current_array_object.getElementsCount()];
       indexes = new int[current_array_object.getDimensions().size()];
       this.visit(ctx.right);
-      System.out.println(Arrays.toString(values));
-      // getIDSymbolTable(id).initialize(values);
+      // System.out.println(Arrays.toString(values));
+      getIDSymbolTable(id).initialize(values);
+      mem += current_array_object.getElementsCount(); // ints for now
     }else{
       if(!getIDSymbolTable(id).isGlobal()){
         this.visit(ctx.right);
@@ -848,9 +866,10 @@ public class CCompiler extends CBaseVisitor<String> {
     String id = this.visit(ctx.dec); // creates the variable object
     // currently supported creations on the left: INT, ARRAY
     // current_TYPE_object contains ref to symbol table (or just use the ID)
-     if(current_array_object != null){
+    if(current_array_object != null){
       values = new double[current_array_object.getElementsCount()];
       getIDSymbolTable(id).initialize(values);
+      mem += current_array_object.getElementsCount(); // ints for now
     }else{
       getIDSymbolTable(id).initialize("0");
     }
@@ -872,10 +891,12 @@ public class CCompiler extends CBaseVisitor<String> {
       }
       index += indexes[indexes.length-1];
       values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
-      System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
+      // System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
       indexes[index_position]++;
+    }else{
+      this.visit(ctx.expr);
     }
-    return this.visit(ctx.expr);
+    return ctx.expr.getText();
   }
 
   @Override
@@ -1562,7 +1583,7 @@ public class CCompiler extends CBaseVisitor<String> {
     }
 
     if(current_array_object == null){
-      current_array_object = new Array(0, 0, id, isGlobalScope(), current_type, new ArrayList<Integer>());
+      current_array_object = new Array(0, mem, id, isGlobalScope(), current_type, new ArrayList<Integer>());
     }
 
     current_array_object.addDimension(Integer.parseInt(interpret(ctx.expr.getText())));
