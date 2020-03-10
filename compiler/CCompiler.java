@@ -868,7 +868,7 @@ public class CCompiler extends CBaseVisitor<String> {
       int index = 0;
       for(int i=0; i<indexes.length-1; i++){
         index += indexes[i];
-        index *= current_array_object.getDimensions().get(i);
+        index *= current_array_object.getDimensions().get(i+1);
       }
       index += indexes[indexes.length-1];
       values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
