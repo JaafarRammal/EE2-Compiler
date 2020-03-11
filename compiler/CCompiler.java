@@ -200,12 +200,12 @@ class Array extends STO{
       for(int i=0; i<values.length; i++){
         switch(getType()){
           case INT:{
-            System.out.println("ori $v0, $zero, " + (int)values[i]);
+            System.out.println("li $v0, " + (int)values[i]);
             System.out.println("sw $v0, " + -4*(offset+i) + "($sp)");
             break;
         }
         case CHAR:{
-            System.out.println("ori $v0, $zero, " + ((((int)values[i])<<24) >> 24));
+            System.out.println("li $v0, " + ((((int)values[i])<<24) >> 24));
             System.out.println("sb $v0, " + -4*(offset+i) + "($sp)");
             break;
         }
@@ -793,7 +793,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
     String intConst_val = ctx.val.getText();
-    if(!isGlobalScope()) System.out.println("ori $v0, $zero, " + intConst_val);
+    if(!isGlobalScope()) System.out.println("li $v0, " + intConst_val);
     return intConst_val;
   }
 
@@ -1198,7 +1198,7 @@ public class CCompiler extends CBaseVisitor<String> {
     int destination = 0;
     if(getIDSymbolTable(id) != null){
       destination = -4*getIDSymbolTable(id).getOffset();
-      System.out.println("ori $v1, $zero, " + destination);
+      System.out.println("li $v1, " + destination);
       System.out.println("addu $v1, $fp, $v1");
     }
   
@@ -1507,7 +1507,7 @@ public class CCompiler extends CBaseVisitor<String> {
       String[] data = line.split(":");
       if(data[1].equals("null")) System.out.println("j " + data[0] + "\nnop");
       else {
-        System.out.println("ori $t1, $zero, " + data[1]);
+        System.out.println("li $t1, " + data[1]);
         System.out.println("beq $v0, $t1, " + data[0] + "\nnop");
       }
     }
@@ -1621,13 +1621,13 @@ public class CCompiler extends CBaseVisitor<String> {
     // indexes[++index_position] = Integer.parseInt(ctx.right.getText());
     if(index_position == getIDSymbolTable(id).getDimensions().size()-1){
       // now indexes on the stack contains what element we want to access. we can calculate the offset of that element and put in $v0 / $f0 the value of the element
-      System.out.println("ori $t2, $zero, 0"); // prepare the flatten index and calculate from the indexes and the array size
+      System.out.println("li $t2, 0"); // prepare the flatten index and calculate from the indexes and the array size
       mem--; mem-= index_position; // set mem to beginning of sizes stack
       for(int i=0; i<getIDSymbolTable(id).getDimensions().size()-1; i++){
         System.out.println("lw $t0, " + -4*(mem++) + "($sp)");
         System.out.println("addu $t2, $t2, $t0"); // index += indexes[i];
         
-        System.out.println("ori $t0, $zero, " + getIDSymbolTable(id).getDimensions().get(i+1));
+        System.out.println("li $t0, " + getIDSymbolTable(id).getDimensions().get(i+1));
         System.out.println("nop\nmult $t0, $t2");
         System.out.println("mflo $t2"); //index *= getIDSymbolTable(id).getDimensions().get(i+1);
       }
@@ -1635,10 +1635,10 @@ public class CCompiler extends CBaseVisitor<String> {
       System.out.println("addu $t2, $t2, $t0"); // index += indexes[indexes.length-1];
       mem--; mem -= index_position; // set memory back in place
       
-      System.out.println("ori $t0, $zero, " + getIDSymbolTable(id).getOffset());
+      System.out.println("li $t0, " + getIDSymbolTable(id).getOffset());
       System.out.println("addu $t2, $t2, $t0"); // index = (getIDSymbolTable(id).getOffset() + index);
       
-      System.out.println("ori $t0, $zero, -4");
+      System.out.println("li $t0, -4");
       System.out.println("nop\nmult $t0, $t2");
       System.out.println("mflo $t2"); // index = -4 * index
       // load in $v0 or $f0
