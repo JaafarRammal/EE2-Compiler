@@ -1196,10 +1196,12 @@ public class CCompiler extends CBaseVisitor<String> {
     indexes = null;
     String id = this.visit(ctx.left); // an array will return the destination instead
     int destination = 0;
-    if(getIDSymbolTable(id) != null)
-      destination = getIDSymbolTable(id).getOffset();
-    else
-      destination = Integer.parseInt(id);
+    if(getIDSymbolTable(id) != null){
+      destination = -4*getIDSymbolTable(id).getOffset();
+      System.out.println("ori $v1, $zero, " + destination);
+      System.out.println("addu $v1, $fp, $v1");
+    }
+  
     
     System.out.println("addu $t2, $v0, $zero"); // store current value in $t2
     System.out.println("lw $v0, " + -4*(--mem) + "($sp)"); // pop right from stack. Ready to evaluate
@@ -1241,7 +1243,7 @@ public class CCompiler extends CBaseVisitor<String> {
       default:
         throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
     }
-    System.out.println("sw $v0, " + -4*destination + "($fp)");
+    System.out.println("sw $v0, 0($v1)");
     
     return "";
   }
@@ -1613,32 +1615,51 @@ public class CCompiler extends CBaseVisitor<String> {
       id = ctx.left.getText();
       indexes = new int[getIDSymbolTable(id).getDimensions().size()];
     }
-    indexes[++index_position] = Integer.parseInt(ctx.right.getText());
-    if(index_position == indexes.length-1){
-      // now indexes contains what element we want to access. we can calculate the offset of that element and put in $v0 / $f0 the value of the element
-      int index = 0;
-      for(int i=0; i<indexes.length-1; i++){
-        index += indexes[i];
-        index *= getIDSymbolTable(id).getDimensions().get(i+1);
+    this.visit(ctx.right);
+    System.out.println("sw $v0, " + -4*(mem++) + "($sp)"); // store the indexes as they can be an expression
+    index_position++;
+    // indexes[++index_position] = Integer.parseInt(ctx.right.getText());
+    if(index_position == getIDSymbolTable(id).getDimensions().size()-1){
+      // now indexes on the stack contains what element we want to access. we can calculate the offset of that element and put in $v0 / $f0 the value of the element
+      System.out.println("ori $t2, $zero, 0"); // prepare the flatten index and calculate from the indexes and the array size
+      mem--; mem-= index_position; // set mem to beginning of sizes stack
+      for(int i=0; i<getIDSymbolTable(id).getDimensions().size()-1; i++){
+        System.out.println("lw $t0, " + -4*(mem++) + "($sp)");
+        System.out.println("addu $t2, $t2, $t0"); // index += indexes[i];
+        
+        System.out.println("ori $t0, $zero, " + getIDSymbolTable(id).getDimensions().get(i+1));
+        System.out.println("nop\nmult $t0, $t2");
+        System.out.println("mflo $t2"); //index *= getIDSymbolTable(id).getDimensions().get(i+1);
       }
-      index += indexes[indexes.length-1];
-      index = (getIDSymbolTable(id).getOffset() + index);
+      System.out.println("lw $t0, " + -4*(mem++) + "($sp)");
+      System.out.println("addu $t2, $t2, $t0"); // index += indexes[indexes.length-1];
+      mem--; mem -= index_position; // set memory back in place
+      
+      System.out.println("ori $t0, $zero, " + getIDSymbolTable(id).getOffset());
+      System.out.println("addu $t2, $t2, $t0"); // index = (getIDSymbolTable(id).getOffset() + index);
+      
+      System.out.println("ori $t0, $zero, -4");
+      System.out.println("nop\nmult $t0, $t2");
+      System.out.println("mflo $t2"); // index = -4 * index
       // load in $v0 or $f0
+      System.out.println("addu $t2, $fp, $t2");
       switch(getIDSymbolTable(id).getType()){
         case INT:{
-          System.out.println("lw $v0, " + -4*(index) + "($sp)");
+          System.out.println("lw $v0, 0($t2)");
           break;
         }
         case CHAR:{
-          System.out.println("lb $v0, " + -4*(index) + "($sp)");
+          System.out.println("lb $v0, 0($t2)");
           break;
         }
         default:
           break;
       } 
-      indexes = null; // clean indexing for next array
+      // indexes = null; // clean indexing for next array
       index_position = -1;
-      return Integer.toString(index);
+      // put destination in $v1
+      System.out.println("addu $v1, $t2, $zero");
+      return "123"; // just an invalid ID basically... sorry about that
     }
     return id;
   }
