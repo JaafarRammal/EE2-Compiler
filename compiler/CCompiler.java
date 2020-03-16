@@ -866,10 +866,11 @@ public class CCompiler extends CBaseVisitor<String> {
       values = new double[current_array_object.getElementsCount()];
       getIDSymbolTable(id).initialize(values);
       mem += current_array_object.getElementsCount(); // ints for now
-    }else{
+    }else if(current_function_object == null){
       getIDSymbolTable(id).initialize("0");
     }
     current_array_object = null; // we are done initializing the array
+    current_function_object = null; // we are done initializing the function
     return "";
   }
   
