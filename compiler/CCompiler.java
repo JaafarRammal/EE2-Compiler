@@ -870,7 +870,7 @@ public class CCompiler extends CBaseVisitor<String> {
       getIDSymbolTable(id).initialize("0");
     }
     current_array_object = null; // we are done initializing the array
-    current_function_object = null; // we are done initializing the function
+    current_function_object = isGlobalScope() ? null : current_function_object; // we are done declaring the function
     return "";
   }
   
@@ -910,7 +910,8 @@ public class CCompiler extends CBaseVisitor<String> {
   // ADD POINTERS IMPLEMENTATION HERE
   @Override
   public String visitCastUnaryExpr(CParser.CastUnaryExprContext ctx){
-    this.visit(ctx.right);
+    String id = this.visit(ctx.right);
+    System.out.println(id);
     String unaryOp = this.visit(ctx.left);
     switch(unaryOp){
       case "+":
@@ -925,6 +926,10 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("seq $v0, $v0, $zero"); // !v0 = $v0 == 0 ? 1 : 0
         break;
       case "&":
+        // we want the address of x, which is the offset of variable x added to frame pointer if it's a local variable
+        // otherwise use the semantic for global variables
+        if(getIDSymbolTable(id).isGlobal()) System.out.println("lui $v0, %hi(" + id +")\naddiu $v0, $v0, %lo(" + id + ")");
+        else System.out.println("addiu $v0, $fp," + getIDSymbolTable(id).getOffset());
         break;
       case "*":
         break;
