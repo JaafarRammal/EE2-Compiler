@@ -1,0 +1,170 @@
+add_double
+[97madd_double.c [31m[FAIL] [97mExpected 0 , got 1
+add
+[97madd.c [31m[FAIL] [97mExpected 0 , got 1
+add_mul
+[97madd_mul.c [31m[FAIL] [97mExpected 0 , got 1
+addressof
+[97maddressof.c [31m[FAIL] [97mExpected 0 , got 139
+arithmetic
+[97marithmetic.c [31m[FAIL] [97mExpected 0 , got 1
+assign
+[97massign.c [31m[FAIL] [97mExpected 0 , got 139
+bitwise_and
+[97mbitwise_and.c [92m[PASS]
+bitwise_or
+[97mbitwise_or.c [92m[PASS]
+bitwise_xor
+[97mbitwise_xor.c [92m[PASS]
+call_constant_external
+[97mcall_constant_external.c [31m[FAIL] [97mExpected 0 , got 1
+call_constant_internal
+[97mcall_constant_internal.c [92m[PASS]
+call_five_args_external
+[97mcall_five_args_external.c [31m[FAIL] [97mExpected 0 , got 1
+call_five_args_internal
+[97mcall_five_args_internal.c [92m[PASS]
+call_identity_external
+[97mcall_identity_external.c [31m[FAIL] [97mExpected 0 , got 1
+call_identity_internal
+[97mcall_identity_internal.c [92m[PASS]
+call_mutual_recursive
+[97mcall_mutual_recursive.c [31m[FAIL] [97mExpected 0 , got 1
+call_recursive_internal
+[97mcall_recursive_internal.c [92m[PASS]
+call_two_args_external
+[97mcall_two_args_external.c [31m[FAIL] [97mExpected 0 , got 1
+call_two_args_internal
+[97mcall_two_args_internal.c [92m[PASS]
+chliteral
+[97mchliteral.c [92m[PASS]
+constant_initialiser
+[97mconstant_initialiser.c [92m[PASS]
+declare_global
+[97mdeclare_global.c [92m[PASS]
+declare_local
+[97mdeclare_local.c [92m[PASS]
+dereference
+[97mdereference.c [31m[FAIL] [97mExpected 0 , got 139
+div
+[97mdiv.c [92m[PASS]
+dual_var
+[97mdual_var.c [92m[PASS]
+enum1
+[97menum1.c [92m[PASS]
+enum2
+[97menum2.c [92m[PASS]
+equal
+[97mequal.c [92m[PASS]
+escaped
+[97mescaped.c [31m[FAIL] [97mExpected 0 , got 139
+expression_initialiser
+[97mexpression_initialiser.c [92m[PASS]
+fibonacci
+[97mfibonacci.c [92m[PASS]
+for_multiple
+[97mfor_multiple.c [92m[PASS]
+for_one
+[97mfor_one.c [92m[PASS]
+for_zero_v1
+[97mfor_zero_v1.c [92m[PASS]
+for_zero_v2
+[97mfor_zero_v2.c [92m[PASS]
+identity
+[97midentity.c [92m[PASS]
+if_else_false
+[97mif_else_false.c [92m[PASS]
+if_else_true
+[97mif_else_true.c [92m[PASS]
+if_false
+[97mif_false.c [92m[PASS]
+if_true
+[97mif_true.c [92m[PASS]
+index_constant
+[97mindex_constant.c [92m[PASS]
+index
+[97mindex.c [31m[FAIL] [97mExpected 0 , got 1
+index_expression
+[97mindex_expression.c [92m[PASS]
+index_variable
+[97mindex_variable.c [92m[PASS]
+less_than
+[97mless_than.c [92m[PASS]
+less_than_equal
+[97mless_than_equal.c [92m[PASS]
+literal
+[97mliteral.c [31m[FAIL] [97mExpected 0 , got 139
+logical_and
+[97mlogical_and.c [92m[PASS]
+logical_or
+[97mlogical_or.c [92m[PASS]
+mul_add
+[97mmul_add.c [31m[FAIL] [97mExpected 0 , got 127
+mul_double
+[97mmul_double.c [31m[FAIL] [97mExpected 0 , got 1
+mul
+[97mmul.c [31m[FAIL] [97mExpected 0 , got 1
+multiply
+[97mmultiply.c [92m[PASS]
+pow
+[97mpow.c [31m[FAIL] [97mExpected 0 , got 1
+puts
+[97mputs.c [31m[FAIL] [97mExpected 0 , got 1
+return_constant
+[97mreturn_constant.c [92m[PASS]
+scoped_var
+[97mscoped_var.c [92m[PASS]
+search
+[97msearch.c [31m[FAIL] [97mExpected 0 , got 1
+sequence
+[97msequence.c [92m[PASS]
+single_var
+[97msingle_var.c [92m[PASS]
+sizeof_char_inst
+[97msizeof_char_inst.c [31m[FAIL] [97mExpected 0 , got 1
+sizeof_char_type
+[97msizeof_char_type.c [31m[FAIL] [97mExpected 0 , got 1
+sizeof
+[97msizeof.c [31m[FAIL] [97mExpected 0 , got 139
+sizeof_int_inst
+[97msizeof_int_inst.c [31m[FAIL] [97mExpected 0 , got 1
+sizeof_int_type
+[97msizeof_int_type.c [31m[FAIL] [97mExpected 0 , got 1
+sqrt
+[97msqrt.c [92m[PASS]
+struct_inst
+[97mstruct_inst.c [31m[FAIL] [97mExpected 0 , got 139
+struct_member_get
+[97mstruct_member_get.c [31m[FAIL] [97mExpected 0 , got 139
+struct_member_set
+[97mstruct_member_set.c [31m[FAIL] [97mExpected 0 , got 139
+struct_two_members
+[97mstruct_two_members.c [31m[FAIL] [97mExpected 0 , got 139
+sub
+[97msub.c [92m[PASS]
+switch1
+[97mswitch1.c [92m[PASS]
+switch2
+[97mswitch2.c [92m[PASS]
+test_ADD0
+[97mtest_ADD0.c [92m[PASS]
+test_ADD1
+[97mtest_ADD1.c [92m[PASS]
+test_CALL
+[97mtest_CALL.c [31m[FAIL] [97mExpected 0 , got 1
+test_LOCAL
+[97mtest_LOCAL.c [92m[PASS]
+test_RETURN
+[97mtest_RETURN.c [92m[PASS]
+typedef1
+[97mtypedef1.c [31m[FAIL] [97mExpected 0 , got 139
+typedef2
+[97mtypedef2.c [31m[FAIL] [97mExpected 0 , got 1
+unsigned
+[97munsigned.c [92m[PASS]
+while_multiple
+[97mwhile_multiple.c [92m[PASS]
+while_once
+[97mwhile_once.c [92m[PASS]
+while_zero
+[97mwhile_zero.c [92m[PASS]

@@ -1,195 +1,200 @@
 grammar C;
 
 primaryExpression
-    :   Identifier
-    |   Constant
-    |   StringLiteral+
-    |   '(' expression ')'
-    |   genericSelection
-    |   '__extension__'? '(' compoundStatement ')' // Blocks (GCC extension)
-    |   '__builtin_va_arg' '(' unaryExpression ',' typeName ')'
-    |   '__builtin_offsetof' '(' typeName ',' unaryExpression ')'
+    :   id=Identifier                                                           #idPrimaryExpr
+    |   val=Constant                                                            #intConstPrimaryExpr
+    |   val=StringLiteral+                                                      #strLitPrimaryExpr
+    |   '(' expr=expression ')'                                                 #ParExprPrimaryExpr
+    |   genSelec=genericSelection                                               #GSelectPrimaryExpr
+    |   '__extension__'? '(' cmpStat=compoundStatement ')'                      #cmpStatPrimaryExpr // Blocks (GCC extension)
+    |   '__builtin_va_arg' '(' expr=unaryExpression ',' type=typeName ')'       #vaArgPrimaryExpr
+    |   '__builtin_offsetof' '(' type=typeName ',' expr=unaryExpression ')'     #offsetPrimaryExpr
     ;
 
 genericSelection
-    :   '_Generic' '(' assignmentExpression ',' genericAssocList ')'
+    :   '_Generic' '(' assgnExpr=assignmentExpression ',' genAssL=genericAssocList ')'
     ;
 
 genericAssocList
-    :   genericAssociation
-    |   genericAssocList ',' genericAssociation
+    :   genAss=genericAssociation                               #singleGenAssList
+    |   genAss=genericAssocList ',' genAssL=genericAssociation  #multGenAssList
     ;
 
 genericAssociation
-    :   typeName ':' assignmentExpression
-    |   'default' ':' assignmentExpression
+    :   type=typeName ':' expr=assignmentExpression    #typeGenAss
+    |   'default' ':' expr=assignmentExpression        #defaultGenAss
     ;
 
 postfixExpression
-    :   primaryExpression
-    |   postfixExpression '[' expression ']'
-    |   postfixExpression '(' argumentExpressionList? ')'
-    |   postfixExpression '.' Identifier
-    |   postfixExpression '->' Identifier
-    |   postfixExpression '++'
-    |   postfixExpression '--'
-    |   '(' typeName ')' '{' initializerList '}'
-    |   '(' typeName ')' '{' initializerList ',' '}'
-    |   '__extension__' '(' typeName ')' '{' initializerList '}'
-    |   '__extension__' '(' typeName ')' '{' initializerList ',' '}'
+    :   expr=primaryExpression                                                  #primPostExpr
+    |   left=postfixExpression '[' right=expression ']'                         #arrPostExpr
+    |   expr=postfixExpression '(' args=argumentExpressionList? ')'             #funcInvocPostExpr
+    |   expr=postfixExpression '.' id=Identifier                                #funcCallPostExpr
+    |   expr=postfixExpression '->' id=Identifier                               #funcCallPtrPostExpr
+    |   expr=postfixExpression op=('++'|'--')                                   #incrPostExpr
+    |   '(' type=typeName ')' '{' inits=initializerList '}'                     #singleCastPostExpr
+    |   '(' type=typeName ')' '{' inits=initializerList ',' '}'                 #multCastPostExpr
+    |   '__extension__' '(' type=typeName ')' '{' inits=initializerList '}'     #singleExtPostExpr
+    |   '__extension__' '(' type=typeName ')' '{' inits=initializerList ',' '}' #multExtPostExpr
     ;
 
 argumentExpressionList
-    :   assignmentExpression
-    |   argumentExpressionList ',' assignmentExpression
+    :   expr=assignmentExpression                                   #singleArgExprList
+    |   args=argumentExpressionList ',' expr=assignmentExpression   #multArgExprList
     ;
 
 unaryExpression
-    :   postfixExpression
-    |   '++' unaryExpression
-    |   '--' unaryExpression
-    |   unaryOperator castExpression
-    |   'sizeof' unaryExpression
-    |   'sizeof' '(' typeName ')'
-    |   '_Alignof' '(' typeName ')'
-    |   '&&' Identifier // GCC extension address of label
+    :   expr=postfixExpression                                  #postUnaryExpr
+    |   op=('++'|'--') expr=unaryExpression                     #preIncUnaryExpr
+    |   left=unaryOperator right=castExpression                 #castUnaryExpr
+    |   'sizeof' expr=unaryExpression                           #sizeExprUnaryExpr
+    |   'sizeof' '(' type=typeName ')'                          #sizeTypeUnaryExpe
+    |   '_Alignof' '(' type=typeName ')'                        #alignUnaryExpr
+    |   '&&' id=Identifier                                      #idUnaryExpr        // GCC extension address of label    
     ;
 
 unaryOperator
-    :   '&' | '*' | '+' | '-' | '~' | '!'
+    // :   op=('&' | '*' | '+' | '-' | '~' | '!')
+    :   op=( And | Star | Plus | Minus | Tilde | Not )
     ;
 
 castExpression
-    :   '(' typeName ')' castExpression
-    |   '__extension__' '(' typeName ')' castExpression
-    |   unaryExpression
-    |   DigitSequence // for
+    :   '(' type=typeName ')' expr=castExpression                   #typeCastExpr
+    |   '__extension__' '(' type=typeName ')' expr=castExpression   #extensionCastExpr
+    |   expr=unaryExpression                                        #unaryCastExpr
+    |   seq=DigitSequence                                           #digitSeqCastExpr   // for
     ;
 
 multiplicativeExpression
-    :   castExpression
-    |   multiplicativeExpression '*' castExpression
-    |   multiplicativeExpression '/' castExpression
-    |   multiplicativeExpression '%' castExpression
+    :   expr=castExpression                                                 #termMultExpr
+    // |   left=multiplicativeExpression '*' right=castExpression  #multOpMultExpr
+    // |   left=multiplicativeExpression '/' right=castExpression  #divOpMultExpr
+    // |   left=multiplicativeExpression '%' right=castExpression  #modOpMultExpr
+    |   left=multiplicativeExpression op=(Star|Div|Mod) right=castExpression #opMultExpr    // aka ( * | / | % )
     ;
 
 additiveExpression
-    :   multiplicativeExpression
-    |   additiveExpression '+' multiplicativeExpression
-    |   additiveExpression '-' multiplicativeExpression
+    :   expr=multiplicativeExpression                                           #termAddExpr
+    // |   left=additiveExpression '+' right=multiplicativeExpression       #addAddExpr
+    // |   left=additiveExpression '-' right=multiplicativeExpression       #subAddExpr
+    |   left=additiveExpression op=(Plus|Minus) right=multiplicativeExpression  #opAddExpr  // aka ( + | - )
     ;
 
 shiftExpression
-    :   additiveExpression
-    |   shiftExpression '<<' additiveExpression
-    |   shiftExpression '>>' additiveExpression
+    :   expr=additiveExpression                                                 #termShiftExpr
+    // |   shiftExpression '<<' additiveExpression                             #leftShiftExpr
+    // |   shiftExpression '>>' additiveExpression                             #rightShiftExpr
+    |   left=shiftExpression op=(LeftShift|RightShift) right=additiveExpression    #opShiftExpr  // aka ( << | >> )
     ;
 
 relationalExpression
-    :   shiftExpression
-    |   relationalExpression '<' shiftExpression
-    |   relationalExpression '>' shiftExpression
-    |   relationalExpression '<=' shiftExpression
-    |   relationalExpression '>=' shiftExpression
+    :   expr=shiftExpression                                                                        #termRelExpr
+    // |   left=relationalExpression '<' right=shiftExpression                                       #ltRelExpr
+    // |   left=relationalExpression '>' right=shiftExpression                                       #gtRelExpr
+    // |   left=relationalExpression '<=' right=shiftExpression                                      #lteRelExpr
+    // |   left=relationalExpression '>=' right=shiftExpression                                      #gteRelExpr
+    |   left=relationalExpression op=(Less|Greater|LessEqual|GreaterEqual) right=shiftExpression    #opRelExpr   // aka ('<'|'>'|'<='|'>=')
     ;
 
 equalityExpression
-    :   relationalExpression
-    |   equalityExpression '==' relationalExpression
-    |   equalityExpression '!=' relationalExpression
+    :   expr=relationalExpression                                           #termEqualExpr
+    // |   left=equalityExpression '==' right=relationalExpression             #eqEqualExpr
+    // |   left=equalityExpression '!=' right=relationalExpression             #neqEqualExpr
+    |   left=equalityExpression op=(NotEqual|Equal) right=relationalExpression   #opEqualExpr
     ;
 
 andExpression
-    :   equalityExpression
-    |   andExpression '&' equalityExpression
+    :   expr=equalityExpression                         #termAndExpr
+    |   left=andExpression '&' right=equalityExpression #opAndExpr
     ;
 
 exclusiveOrExpression
-    :   andExpression
-    |   exclusiveOrExpression '^' andExpression
+    :   expr=andExpression									#termExcOrExpr
+    |   left=exclusiveOrExpression '^' right=andExpression  #opExcOrExpr
     ;
 
 inclusiveOrExpression
-    :   exclusiveOrExpression
-    |   inclusiveOrExpression '|' exclusiveOrExpression
+    :   expr=exclusiveOrExpression									#termIncOrExpr
+    |   left=inclusiveOrExpression '|' right=exclusiveOrExpression  #opIncOrExpr
     ;
 
 logicalAndExpression
-    :   inclusiveOrExpression
-    |   logicalAndExpression '&&' inclusiveOrExpression
+    :   expr=inclusiveOrExpression									#termLogAndExpr
+    |   left=logicalAndExpression '&&' right=inclusiveOrExpression  #opLogAndExpr
     ;
 
 logicalOrExpression
-    :   logicalAndExpression
-    |   logicalOrExpression '||' logicalAndExpression
+    :   expr=logicalAndExpression									#termLogOrExpr
+    |   left=logicalOrExpression '||' right=logicalAndExpression    #opLogOrExpr
     ;
 
 conditionalExpression
-    :   logicalOrExpression ('?' expression ':' conditionalExpression)?
+    :   cond=logicalOrExpression ('?' true_exec=expression ':' false_exec=conditionalExpression)?
     ;
 
 assignmentExpression
-    :   conditionalExpression
-    |   unaryExpression assignmentOperator assignmentExpression
-    |   DigitSequence // for
+    :   expr=conditionalExpression                                              #termAssgnExpr
+    |   left=unaryExpression op=assignmentOperator right=assignmentExpression   #opAssgnExpr
+    |   expr=DigitSequence                                                      #digitSeqAssgnExpr   // for               
     ;
 
 assignmentOperator
-    :   '=' | '*=' | '/=' | '%=' | '+=' | '-=' | '<<=' | '>>=' | '&=' | '^=' | '|='
+    // :   '=' | '*=' | '/=' | '%=' | '+=' | '-=' | '<<=' | '>>=' | '&=' | '^=' | '|='
+    :   Assign | StarAssign | DivAssign | ModAssign | PlusAssign | MinusAssign | LeftShiftAssign | RightShiftAssign | AndAssign | XorAssign | OrAssign
     ;
 
 expression
-    :   assignmentExpression
-    |   expression ',' assignmentExpression
+    :   expr=assignmentExpression                       #singleExpr
+    |   left=expression ',' right=assignmentExpression  #multExpr
     ;
 
 constantExpression
-    :   conditionalExpression
+    :   expr=conditionalExpression
     ;
 
 declaration
-    :   declarationSpecifiers initDeclaratorList ';'
-	  | 	declarationSpecifiers ';'
-    |   staticAssertDeclaration
+    :   spec=declarationSpecifiers initList=initDeclaratorList ';'  #initSpecDeclaration
+	| 	spec=declarationSpecifiers ';'                              #specDeclaration
+    |   dec=staticAssertDeclaration                                 #staticDeclaration
     ;
 
 declarationSpecifiers
-    :   declarationSpecifier+
+    :   dec=declarationSpecifier+
     ;
 
 declarationSpecifiers2
-    :   declarationSpecifier+
+    :   dec=declarationSpecifier+
     ;
 
 declarationSpecifier
-    :   storageClassSpecifier
-    |   typeSpecifier
-    |   typeQualifier
-    |   functionSpecifier
-    |   alignmentSpecifier
+    :   type=storageClassSpecifier  #classDecSpec
+    |   type=typeSpecifier          #typeSpecDecSpec
+    |   type=typeQualifier          #typeQualDecSpec
+    |   type=functionSpecifier      #funcDecSpec
+    |   type=alignmentSpecifier     #alignDecSpec
     ;
 
 initDeclaratorList
-    :   initDeclarator
-    |   initDeclaratorList ',' initDeclarator
+    :   dec=initDeclarator                               #singleInitDecList
+    |   decL=initDeclaratorList ',' dec=initDeclarator   #multInitDecList
     ;
 
 initDeclarator
-    :   declarator
-    |   declarator '=' initializer
+    :   dec=declarator                          #termInitDec
+    |   left=declarator '=' right=initializer   #opInitDec
     ;
 
 storageClassSpecifier
-    :   'typedef'
+    :   type=('typedef'
     |   'extern'
     |   'static'
     |   '_Thread_local'
     |   'auto'
-    |   'register'
+    |   'register')
     ;
 
 typeSpecifier
-    :   ('void'
+    :   type=('void'
     |   'char'
     |   'short'
     |   'int'
@@ -202,144 +207,146 @@ typeSpecifier
     |   '_Complex'
     |   '__m128'
     |   '__m128d'
-    |   '__m128i')
-    |   '__extension__' '(' ('__m128' | '__m128d' | '__m128i') ')'
-    |   atomicTypeSpecifier
-    |   structOrUnionSpecifier
-    |   enumSpecifier
-    |   typedefName
-    |   '__typeof__' '(' constantExpression ')' // GCC extension
-    |   typeSpecifier pointer
+    |   '__m128i')                                                      #baseTypeSpec
+    |   '__extension__' '(' ('__m128' | '__m128d' | '__m128i') ')'      #extensionTypeSpec
+    |   type=atomicTypeSpecifier                                        #atomicTypeSpec
+    |   type=structOrUnionSpecifier                                     #structTypeSpec
+    |   type=enumSpecifier                                              #enumTypeSpec
+    |   type=typedefName                                                #typeDefSpec
+    |   type='__typeof__' '(' constantExpression ')'                    #typeOfSpec // GCC extension
+    |   type=typeSpecifier ptr=pointer                                  #typePointerSpec
     ;
 
 structOrUnionSpecifier
-    :   structOrUnion Identifier? '{' structDeclarationList '}'
-    |   structOrUnion Identifier
+    :   ojb=structOrUnion id=Identifier? '{' decL=structDeclarationList '}' #decStructUnSpec
+    |   obj=structOrUnion id=Identifier                                     #singleStructUnSpec
     ;
 
 structOrUnion
-    :   'struct'
-    |   'union'
+    :   id=('struct'
+    |   'union')
     ;
 
 structDeclarationList
-    :   structDeclaration
-    |   structDeclarationList structDeclaration
+    :   dec=structDeclaration                               #singleStructDecList
+    |   decL=structDeclarationList dec=structDeclaration    #multStructDecList
     ;
 
 structDeclaration
-    :   specifierQualifierList structDeclaratorList? ';'
-    |   staticAssertDeclaration
+    :   specL=specifierQualifierList decL=structDeclaratorList? ';' #mulStructDec
+    |   dec=staticAssertDeclaration                                 #singleStructDec
     ;
 
 specifierQualifierList
-    :   typeSpecifier specifierQualifierList?
-    |   typeQualifier specifierQualifierList?
+    :   type=typeSpecifier specL=specifierQualifierList?    #specSpecQualList
+    |   type=typeQualifier specL=specifierQualifierList?    #qualSpecQualList
     ;
 
 structDeclaratorList
-    :   structDeclarator
-    |   structDeclaratorList ',' structDeclarator
+    :   dec=structDeclarator                                #singleStructDecrList
+    |   decL=structDeclaratorList ',' dec=structDeclarator  #mulStructDecrList
     ;
 
 structDeclarator
-    :   declarator
-    |   declarator? ':' constantExpression
+    :   dec=declarator                              #emptyStructDec
+    |   dec=declarator? ':' expr=constantExpression #assgnStructDec
     ;
 
 enumSpecifier
-    :   'enum' Identifier? '{' enumeratorList '}'
-    |   'enum' Identifier? '{' enumeratorList ',' '}'
-    |   'enum' Identifier
+    :   'enum' id=Identifier? '{' enumL=enumeratorList (',')? '}'   #decEnumSpec
+    // |   'enum' id=Identifier? '{' enumeratorList ',' '}'
+    |   'enum' id=Identifier                                        #emptyEnumSpec
     ;
 
 enumeratorList
-    :   enumerator
-    |   enumeratorList ',' enumerator
+    :   enume=enumerator                             #singleEnumList
+    |   enumL=enumeratorList ',' enume=enumerator    #multEnumList
     ;
 
 enumerator
-    :   enumerationConstant
-    |   enumerationConstant '=' constantExpression
+    :   enume=enumerationConstant                                #emptyEnum
+    |   enume=enumerationConstant '=' expr=constantExpression    #assgnEnum
     ;
 
 enumerationConstant
-    :   Identifier
+    :   id=Identifier                                #enumConst                                           
     ;
 
 atomicTypeSpecifier
-    :   '_Atomic' '(' typeName ')'
+    :   '_Atomic' '(' type=typeName ')'
     ;
 
 typeQualifier
-    :   'const'
+    :   type= ('const'
     |   'restrict'
     |   'volatile'
-    |   '_Atomic'
+    |   '_Atomic')
     ;
 
 functionSpecifier
-    :   ('inline'
+    :   spec=('inline'
     |   '_Noreturn'
     |   '__inline__' // GCC extension
-    |   '__stdcall')
-    |   gccAttributeSpecifier
-    |   '__declspec' '(' Identifier ')'
+    |   '__stdcall')                        #baseFuncSpec
+    |   spec=gccAttributeSpecifier          #gccFuncSpec
+    |   '__declspec' '(' id=Identifier ')'  #declFuncSpec
     ;
 
 alignmentSpecifier
-    :   '_Alignas' '(' typeName ')'
-    |   '_Alignas' '(' constantExpression ')'
+    :   '_Alignas' '(' type=typeName ')'            #typeAlignSpec
+    |   '_Alignas' '(' expr=constantExpression ')'  #exprAlignSpec
     ;
 
 declarator
-    :   pointer? directDeclarator gccDeclaratorExtension*
+    :   ptr=pointer? directDec=directDeclarator gcc=gccDeclaratorExtension*
     ;
 
 directDeclarator
-    :   Identifier
-    |   '(' declarator ')'
-    |   directDeclarator '[' typeQualifierList? assignmentExpression? ']'
-    |   directDeclarator '[' 'static' typeQualifierList? assignmentExpression ']'
-    |   directDeclarator '[' typeQualifierList 'static' assignmentExpression ']'
-    |   directDeclarator '[' typeQualifierList? '*' ']'
-    |   directDeclarator '(' parameterTypeList ')'
-    |   directDeclarator '(' identifierList? ')'
-    |   Identifier ':' DigitSequence  // bit field
-    |   '(' typeSpecifier? pointer directDeclarator ')' // function pointer like: (__cdecl *f)
+    :   id=Identifier                                                                                           #idDirDec
+    |   '(' decl=declarator ')'                                                                                 #parDirDec
+    |   dec=directDeclarator '[' qualL=typeQualifierList? expr=assignmentExpression? ']'                        #qArrDirDec
+    |   dec=directDeclarator '[' 'static' qualL=typeQualifierList? expr=assignmentExpression ']'                #qsArrDirDec
+    |   dec=directDeclarator '[' qualL=typeQualifierList 'static' expr=assignmentExpression ']'                 #sqArrDirDec
+    |   dec=directDeclarator '[' qualL=typeQualifierList? '*' ']'                                               #eArrDirDec
+    |   dec=directDeclarator '(' paramL=parameterTypeList ')'                                                   #paramlDirDec
+    |   dec=directDeclarator '(' idL=identifierList? ')'                                                        #idlDirDec
+    |   id=Identifier ':' seq=DigitSequence                                                                     #dsDirDec   // bit field
+    |   '(' type=typeSpecifier? ptr=pointer dec=directDeclarator ')'                                            #ptrDirDec  // function pointer like: (__cdecl *f)
     ;
 
 gccDeclaratorExtension
-    :   '__asm' '(' StringLiteral+ ')'
-    |   gccAttributeSpecifier
+    :   '__asm' '(' id=StringLiteral+ ')'    #singleGccDecExt
+    |   spec=gccAttributeSpecifier           #multGccDecExt
     ;
 
 gccAttributeSpecifier
-    :   '__attribute__' '(' '(' gccAttributeList ')' ')'
+    :   '__attribute__' '(' '(' attL=gccAttributeList ')' ')'
     ;
 
+// most probably unused
 gccAttributeList
-    :   gccAttribute (',' gccAttribute)*
-    |   // empty
+    :   att=gccAttribute (',' gccAttribute)*    #gccAttList
+    |                                           #emptyGccAttList // empty
     ;
 
+// most probably unused
 gccAttribute
-    :   ~(',' | '(' | ')') // relaxed def for "identifier or reserved word"
-        ('(' argumentExpressionList? ')')?
-    |   // empty
+    :   ~(',' | '(' | ')')                      // relaxed def for "identifier or reserved word"
+        ('(' argL=argumentExpressionList? ')')? #multGccAttr
+    |                                           #emptyGccAttr   // empty
     ;
 
 nestedParenthesesBlock
     :   (   ~('(' | ')')
-        |   '(' nestedParenthesesBlock ')'
+        |   '(' block=nestedParenthesesBlock ')'
         )*
     ;
 
 pointer
-    :   '*' typeQualifierList?
-    |   '*' typeQualifierList? pointer
-    |   '^' typeQualifierList? // Blocks language extension
-    |   '^' typeQualifierList? pointer // Blocks language extension
+    :   '*' qualL=typeQualifierList?                #SPointer
+    |   '*' qualL=typeQualifierList? ptr=pointer    #SPPointer
+    |   '^' qualL=typeQualifierList?                #HPointer   // Blocks language extension
+    |   '^' qualL=typeQualifierList? ptr=pointer    #HPPointer   // Blocks language extension
     ;
 
 typeQualifierList
@@ -348,175 +355,183 @@ typeQualifierList
     ;
 
 parameterTypeList
-    :   parameterList
-    |   parameterList ',' '...'
+    :   paramL=parameterList            #singleParamTypeList
+    |   paramL=parameterList ',' '...'  #extParamTypeList
     ;
 
 parameterList
-    :   parameterDeclaration
-    |   parameterList ',' parameterDeclaration
+    :   param=parameterDeclaration                          #singleParamList
+    |   paramL=parameterList ',' param=parameterDeclaration #multParamList
     ;
 
 parameterDeclaration
-    :   declarationSpecifiers declarator
-    |   declarationSpecifiers2 abstractDeclarator?
+    :   spec=declarationSpecifiers dec=declarator           #decParamDec
+    |   spec=declarationSpecifiers2 dec=abstractDeclarator? #absParamDec
     ;
 
 identifierList
-    :   Identifier
-    |   identifierList ',' Identifier
+    :   id=Identifier                           #singleIdList
+    |   idL=identifierList ',' id=Identifier    #multIdList
     ;
 
 typeName
-    :   specifierQualifierList abstractDeclarator?
+    :   spec=specifierQualifierList dec=abstractDeclarator?
     ;
 
 abstractDeclarator
-    :   pointer
-    |   pointer? directAbstractDeclarator gccDeclaratorExtension*
+    :   ptr=pointer                                                             #ptrAbsDec
+    |   ptr=pointer? dec=directAbstractDeclarator gcc=gccDeclaratorExtension*   #ptrGccAbsDec
     ;
 
+// probably won't need that rule as well
 directAbstractDeclarator
-    :   '(' abstractDeclarator ')' gccDeclaratorExtension*
-    |   '[' typeQualifierList? assignmentExpression? ']'
-    |   '[' 'static' typeQualifierList? assignmentExpression ']'
-    |   '[' typeQualifierList 'static' assignmentExpression ']'
-    |   '[' '*' ']'
-    |   '(' parameterTypeList? ')' gccDeclaratorExtension*
-    |   directAbstractDeclarator '[' typeQualifierList? assignmentExpression? ']'
-    |   directAbstractDeclarator '[' 'static' typeQualifierList? assignmentExpression ']'
-    |   directAbstractDeclarator '[' typeQualifierList 'static' assignmentExpression ']'
-    |   directAbstractDeclarator '[' '*' ']'
-    |   directAbstractDeclarator '(' parameterTypeList? ')' gccDeclaratorExtension*
+    :   '(' dec=abstractDeclarator ')' gcc=gccDeclaratorExtension*                                          #decDirAbsDec
+    |   '[' qualL=typeQualifierList? expr=assignmentExpression? ']'                                         #qualDirAbsDec
+    |   '[' 'static' qualL=typeQualifierList? expr=assignmentExpression ']'                                 #staticQualDirAbsDec
+    |   '[' qualL=typeQualifierList 'static' expr=assignmentExpression ']'                                  #qualStaticDirAbsDec
+    |   '[' '*' ']'                                                                                         #addrDirAbsDec
+    |   '(' paramL=parameterTypeList? ')' gcc=gccDeclaratorExtension*                                       #paramDirAbsDec
+    |   dec=directAbstractDeclarator '[' qualL=typeQualifierList? expr=assignmentExpression? ']'            #decQualDirAbsDec
+    |   dec=directAbstractDeclarator '[' 'static' qualL=typeQualifierList? expr=assignmentExpression ']'    #decStaticQualDirAbsDec
+    |   dec=directAbstractDeclarator '[' qualL=typeQualifierList 'static' expr=assignmentExpression ']'     #decQualStaticDirAbsDec
+    |   dec=directAbstractDeclarator '[' '*' ']'                                                            #decAddrDirAbsDec
+    |   dec=directAbstractDeclarator '(' paramL=parameterTypeList? ')' gcc=gccDeclaratorExtension*          #decParamDirAbsDec
     ;
+
+
 
 typedefName
-    :   Identifier
+    :   id=Identifier
     ;
 
 initializer
-    :   assignmentExpression
-    |   '{' initializerList '}'
-    |   '{' initializerList ',' '}'
+    :   expr=assignmentExpression               #assgnInit
+    |   '{' initL=initializerList (',')? '}'    #listInit
     ;
 
 initializerList
-    :   designation? initializer
-    |   initializerList ',' designation? initializer
+    :   des=designation? init=initializer                           #singleInitList
+    |   initL=initializerList ',' des=designation? init=initializer #multInitList
     ;
 
 designation
-    :   designatorList '='
+    :   desL=designatorList '='
     ;
 
 designatorList
-    :   designator
-    |   designatorList designator
+    :   des=designator                      #singleDesList
+    |   desL=designatorList des=designator  #multDesList
     ;
 
 designator
-    :   '[' constantExpression ']'
-    |   '.' Identifier
+    :   '[' expr=constantExpression ']' #arrayDes
+    |   '.' id=Identifier               #funcDes
     ;
 
 staticAssertDeclaration
-    :   '_Static_assert' '(' constantExpression ',' StringLiteral+ ')' ';'
+    :   '_Static_assert' '(' expr=constantExpression ',' id=StringLiteral+ ')' ';'
     ;
 
 statement
-    :   labeledStatement
-    |   compoundStatement
-    |   expressionStatement
-    |   selectionStatement
-    |   iterationStatement
-    |   jumpStatement
-    |   ('__asm' | '__asm__') ('volatile' | '__volatile__') '(' (logicalOrExpression (',' logicalOrExpression)*)? (':' (logicalOrExpression (',' logicalOrExpression)*)?)* ')' ';'
+    :   stmt=labeledStatement       #labelStat
+    |   stmt=compoundStatement      #cmpStat
+    |   stmt=expressionStatement    #exprStat
+    |   stmt=selectionStatement     #selectStat
+    |   stmt=iterationStatement     #iterStat
+    |   stmt=jumpStatement          #jumpStat
+    // |   ('__asm' | '__asm__') ('volatile' | '__volatile__') '(' (logicalOrExpression (',' logicalOrExpression)*)? (':' (logicalOrExpression (',' logicalOrExpression)*)?)* ')' ';'
     ;
 
 labeledStatement
-    :   Identifier ':' statement
-    |   'case' constantExpression ':' statement
-    |   'default' ':' statement
+    :   id=Identifier ':' exec=statement                                       #idLabelStat
+    |   'case' cond=constantExpression ':' exec=statement                      #caseLabelStat
+    |   'default' ':' exec=statement                                           #defLabelStat
     ;
 
 compoundStatement
-    :   '{' blockItemList? '}'
+    :   '{' itemL=blockItemList? '}'
     ;
 
 blockItemList
-    :   blockItem
-    |   blockItemList blockItem
+    :   item=blockItem                      #singleBlockItemList
+    |   itemL=blockItemList item=blockItem  #multBlockItemList
     ;
 
 blockItem
-    :   statement
-    |   declaration
+    :   item=statement  #statBlockItem
+    |   item=declaration #decBlockItem
     ;
 
 expressionStatement
-    :   expression? ';'
+    :   expr=expression? ';'
     ;
 
 selectionStatement
-    :   'if' '(' expression ')' statement ('else' statement)?
-    |   'switch' '(' expression ')' statement
+    :   'if' '(' cond=expression ')' trueExec=statement ('else' falseExec=statement)?   #ifSelecStat
+    |   'switch' '(' cond=expression ')' trueExec=statement                                  #switchSelecStat
     ;
 
 iterationStatement
-    :   While '(' expression ')' statement
-    |   Do statement While '(' expression ')' ';'
-    |   For '(' forCondition ')' statement
+    :   While '(' cond=expression ')' exec=statement        #whileIterStat
+    |   Do exec=statement While '(' cond=expression ')' ';' #doIterStat
+    |   For '(' cond=forCondition ')' exec=statement        #forIterStat
     ;
 
 //    |   'for' '(' expression? ';' expression?  ';' forUpdate? ')' statement
 //    |   For '(' declaration  expression? ';' expression? ')' statement
 
 forCondition
-	:   forDeclaration ';' forExpression? ';' forExpression?
-	|   expression? ';' forExpression? ';' forExpression?
+	:   init=forDeclaration ';' cond=forExpression? ';' update=forExpression?   #decForCond
+	|   init=expression? ';' cond=forExpression? ';' update=forExpression?      #expForCond
 	;
 
 forDeclaration
-    :   declarationSpecifiers initDeclaratorList
-	| 	declarationSpecifiers
+    :   dec=declarationSpecifiers init=initDeclaratorList   #multForDec
+	| 	dec=declarationSpecifiers                           #singleForDec
     ;
 
 forExpression
-    :   assignmentExpression
-    |   forExpression ',' assignmentExpression
+    :   expr=assignmentExpression                       #singleForExpr
+    |   forExp=forExpression ',' expr=assignmentExpression #multForExpr
     ;
 
 jumpStatement
-    :   'goto' Identifier ';'
-    |   'continue' ';'
-    |   'break' ';'
-    |   'return' expression? ';'
-    |   'goto' unaryExpression ';' // GCC extension
+    :   'goto' id=Identifier ';'        #gotoJumpStat
+    |   'continue' ';'                  #continueJumpStat
+    |   'break' ';'                     #breakJumpStat
+    |   'return' expr=expression? ';'   #returnJumpStat
+    |   'goto' expr=unaryExpression ';' #gotoExpJumpStat    // GCC extension
     ;
 
 compilationUnit
-    :   translationUnit? EOF
+    :   tu=translationUnit? EOF
     ;
 
 translationUnit
-    :   externalDeclaration
-    |   translationUnit externalDeclaration
+    :   dec=externalDeclaration                     #singleTransUnit
+    |   tu=translationUnit dec=externalDeclaration  #multTransUnit
     ;
 
 externalDeclaration
-    :   functionDefinition
-    |   declaration
-    |   ';' // stray ;
+    :   dec=functionDefinition  #funcExtDec
+    |   dec=declaration         #decExtDec
+    |   ';'                     #empty      // stray ;
     ;
 
+// i think decl_list is unused because we don't have this form to implement
 functionDefinition
-    :   declarationSpecifiers? declarator declarationList? compoundStatement
+    :   spec=declarationSpecifiers? func_dec=declarator dec_list=declarationList? comp_stat=compoundStatement
     ;
 
 declarationList
-    :   declaration
-    |   declarationList declaration
+    :   dec=declaration                             #singleDecList
+    |   dec_list=declarationList dec=declaration    #MultDecList
     ;
+
+
+//////////////////////////////
+///////     LEXER      /////// 
+//////////////////////////////
 
 Auto : 'auto';
 Break : 'break';
