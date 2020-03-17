@@ -490,7 +490,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // interpret constant expression
   public String interpret(String expression){
     if(expression.charAt(0) == '\''){
-      int v = (expression.charAt(1) - '0');
+      int v = (expression.charAt(1) - '0'); //QUESTION: is this supposed to return ASCII? If so, use version from intConst
       return "" + v;
     }
     try{
@@ -789,12 +789,30 @@ public class CCompiler extends CBaseVisitor<String> {
   // VARIABLES MANIPULATIONS
 
   ////////////////////////////////////////////////////////////////////////////////////
-  // integer constant node. Returns value
+  // integer, floating point, and character constant node. Returns value of const as a string
   @Override
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
     String intConst_val = ctx.val.getText();
-    if(!isGlobalScope()) System.out.println("li $v0, " + intConst_val);
+
+    if(!isGlobalScope()){
+      //If character literal
+      if(intConst_val.charAt(0) == '\''){
+        int ascii_val = (int) intConst_val.charAt(1);
+        intConst_val =  Integer.toString(ascii_val);
+        System.out.println("li $v0, " + ascii_val);
+      } else{ //if int const
+        System.out.println("li $v0, " + intConst_val);
+      }
+    }
     return intConst_val;
+  }
+
+  // integer constant node. Returns value
+  @Override
+  public String visitStrLitPrimaryExpr(CParser.StrLitPrimaryExprContext ctx) {
+    System.out.println("STR LIT");
+    String strLit_val = ctx.val.getText();
+    return "";
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -832,6 +850,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
     String id = this.visit(ctx.left); // creates the variable object
+
     // currently supported creations on the left: INT, ARRAY
     // current_TYPE_object contains ref to symbol table (or just use the ID)
     if(current_array_object != null){
