@@ -1061,7 +1061,6 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitCastUnaryExpr(CParser.CastUnaryExprContext ctx){
     String id = this.visit(ctx.right);
-    System.out.println(id);
     String unaryOp = this.visit(ctx.left);
     switch(unaryOp){
       case "+":
@@ -1082,6 +1081,14 @@ public class CCompiler extends CBaseVisitor<String> {
         else System.out.println("addiu $v0, $fp," + getIDSymbolTable(id).getOffset());
         break;
       case "*":
+        switch(getIDSymbolTable(id).getType()){
+          case INT:
+            System.out.println("lw $v0, 0($v0)");
+            break;
+          case CHAR:
+            System.out.println("lb $v0, 0($v0)");
+            break;
+        }
         break;
       default:
         throwIllegalArgument(unaryOp, "CastUnaryExpr");
