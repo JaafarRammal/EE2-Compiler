@@ -561,6 +561,165 @@ public class CCompiler extends CBaseVisitor<String> {
     }
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Char helpers
+  //Takes char, determines if escape sequence 
+  public boolean isEscapeSequence(String str){
+    if(str.charAt(0) == '\\'){ //if there's a backlash, check for escape
+      int[] x = escapeSequenceValue(str);
+      if(x[0]!=-1){
+        return true;
+      }
+    }
+    return false;
+  }
+
+  //returns array
+  public ArrayList<Integer> interpretString(String str){
+
+    ArrayList<Integer> charValues = new ArrayList<Integer>();
+
+    for(int i = 0; i < str.length(); i++){
+      if(str.charAt(i) == '\\'){ //if there's a backlash, check for escape
+        String ss = str.substring(i, str.length());
+        int[] x = escapeSequenceValue(ss);
+
+        if(x[0]!=-1){
+          charValues.add(x[0]);
+          i+=x[1];
+        }
+        else{ //if it's just a backslash...
+          int ascii_val = (int) str.charAt(i);
+          charValues.add(ascii_val);
+        }
+      } 
+      else{
+        int ascii_val = (int) str.charAt(i);
+        charValues.add(ascii_val);
+      }
+    }
+
+
+    return charValues;
+  }
+
+  //takes escape sequence, i.e. /x112 , returns corresponding int. 
+  //-1 if no corresponding value.
+  public int[] escapeSequenceValue(String str){
+    int arr[] = new int[2]; //int[0] = character value, int[1] = number of characters used
+    arr[1] = 1; //default only one character used
+
+    str = str.substring(1, str.length());
+    char firstc = str.charAt(0);
+
+    switch(firstc){
+      case 'a': {
+        arr[0] = 7;
+        return arr;
+      }
+      case 'b':{
+        arr[0] = 8;
+        return arr;
+      }
+      case 'e':{
+        arr[0] = 27;
+        return arr;
+      }
+      case 'f':{
+        arr[0] = 12;
+        return arr;
+      }
+      case 'n':{
+        arr[0] = 10;
+        return arr;
+      }
+      case 'r':{
+        arr[0] = 13;
+        return arr;
+      }
+      case 't':{
+        arr[0] = 9;
+        return arr;
+      }
+      case 'v':{
+        arr[0] = 11;
+        return arr;
+      }
+      case '?':{
+        arr[0] = 63;
+        return arr;
+      }
+      case '\'':{
+        arr[0] = 39;
+        return arr;
+      }
+      default:
+    }
+    if(str.equals("\"")) {
+      arr[0] = 34;
+      return arr;
+    }
+    else if(str.equals("\\")){
+      arr[0] = 92;
+      return arr;
+    } 
+    // else if(str.charAt(0)=='u'){
+    //   //Take 4 hex digits
+    //   String strConst = intConst_val.substring(0, strConst.length() - 1);
+    //   if(strConst.length() > 4){
+    //     return -1;
+    //   }
+    //   try {
+    //     int n = (int) Long.parseLong(strConst, 16);
+    //     return n;
+    //   }
+    //   catch (NumberFormatException e)
+    //   {
+    //     return -1;
+    //   }
+    // }
+    // else if(str.charAt(0)=='U'){
+    //   String strConst = intConst_val.substring(0, strConst.length() - 1);
+    //   if(strConst.length() > 6){
+    //     return -1;
+    //   }
+    //   try {
+    //     int n = (int) Long.parseLong(strConst, 16);
+    //     return n;
+    //   }
+    //   catch (NumberFormatException e)
+    //   {
+    //     return -1;
+    //   }
+    // }
+    else if(str.charAt(0)=='x'){ //hex
+      arr[1] = str.length();
+      String hexConst = str.substring(1, str.length());
+      try {
+        arr[0] = Integer.parseInt(hexConst,16);
+        return arr;
+      }
+      catch (NumberFormatException e)
+      {
+        arr[0] = -1;
+        return arr;
+      }
+    }
+    else{//check if octal
+      String octConst = str.substring(0, 3);
+      try {
+        arr[0] = Integer.parseInt(octConst,8);
+        arr[1] = 3;
+        return arr;
+      }
+      catch (NumberFormatException e)
+      {
+        arr[0] = -1;
+        return arr;
+      }
+    }
+  }
+  
   // END OF HELPERS AND COMMON FUNCTIONS
   ////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////
@@ -800,8 +959,8 @@ public class CCompiler extends CBaseVisitor<String> {
         intConst_val = intConst_val.substring(1, intConst_val.length() - 1); //cutting out the ' '
 
         if(isEscapeSequence(intConst_val)){
-          int escape_val = escapeSequenceValue(intConst_val);
-          intConst_val =  Integer.toString(escape_val);
+          int[] escape_val = escapeSequenceValue(intConst_val);
+          intConst_val =  Integer.toString(escape_val[0]);
           System.out.println("li $v0, " + intConst_val);
         } 
         else{
@@ -815,114 +974,6 @@ public class CCompiler extends CBaseVisitor<String> {
       }
     }
     return intConst_val;
-  }
-
-  //Takes char, determines if escape sequence 
-  public boolean isEscapeSequence(String str){
-    if(str.charAt(0) == '\\'){ //if there's a backlash, check for escape
-      int x = escapeSequenceValue(str);
-      if(x!=-1){
-        return true;
-      }
-    }
-    return false;
-  }
-
-  //takes escape sequence, i.e. /x112 , returns corresponding int. 
-  //-1 if no corresponding value.
-  public int escapeSequenceValue(String str){
-    str = str.substring(1, str.length());
-
-    switch(str){
-      case "a": {
-        return 7;
-      }
-      case "b":{
-        return 8;
-      }
-      case "e":{
-        return 27;
-      }
-      case "f":{
-        return 12;
-      }
-      case "n":{
-        return 10;
-      }
-      case "r":{
-        return 13;
-      }
-      case "t":{
-        return 9;
-      }
-      case "v":{
-        return 11;
-      }
-      case "?":{
-        return 63;
-      }
-      case "'":{
-        return 39;
-      }
-      default:
-    }
-    if(str.equals("\"")) {
-      return 34;
-    }
-    else if(str.equals("\\")){
-      return 92;
-    } 
-    // else if(str.charAt(0)=='u'){
-    //   //Take 4 hex digits
-    //   String strConst = intConst_val.substring(0, strConst.length() - 1);
-    //   if(strConst.length() > 4){
-    //     return -1;
-    //   }
-    //   try {
-    //     int n = (int) Long.parseLong(strConst, 16);
-    //     return n;
-    //   }
-    //   catch (NumberFormatException e)
-    //   {
-    //     return -1;
-    //   }
-    // }
-    // else if(str.charAt(0)=='U'){
-    //   String strConst = intConst_val.substring(0, strConst.length() - 1);
-    //   if(strConst.length() > 6){
-    //     return -1;
-    //   }
-    //   try {
-    //     int n = (int) Long.parseLong(strConst, 16);
-    //     return n;
-    //   }
-    //   catch (NumberFormatException e)
-    //   {
-    //     return -1;
-    //   }
-    // }
-    else if(str.charAt(0)=='x'){ //hex
-      String hexConst = str.substring(1, str.length());
-      try {
-        int decimal = Integer.parseInt(hexConst,16);
-        return decimal;
-      }
-      catch (NumberFormatException e)
-      {
-        return -1;
-      }
-    }
-    else{//check if octal
-      String octConst = str.substring(0, 3);
-      try {
-        int decimal = Integer.parseInt(octConst,8);
-        return decimal;
-      }
-      catch (NumberFormatException e)
-      {
-        return -1;
-      }
-    }
   }
 
 
@@ -1037,9 +1088,22 @@ public class CCompiler extends CBaseVisitor<String> {
         index *= current_array_object.getDimensions().get(i+1);
       }
       index += indexes[indexes.length-1];
-      values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
-      // System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
-      indexes[index_position]++;
+      if(current_type == types.CHAR){ //for char arrays
+        String str = ctx.expr.getText();
+        str = str.substring(1, str.length()-1); //removing the ""s
+        ArrayList<Integer> charVal = new ArrayList<>();
+        charVal = interpretString(str);
+        for(int x = 0; x<charVal.size(); x++){
+          values[x] = charVal.get(x);
+        }
+        values[charVal.size()] = 0; //NULL-terminated
+      } 
+      else{
+        values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
+        // System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
+        indexes[index_position]++;
+      }
+
     }else{
       this.visit(ctx.expr);
     }
