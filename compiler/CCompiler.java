@@ -490,7 +490,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // interpret constant expression
   public String interpret(String expression){
     if(expression.charAt(0) == '\''){
-      int v = (expression.charAt(1) - '0'); //QUESTION: is this supposed to return ASCII? If so, use version from intConst
+      int v = (int) expression.charAt(1);
       return "" + v;
     }
     try{
@@ -620,7 +620,7 @@ public class CCompiler extends CBaseVisitor<String> {
   .----------.
   |     B    |
   .----------.
-  |     A    | <- $sp (ready for next function to access and store its argumentss)
+  |     A    | <- $sp (ready for next function to access and store its arguments)
   .----------.
   
   20...(LOW)
@@ -795,17 +795,136 @@ public class CCompiler extends CBaseVisitor<String> {
     String intConst_val = ctx.val.getText();
 
     if(!isGlobalScope()){
-      //If character literal
-      if(intConst_val.charAt(0) == '\''){
-        int ascii_val = (int) intConst_val.charAt(1);
-        intConst_val =  Integer.toString(ascii_val);
-        System.out.println("li $v0, " + ascii_val);
-      } else{ //if int const
+      //If character literal (starts and ends with ')
+      if((intConst_val.charAt(0) == '\'') & (intConst_val.charAt(intConst_val.length()-1) == '\'')){
+        intConst_val = intConst_val.substring(1, intConst_val.length() - 1); //cutting out the ' '
+
+        if(isEscapeSequence(intConst_val)){
+          int escape_val = escapeSequenceValue(intConst_val);
+          intConst_val =  Integer.toString(escape_val);
+          System.out.println("li $v0, " + intConst_val);
+        } 
+        else{
+          int ascii_val = (int) intConst_val.charAt(0);
+          intConst_val =  Integer.toString(ascii_val);
+          System.out.println("li $v0, " + intConst_val);
+        }
+      } 
+      else{ //if int const
         System.out.println("li $v0, " + intConst_val);
       }
     }
     return intConst_val;
   }
+
+  //Takes char, determines if escape sequence 
+  public boolean isEscapeSequence(String str){
+    if(str.charAt(0) == '\\'){ //if there's a backlash, check for escape
+      int x = escapeSequenceValue(str);
+      if(x!=-1){
+        return true;
+      }
+    }
+    return false;
+  }
+
+  //takes escape sequence, i.e. /x112 , returns corresponding int. 
+  //-1 if no corresponding value.
+  public int escapeSequenceValue(String str){
+    str = str.substring(1, str.length());
+
+    switch(str){
+      case "a": {
+        return 7;
+      }
+      case "b":{
+        return 8;
+      }
+      case "e":{
+        return 27;
+      }
+      case "f":{
+        return 12;
+      }
+      case "n":{
+        return 10;
+      }
+      case "r":{
+        return 13;
+      }
+      case "t":{
+        return 9;
+      }
+      case "v":{
+        return 11;
+      }
+      case "?":{
+        return 63;
+      }
+      case "'":{
+        return 39;
+      }
+      default:
+    }
+    if(str.equals("\"")) {
+      return 34;
+    }
+    else if(str.equals("\\")){
+      return 92;
+    } 
+    // else if(str.charAt(0)=='u'){
+    //   //Take 4 hex digits
+    //   String strConst = intConst_val.substring(0, strConst.length() - 1);
+    //   if(strConst.length() > 4){
+    //     return -1;
+    //   }
+    //   try {
+    //     int n = (int) Long.parseLong(strConst, 16);
+    //     return n;
+    //   }
+    //   catch (NumberFormatException e)
+    //   {
+    //     return -1;
+    //   }
+    // }
+    // else if(str.charAt(0)=='U'){
+    //   String strConst = intConst_val.substring(0, strConst.length() - 1);
+    //   if(strConst.length() > 6){
+    //     return -1;
+    //   }
+    //   try {
+    //     int n = (int) Long.parseLong(strConst, 16);
+    //     return n;
+    //   }
+    //   catch (NumberFormatException e)
+    //   {
+    //     return -1;
+    //   }
+    // }
+    else if(str.charAt(0)=='x'){ //hex
+      String hexConst = str.substring(1, str.length());
+      try {
+        int decimal = Integer.parseInt(hexConst,16);
+        return decimal;
+      }
+      catch (NumberFormatException e)
+      {
+        return -1;
+      }
+    }
+    else{//check if octal
+      String octConst = str.substring(0, 3);
+      try {
+        int decimal = Integer.parseInt(octConst,8);
+        return decimal;
+      }
+      catch (NumberFormatException e)
+      {
+        return -1;
+      }
+    }
+  }
+
 
   // integer constant node. Returns value
   @Override
@@ -818,12 +937,24 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // variable identifier
   @Override
+
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
     String id = ctx.id.getText();
     STO var = getIDSymbolTable(id);
     if(var != null){
       if(!var.isGlobal()){
-        System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+        switch(var.getType()){
+          case INT: {
+            System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+            break;
+          }
+          case CHAR:{
+            System.out.println("lbu $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+            break;
+          }
+          default:
+            break;
+        }
       }else{
         switch(var.getType()){
         case INT:{
