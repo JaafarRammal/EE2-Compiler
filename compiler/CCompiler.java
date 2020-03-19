@@ -985,6 +985,13 @@ public class CCompiler extends CBaseVisitor<String> {
   // VARIABLES MANIPULATIONS
 
   ////////////////////////////////////////////////////////////////////////////////////
+  // Parentheses expression
+  @Override
+  public String visitParExprPrimaryExpr(CParser.ParExprPrimaryExprContext ctx) {
+    return this.visit(ctx.expr);
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////
   // integer, floating point, and character constant node. Returns value of const as a string
   @Override
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
@@ -1182,6 +1189,8 @@ public class CCompiler extends CBaseVisitor<String> {
         else System.out.println("addiu $v0, $fp, " + -4*getIDSymbolTable(id).getOffset());
         break;
       case "*":
+        // store destination in $v1
+        System.out.println("addu $v1, $v0, $zero");
         switch(getIDSymbolTable(id).getType()){
           case INT:
             System.out.println("lw $v0, 0($v0)");
@@ -1190,11 +1199,11 @@ public class CCompiler extends CBaseVisitor<String> {
             System.out.println("lb $v0, 0($v0)");
             break;
         }
-        break;
+        return "*";
       default:
         throwIllegalArgument(unaryOp, "CastUnaryExpr");
     }
-    return "";
+    return id;
   }
 
   @Override
@@ -1398,7 +1407,8 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // Increments
   @Override public String visitIncrPostExpr(CParser.IncrPostExprContext ctx) {
-    Integer offset = getIDSymbolTable(this.visit(ctx.expr)).getOffset(); // get variable location
+    String id = this.visit(ctx.expr);
+    Integer offset = getIDSymbolTable(id).getOffset(); // get variable location
     switch(ctx.op.getText()){
       case("++"):
         System.out.println("addi $t1, $v0, 1");
@@ -1411,12 +1421,13 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     
     System.out.println("sw $t1, " + -4*offset + "($fp)"); // replace 4 by variable.getSize() later
-    return ""; 
+    return id; 
   }
 
   @Override
   public String visitPreIncUnaryExpr(CParser.PreIncUnaryExprContext ctx) { 
-    Integer offset = getIDSymbolTable(this.visit(ctx.expr)).getOffset(); // get variable location
+    String id = this.visit(ctx.expr);
+    Integer offset = getIDSymbolTable(id).getOffset(); // get variable location
     switch(ctx.op.getText()){
       case("++"):
         System.out.println("addi $v0, $v0, 1");
@@ -1429,7 +1440,7 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     
     System.out.println("sw $v0, " + -4*offset + "($fp)");
-    return ""; 
+    return id; 
   } 
 
   // end arithmetic and binary expressions
@@ -1462,7 +1473,7 @@ public class CCompiler extends CBaseVisitor<String> {
     // $v0 contains the value of whatever was on the right
     System.out.println("sw $v0, " + -4*(mem++) + "($sp)"); // push right on stack
     indexes = null;
-    String id = this.visit(ctx.left); // an array will return the destination instead
+    String id = this.visit(ctx.left); // an array or a pointer dereference will return the destination instead in $v1
     int destination = 0;
     if(getIDSymbolTable(id) != null){
       destination = -4*getIDSymbolTable(id).getOffset();
@@ -1513,7 +1524,7 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     System.out.println("sw $v0, 0($v1)");
     
-    return "";
+    return id;
   }
 
   // end assignment operator
