@@ -31,13 +31,14 @@ abstract class STO {
   protected int offset;
   protected String ID;
   protected boolean isGlobal;
+  protected boolean isPointer;
   protected types type;
 
   // arrays extra (used by functions as well)
   public ArrayList<Integer> dimensions;
 
-  // enums extra
-  public Map<String, Integer> enumData;
+  // pointers extra
+  public int pointerDepth;
 
   // initializers for factory
   protected void initSTO(){
@@ -45,19 +46,21 @@ abstract class STO {
     offset = 0;
     ID = "";
     isGlobal = false;
+    isPointer = false;
+    pointerDepth = 0;
     type = types.INT;
     dimensions = null;
-    enumData = null;
   }
 
-  protected void initSTO(int s, int o, String i, boolean g, types t, ArrayList<Integer> v, Map<String, Integer> m){
+  protected void initSTO(int s, int o, String i, boolean g, boolean p, types t, ArrayList<Integer> v){
     size = s;
     offset = o;
     ID = i;
     isGlobal = g;
+    isPointer = p;
+    pointerDepth = 1;
     type = t;
     dimensions = v;
-    enumData = m;
   }
 
   // common functions
@@ -91,11 +94,6 @@ abstract class STO {
     return count;
   }
 
-  // enum functions
-  public Map<String, Integer> getEnumData(){return this.enumData;}
-  public int getEnumValue(String i){return this.enumData.get(i);}
-  public void setEnumData(String s, int i){this.enumData.put(s, i);}
-  
   // function functions
   public ArrayList<Integer> getParameters(){return this.dimensions;}
   public int getParameter(int i){return this.dimensions.get(i);}
@@ -104,6 +102,9 @@ abstract class STO {
   public int getParamCount(){return this.size;}
   public void setParameters(ArrayList<Integer> params){this.dimensions = params;}
 
+  // pointers functions
+  public void setDepth(int d){this.pointerDepth = d;}
+  public int getDepth(){return this.pointerDepth;}
 
   // parse eunm to int size
   protected int typeSize(types type){
@@ -136,7 +137,7 @@ abstract class STO {
 
 class Variable extends STO{
   Variable(){initSTO();}
-  Variable(int size, int offset, String ID, boolean isGlobal, types type){initSTO(size, offset, ID, isGlobal, type, null, null);}
+  Variable(int size, int offset, String ID, boolean isGlobal, types type){initSTO(size, offset, ID, isGlobal, false, type, null);}
   @Override public void initialize(String value){
     if(!isGlobal()){
       int offset = getOffset();
@@ -177,7 +178,7 @@ class Variable extends STO{
 
 class Array extends STO{
   Array(){initSTO();}
-  Array(int size, int offset, String ID, boolean isGlobal, types type, ArrayList<Integer> dimensions){initSTO(size, offset, ID, isGlobal, type, dimensions, null);}
+  Array(int size, int offset, String ID, boolean isGlobal, types type, ArrayList<Integer> dimensions){initSTO(size, offset, ID, isGlobal, false, type, dimensions);}
   @Override public void initialize(double[] values){
     if(isGlobal()){
       System.out.println(getID()+":");
@@ -219,21 +220,51 @@ class Array extends STO{
 
 class Function extends STO{
   Function(){initSTO();}
-  Function(int paramCount, String ID, types type, ArrayList<Integer> params){initSTO(paramCount, -1, ID, true, type, params, null);}
+  Function(int paramCount, String ID, types type, ArrayList<Integer> params){initSTO(paramCount, -1, ID, true, false, type, params);}
   
 }
 
-// class Variable extends STO{
-
-//   Variable(){
-//     initSTO();
-//   }
-
-//   Variable(int size, int offset, String ID, boolean isGlobal, types type){
-//     initSTO(size, offset, ID, isGlobal, type, null, null);
-//   }
-
-// }
+class Pointer extends STO{
+  Pointer(){initSTO();}
+  Pointer(int size, int offset, String ID, boolean isGlobal, types type, int depth){initSTO(size, offset, ID, isGlobal, true, type, null); setDepth(depth);}
+  @Override public void initialize(String value){
+    if(!isGlobal()){
+      int offset = getOffset();
+      String reg = "$v0";
+      if(value == "0")
+        reg = "$zero";
+      switch(getType()){
+        case INT:{
+            System.out.println("sw " + reg + ", " + -4*offset + "($sp)");
+            break;
+        }
+        case CHAR:{
+            System.out.println("sb " + reg + ", " + -4*offset + "($sp)");
+            break;
+        }
+        default:
+          break;
+      }
+    }else{
+      if(value.equals("true")) value = "1";
+      if(value.equals("false")) value = "0";
+      Integer intValue = (int) Math.round(Double.parseDouble(value));
+      switch(getType()){
+        case INT:{
+            System.out.println(getID() + ":\n\t.word " + intValue);
+            break;
+        }
+        case CHAR:{
+            System.out.println(getID() + ":\n\t.byte " + intValue);
+            break;
+        }
+        default:
+          break;
+      }
+    }
+  }
+  
+}
 
 public class CCompiler extends CBaseVisitor<String> {
 
@@ -265,6 +296,7 @@ public class CCompiler extends CBaseVisitor<String> {
   STO current_enum_object = null;
 
   types current_type = null;
+  int pointer_depth = 0;
 
   // array initialization
   int index_position = -1;
@@ -503,7 +535,8 @@ public class CCompiler extends CBaseVisitor<String> {
 
   // parse type to enum
   public types parseType(String type){
-     switch(type){
+    pointer_depth = type.split("\\*",-1).length-1;
+    switch(type.substring(pointer_depth, type.length())){
       case "int":
         return types.INT;
       case "char":
@@ -834,7 +867,11 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
     String ID = ctx.id.getText();
     if((current_function_object == null) == isGlobalScope()){
-      STO varObj = new Variable(1, mem++, ID, isGlobalScope(), current_type);
+      STO varObj;
+      if(pointer_depth == 0)
+        varObj = new Variable(1, mem++, ID, isGlobalScope(), current_type);
+      else 
+        varObj = new Pointer(1, mem++, ID, isGlobalScope(), current_type, pointer_depth);
       current_variable_object = varObj;
       setIDSymbolTable(ID, varObj);
     }else{
@@ -1142,7 +1179,7 @@ public class CCompiler extends CBaseVisitor<String> {
         // we want the address of x, which is the offset of variable x added to frame pointer if it's a local variable
         // otherwise use the semantic for global variables
         if(getIDSymbolTable(id).isGlobal()) System.out.println("lui $v0, %hi(" + id +")\naddiu $v0, $v0, %lo(" + id + ")");
-        else System.out.println("addiu $v0, $fp," + getIDSymbolTable(id).getOffset());
+        else System.out.println("addiu $v0, $fp, " + -4*getIDSymbolTable(id).getOffset());
         break;
       case "*":
         switch(getIDSymbolTable(id).getType()){
@@ -1175,6 +1212,10 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override public String visitBaseTypeSpec(CParser.BaseTypeSpecContext ctx) { 
     return ctx.type.getText();
+  }
+
+  @Override public String visitTypePointerSpec(CParser.TypePointerSpecContext ctx) { 
+    return "*" + this.visit(ctx.type);
   }
 
   // end variable manipulation
