@@ -159,7 +159,7 @@ declaration
     ;
 
 declarationSpecifiers
-    :   dec=declarationSpecifier+
+    :   dec=declarationSpecifier
     ;
 
 declarationSpecifiers2

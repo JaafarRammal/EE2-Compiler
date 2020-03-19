@@ -946,9 +946,9 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitDecParamDec(CParser.DecParamDecContext ctx){
     param_count += 1;
-    String type = ctx.spec.getText();
+    current_type = parseType(this.visit(ctx.spec));
     this.visit(ctx.dec);
-    current_function_object.addParameter(typeSize(parseType(type)));
+    current_function_object.addParameter(typeSize(current_type));
     return "";
   }
 
