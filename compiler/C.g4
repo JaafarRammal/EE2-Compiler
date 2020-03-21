@@ -159,7 +159,7 @@ declaration
     ;
 
 declarationSpecifiers
-    :   dec=declarationSpecifier
+    :   dec=declarationSpecifier+
     ;
 
 declarationSpecifiers2
@@ -311,7 +311,7 @@ directDeclarator
     |   dec=directDeclarator '(' paramL=parameterTypeList ')'                                                   #paramlDirDec
     |   dec=directDeclarator '(' idL=identifierList? ')'                                                        #idlDirDec
     |   id=Identifier ':' seq=DigitSequence                                                                     #dsDirDec   // bit field
-    |   '(' type=typeSpecifier? ptr=pointer dec=directDeclarator ')'                                            #ptrDirDec  // function pointer like: (__cdecl *f)
+    // |   '(' type=typeSpecifier? ptr=pointer dec=directDeclarator ')'                                            #ptrDirDec  // function pointer like: (__cdecl *f)
     ;
 
 gccDeclaratorExtension
