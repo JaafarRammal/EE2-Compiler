@@ -3,6 +3,7 @@ package compiler;
 import compiler.antlr.*;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
+import org.omg.PortableServer.IdAssignmentPolicyOperations;
 import org.antlr.v4.runtime.TokenStream;
 import org.antlr.v4.runtime.misc.Interval;
 
@@ -106,7 +107,7 @@ abstract class STO {
   public void setDepth(int d){this.pointerDepth = d;}
   public int getDepth(){return this.pointerDepth;}
 
-  // parse eunm to int size
+  // parse enum to int size
   protected int typeSize(types type){
     switch(type){
       case INT:
@@ -2021,6 +2022,44 @@ public class CCompiler extends CBaseVisitor<String> {
 
     return ctx.id.getText();
   }
+
+    ////////////////////////////////////////////////////////////////////////////////////
+  // Sizeof
+
+  // sizeof(a)
+  @Override
+  public String visitSizeExprUnaryExpr(CParser.SizeExprUnaryExprContext ctx){
+
+    //1. eval
+    String id = this.visit(ctx.expr);
+
+    //lookup var in symbol table
+    STO var = getIDSymbolTable(id);
+    types t = var.getType();
+    int size = typeSize(t);
+
+    String ret_size = Integer.toString(size);
+    System.out.println("li $v0, " + ret_size);
+
+    return "";
+  }
+
+  // int a = sizeof(int);
+
+  //sizeof(int)
+  @Override
+  public String visitSizeTypeUnaryExpe(CParser.SizeTypeUnaryExpeContext ctx){
+
+    String size_type = ctx.type.getText();
+    types t = parseType(size_type);
+    int size = typeSize(t);
+
+    String ret_size = Integer.toString(size);
+    System.out.println("li $v0, " + ret_size);
+
+    return ret_size;
+  }
+
 
   ////////////////////////////////////////////////////////////////////////////////////
   // main class. create a tree and call a listener on the tree
