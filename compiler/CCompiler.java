@@ -739,7 +739,11 @@ public class CCompiler extends CBaseVisitor<String> {
       }
     }
     else{//check if octal
-      String octConst = str.substring(0, 3);
+      String octConst = str;
+      if(str.length()>3){
+        octConst = str.substring(0, 3);
+      }
+
       try {
         arr[0] = Integer.parseInt(octConst,8);
         arr[1] = 3;
@@ -1132,15 +1136,24 @@ public class CCompiler extends CBaseVisitor<String> {
         index *= current_array_object.getDimensions().get(i+1);
       }
       index += indexes[indexes.length-1];
+
       if(current_type == types.CHAR){ //for char arrays
         String str = ctx.expr.getText();
-        str = str.substring(1, str.length()-1); //removing the ""s
-        ArrayList<Integer> charVal = new ArrayList<>();
-        charVal = interpretString(str);
+        String sstr = str.substring(1, str.length()-1); //removing the ""s or ''
+
+        ArrayList<Integer> charVal = new ArrayList<>(); //holds int value of char, includes escape sequences
+        charVal = interpretString(sstr);
+
+        if(str.charAt(0)=='\"'){ //if char a[6] = "hello";
         for(int x = 0; x<charVal.size(); x++){
           values[x] = charVal.get(x);
         }
-        values[charVal.size()] = 0; //NULL-terminated
+          values[charVal.size()] = 0; //NULL-terminated
+        }
+        else{ //if char a[6] = {'h','e','l','l','o','\0'};
+          values[index] = charVal.get(0);
+          indexes[index_position]++;
+        }
       } 
       else{
         values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
