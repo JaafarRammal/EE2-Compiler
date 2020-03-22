@@ -13,6 +13,7 @@ import java.util.LinkedList;
 import java.util.Stack;
 import java.util.ArrayList;
 
+
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
@@ -1025,15 +1026,6 @@ public class CCompiler extends CBaseVisitor<String> {
     return intConst_val;
   }
 
-
-  // integer constant node. Returns value
-  @Override
-  public String visitStrLitPrimaryExpr(CParser.StrLitPrimaryExprContext ctx) {
-    System.out.println("STR LIT");
-    String strLit_val = ctx.val.getText();
-    return "";
-  }
-
   ////////////////////////////////////////////////////////////////////////////////////
   // variable identifier
   @Override
@@ -2030,6 +2022,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitSizeExprUnaryExpr(CParser.SizeExprUnaryExprContext ctx){
 
+    System.out.println("SizeExprUnaryExpr");
+
     //1. eval
     String id = this.visit(ctx.expr);
 
@@ -2051,15 +2045,22 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitSizeTypeUnaryExpe(CParser.SizeTypeUnaryExpeContext ctx){
 
     String size_type = ctx.type.getText();
-    types t = parseType(size_type);
+    String[] arr = size_type.substring(0, size_type.length()).split("\\["); //separate square brackets from type
+
+    types t = parseType(arr[0]);
     int size = typeSize(t);
+
+    //for each value inside square bracket
+    for(int i = 1; (arr.length>1)&&(i<arr.length);i++){
+      arr[i] = arr[i].substring(0,arr[i].length()-1);
+      size *= Integer.parseInt(arr[i]);
+    }
 
     String ret_size = Integer.toString(size);
     System.out.println("li $v0, " + ret_size);
 
     return ret_size;
   }
-
 
   ////////////////////////////////////////////////////////////////////////////////////
   // main class. create a tree and call a listener on the tree
