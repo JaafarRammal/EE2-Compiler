@@ -658,6 +658,7 @@ public class CCompiler extends CBaseVisitor<String> {
     return charValues;
   }
 
+  //Takes string, outputs string size- including escape sequences
   public int getStringSize(String sstr){
     ArrayList<Integer> charVal = new ArrayList<>(); //holds int value of char, includes escape sequences
     charVal = interpretString(sstr);
@@ -1104,8 +1105,6 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
     String id = this.visit(ctx.left); // creates the variable object
 
-    // currently supported creations on the left: INT, ARRAY
-    // current_TYPE_object contains ref to symbol table (or just use the ID)
     if(current_array_object != null){
       values = new double[current_array_object.getElementsCount()];
       indexes = new int[current_array_object.getDimensions().size()];
@@ -1118,14 +1117,15 @@ public class CCompiler extends CBaseVisitor<String> {
           current_string_object.ID+="\\0";
         }
         current_string_object.size = getStringSize(current_string_object.ID);
-        System.out.println("FINAL STRING BEING STORED: "+current_string_object.ID + " SIZE: "+ current_string_object.size);
+        System.err.println("FINAL STRING BEING STORED: "+current_string_object.ID + " SIZE: "+ current_string_object.size);
         setIDSymbolTable(id, current_string_object);
         current_string_object = null;
-      } else{
-      // System.out.println(Arrays.toString(values));
-      getIDSymbolTable(id).initialize(values);
-      mem += current_array_object.getElementsCount(); // ints for now
-      indexes = null; // so other functions can use it now
+      } 
+      else{ //int array
+        // System.out.println(Arrays.toString(values));
+        getIDSymbolTable(id).initialize(values);
+        mem += current_array_object.getElementsCount();
+        indexes = null;
       }
     }else{
       if(!getIDSymbolTable(id).isGlobal()){
@@ -1186,10 +1186,6 @@ public class CCompiler extends CBaseVisitor<String> {
         String str = ctx.expr.getText();
         String sstr = str.substring(1, str.length()-1); //removing the ""s or ''
 
-        //TODO: USE WHEN READING STRING
-        // ArrayList<Integer> charVal = new ArrayList<>(); //holds int value of char, includes escape sequences
-        // charVal = interpretString(sstr);
-
         if(current_string_object == null){
           //adding null character
           STO strObj = new STOString(1, -1, sstr, isGlobalScope(), types.INT);
@@ -1200,7 +1196,7 @@ public class CCompiler extends CBaseVisitor<String> {
         }
 
       } 
-      else{
+      else{ // for int arrays
         values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
         // System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
         indexes[index_position]++;
