@@ -4265,6 +4265,17 @@ public class CParser extends Parser {
 	}
 
 	public static class StorageClassSpecifierContext extends ParserRuleContext {
+		public StorageClassSpecifierContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_storageClassSpecifier; }
+	 
+		public StorageClassSpecifierContext() { }
+		public void copyFrom(StorageClassSpecifierContext ctx) {
+			super.copyFrom(ctx);
+		}
+	}
+	public static class TypeDefStorageClassSpecContext extends StorageClassSpecifierContext {
 		public Token type;
 		public TerminalNode Typedef() { return getToken(CParser.Typedef, 0); }
 		public TerminalNode Extern() { return getToken(CParser.Extern, 0); }
@@ -4272,21 +4283,18 @@ public class CParser extends Parser {
 		public TerminalNode ThreadLocal() { return getToken(CParser.ThreadLocal, 0); }
 		public TerminalNode Auto() { return getToken(CParser.Auto, 0); }
 		public TerminalNode Register() { return getToken(CParser.Register, 0); }
-		public StorageClassSpecifierContext(ParserRuleContext parent, int invokingState) {
-			super(parent, invokingState);
-		}
-		@Override public int getRuleIndex() { return RULE_storageClassSpecifier; }
+		public TypeDefStorageClassSpecContext(StorageClassSpecifierContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof CListener ) ((CListener)listener).enterStorageClassSpecifier(this);
+			if ( listener instanceof CListener ) ((CListener)listener).enterTypeDefStorageClassSpec(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof CListener ) ((CListener)listener).exitStorageClassSpecifier(this);
+			if ( listener instanceof CListener ) ((CListener)listener).exitTypeDefStorageClassSpec(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof CVisitor ) return ((CVisitor<? extends T>)visitor).visitStorageClassSpecifier(this);
+			if ( visitor instanceof CVisitor ) return ((CVisitor<? extends T>)visitor).visitTypeDefStorageClassSpec(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -4296,13 +4304,14 @@ public class CParser extends Parser {
 		enterRule(_localctx, 60, RULE_storageClassSpecifier);
 		int _la;
 		try {
+			_localctx = new TypeDefStorageClassSpecContext(_localctx);
 			enterOuterAlt(_localctx, 1);
 			{
 			setState(532);
-			((StorageClassSpecifierContext)_localctx).type = _input.LT(1);
+			((TypeDefStorageClassSpecContext)_localctx).type = _input.LT(1);
 			_la = _input.LA(1);
 			if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << Auto) | (1L << Extern) | (1L << Register) | (1L << Static) | (1L << Typedef) | (1L << ThreadLocal))) != 0)) ) {
-				((StorageClassSpecifierContext)_localctx).type = (Token)_errHandler.recoverInline(this);
+				((TypeDefStorageClassSpecContext)_localctx).type = (Token)_errHandler.recoverInline(this);
 			}
 			else {
 				if ( _input.LA(1)==Token.EOF ) matchedEOF = true;

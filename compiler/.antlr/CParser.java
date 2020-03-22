@@ -1,4 +1,4 @@
-// Generated from /Users/jaafarrammal/Desktop/EE2-Compiler/compiler/C.g4 by ANTLR 4.7.1
+// Generated from /Users/raphaelbijaoui/OneDrive - Imperial College London/Imperial/EIEY2/Language Processors/EE2-Compiler/compiler/C.g4 by ANTLR 4.7.1
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
 import org.antlr.v4.runtime.*;
@@ -3156,11 +3156,19 @@ public class CParser extends Parser {
 	}
 
 	public static class StorageClassSpecifierContext extends ParserRuleContext {
-		public Token type;
 		public StorageClassSpecifierContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_storageClassSpecifier; }
+	 
+		public StorageClassSpecifierContext() { }
+		public void copyFrom(StorageClassSpecifierContext ctx) {
+			super.copyFrom(ctx);
+		}
+	}
+	public static class TypeDefStorageClassSpecContext extends StorageClassSpecifierContext {
+		public Token type;
+		public TypeDefStorageClassSpecContext(StorageClassSpecifierContext ctx) { copyFrom(ctx); }
 	}
 
 	public final StorageClassSpecifierContext storageClassSpecifier() throws RecognitionException {
@@ -3168,13 +3176,14 @@ public class CParser extends Parser {
 		enterRule(_localctx, 60, RULE_storageClassSpecifier);
 		int _la;
 		try {
+			_localctx = new TypeDefStorageClassSpecContext(_localctx);
 			enterOuterAlt(_localctx, 1);
 			{
 			setState(532);
-			((StorageClassSpecifierContext)_localctx).type = _input.LT(1);
+			((TypeDefStorageClassSpecContext)_localctx).type = _input.LT(1);
 			_la = _input.LA(1);
 			if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << Auto) | (1L << Extern) | (1L << Register) | (1L << Static) | (1L << Typedef) | (1L << ThreadLocal))) != 0)) ) {
-				((StorageClassSpecifierContext)_localctx).type = (Token)_errHandler.recoverInline(this);
+				((TypeDefStorageClassSpecContext)_localctx).type = (Token)_errHandler.recoverInline(this);
 			}
 			else {
 				if ( _input.LA(1)==Token.EOF ) matchedEOF = true;

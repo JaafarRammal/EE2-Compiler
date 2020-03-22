@@ -570,7 +570,7 @@ public class CBaseVisitor<T> extends AbstractParseTreeVisitor<T> implements CVis
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitStorageClassSpecifier(CParser.StorageClassSpecifierContext ctx) { return visitChildren(ctx); }
+	@Override public T visitTypeDefStorageClassSpec(CParser.TypeDefStorageClassSpecContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *

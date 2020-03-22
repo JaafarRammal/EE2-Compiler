@@ -12,7 +12,6 @@ import java.util.LinkedList;
 import java.util.Stack;
 import java.util.ArrayList;
 
-
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
@@ -267,6 +266,12 @@ class Pointer extends STO{
   
 }
 
+class Typedef extends STO{
+  Typedef(){initSTO();}
+  Typedef(String ID, boolean isGlobal, types type){initSTO(0, -1, ID, isGlobal, false,type, null); }
+}
+
+
 public class CCompiler extends CBaseVisitor<String> {
 
   int mem; 
@@ -295,6 +300,7 @@ public class CCompiler extends CBaseVisitor<String> {
   STO current_variable_object = null;
   STO current_array_object = null;
   STO current_enum_object = null;
+  STO current_typedef_object = null;
 
   types current_type = null;
   int pointer_depth = 0;
@@ -549,7 +555,11 @@ public class CCompiler extends CBaseVisitor<String> {
       case "unsigned":
         return types.UNSIGNED;
       default:
-        return null;
+        //TODO: search for typedef, return corresponding type
+        STO typedefObj = getIDSymbolTable(type);
+        types typedef_val = typedefObj.type;
+
+        return typedef_val;
     }
   }
 
@@ -871,6 +881,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
     String ID = ctx.id.getText();
+
     if((current_function_object == null) == isGlobalScope()){
       STO varObj;
       if(pointer_depth == 0)
@@ -1103,7 +1114,14 @@ public class CCompiler extends CBaseVisitor<String> {
     String id = this.visit(ctx.dec); // creates the variable object
     // currently supported creations on the left: INT, ARRAY
     // current_TYPE_object contains ref to symbol table (or just use the ID)
-    if(current_array_object != null){
+    //update ID, type in typedef object. Store in symbol table
+    if(current_typedef_object != null){
+      current_typedef_object.ID = id;
+      current_typedef_object.type = current_type;
+      setIDSymbolTable(id, current_typedef_object);
+      current_typedef_object = null;
+    }  
+    else if(current_array_object != null){
       values = new double[current_array_object.getElementsCount()];
       getIDSymbolTable(id).initialize(values);
       mem += current_array_object.getElementsCount(); // ints for now
@@ -2014,14 +2032,12 @@ public class CCompiler extends CBaseVisitor<String> {
     return ctx.id.getText();
   }
 
-    ////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////
   // Sizeof
 
   // sizeof(a)
   @Override
   public String visitSizeExprUnaryExpr(CParser.SizeExprUnaryExprContext ctx){
-
-    System.out.println("SizeExprUnaryExpr");
 
     //1. eval
     String id = this.visit(ctx.expr);
@@ -2059,6 +2075,30 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("li $v0, " + ret_size);
 
     return ret_size;
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Typedef
+
+  //picks up "typedef" in typedef int a;
+  @Override
+  public String visitTypeDefStorageClassSpec(CParser.TypeDefStorageClassSpecContext ctx){
+    //Add new typedef entry to typedefTable.
+    String keyword = ctx.type.getText();
+
+    if(keyword.equals("typedef")){
+      //initializing typedef (ID, scope, type)
+      STO typedefObj = new Typedef("", isGlobalScope(), current_type);   //ID and type will be overwritten later on
+      current_typedef_object = typedefObj;
+    }
+
+    return "";
+  }
+
+  //picks up typedef string i.e. the "CHARACTER" in CHARACTER c = 'a';
+  @Override
+  public String visitTypeDefSpec(CParser.TypeDefSpecContext ctx){
+    return ctx.type.getText();
   }
 
   ////////////////////////////////////////////////////////////////////////////////////

@@ -942,15 +942,17 @@ public interface CListener extends ParseTreeListener {
 	 */
 	void exitOpInitDec(CParser.OpInitDecContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link CParser#storageClassSpecifier}.
+	 * Enter a parse tree produced by the {@code typeDefStorageClassSpec}
+	 * labeled alternative in {@link CParser#storageClassSpecifier}.
 	 * @param ctx the parse tree
 	 */
-	void enterStorageClassSpecifier(CParser.StorageClassSpecifierContext ctx);
+	void enterTypeDefStorageClassSpec(CParser.TypeDefStorageClassSpecContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link CParser#storageClassSpecifier}.
+	 * Exit a parse tree produced by the {@code typeDefStorageClassSpec}
+	 * labeled alternative in {@link CParser#storageClassSpecifier}.
 	 * @param ctx the parse tree
 	 */
-	void exitStorageClassSpecifier(CParser.StorageClassSpecifierContext ctx);
+	void exitTypeDefStorageClassSpec(CParser.TypeDefStorageClassSpecContext ctx);
 	/**
 	 * Enter a parse tree produced by the {@code typeOfSpec}
 	 * labeled alternative in {@link CParser#typeSpecifier}.
