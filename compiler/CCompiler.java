@@ -1028,7 +1028,6 @@ public class CCompiler extends CBaseVisitor<String> {
   // integer constant node. Returns value
   @Override
   public String visitStrLitPrimaryExpr(CParser.StrLitPrimaryExprContext ctx) {
-    System.out.println("STR LIT");
     String strLit_val = ctx.val.getText();
     return "";
   }
