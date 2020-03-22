@@ -2044,10 +2044,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitSizeExprUnaryExpr(CParser.SizeExprUnaryExprContext ctx){
 
-    //1. eval
     String id = this.visit(ctx.expr);
 
-    //lookup var in symbol table
     STO var = getIDSymbolTable(id);
     types t = var.getType();
     int size = typeSize(t);
@@ -2070,8 +2068,7 @@ public class CCompiler extends CBaseVisitor<String> {
     types t = parseType(arr[0]);
     int size = typeSize(t);
 
-    //for each value inside square bracket
-    for(int i = 1; (arr.length>1)&&(i<arr.length);i++){
+    for(int i = 1; (arr.length>1)&&(i<arr.length);i++){   //for each value inside square bracket
       arr[i] = arr[i].substring(0,arr[i].length()-1);
       size *= Integer.parseInt(arr[i]);
     }
@@ -2092,7 +2089,6 @@ public class CCompiler extends CBaseVisitor<String> {
     String keyword = ctx.type.getText();
 
     if(keyword.equals("typedef")){
-      //initializing typedef (ID, scope, type)
       STO typedefObj = new Typedef("", isGlobalScope(), current_type);   //ID and type will be overwritten later on
       current_typedef_object = typedefObj;
     }
