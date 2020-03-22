@@ -315,6 +315,7 @@ public class CCompiler extends CBaseVisitor<String> {
     interpreter = mgr.getEngineByName("JavaScript");
 
     extendSymbolTable(); // init entry for globals
+    System.out.println("\n.data\n"); // init data directive for globals
     
     /*
 
@@ -526,7 +527,10 @@ public class CCompiler extends CBaseVisitor<String> {
       return "" + v;
     }
     try{
-      return String.valueOf(interpreter.eval(expression));
+      String output = String.valueOf(interpreter.eval(expression));
+      if(output.equals("true")) output = "1";
+      if(output.equals("false")) output = "0";
+      return output;
     }catch(Exception e){
       System.out.println("#INTERPRETER EXCEPTION: " + e + " for input " + expression);
       return null;
@@ -835,8 +839,8 @@ public class CCompiler extends CBaseVisitor<String> {
     this.visit(ctx.func_dec);
     current_return_context.add("_return_" + functionName);
     System.out.println("# " + functionName + ": function full");
-    insertLabel(functionName);
     System.out.println("\t.set noreorder\n\t.text\n\t.align 2\n\t.globl " + functionName);
+    insertLabel(functionName);
     if(!functionName.equals("main")){
       System.out.println("# store function arguments\nsw $a0, 0($sp)\nsw $a1, 4($sp)\nsw $a2, 8($sp)\nsw $a3, 12($sp)\n"); // store arguments on main stack
       System.out.println("move $t0, $sp"); // remember where the stack pointer was
@@ -861,6 +865,7 @@ public class CCompiler extends CBaseVisitor<String> {
     removeSymbolTable(); // using remove means we did great xD test with remove later, should work
     setIDSymbolTable(functionName, current_function_object);
     current_function_object = null;
+    System.out.println("\n.data\n"); // data directive for globals
     return "";
   }
 
@@ -1524,11 +1529,11 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("xor $v0, $v0, $t2");
         break;
       case("/="):
-        System.out.println("div $v0, $t2");
+        System.out.println("div $t2, $v0");
         System.out.println("mflo $v0");
         break;
       case("%="):
-        System.out.println("div $v0, $t2");
+        System.out.println("div $t2, $v0");
         System.out.println("mfhi $v0");
         break;
       default:
