@@ -12,7 +12,6 @@ import java.util.LinkedList;
 import java.util.Stack;
 import java.util.ArrayList;
 
-
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
@@ -207,8 +206,9 @@ class Array extends STO{
             break;
         }
         case CHAR:{
-            System.out.println("li $v0, " + ((((int)values[i])<<24) >> 24));
-            System.out.println("sb $v0, " + -4*(offset+i) + "($sp)");
+            //All char arrays stored in heap
+            // System.out.println("li $v0, " + ((((int)values[i])<<24) >> 24));
+            // System.out.println("sb $v0, " + -4*(offset+i) + "($sp)");
             break;
         }
           default:
@@ -217,6 +217,11 @@ class Array extends STO{
       }
     }
   }
+}
+
+class STOString extends STO{
+  STOString(){initSTO();}
+  STOString(int size, int offset, String string_literal, boolean isGlobal, types type){initSTO(size, offset, string_literal, isGlobal, false, type, null);}
 }
 
 class Function extends STO{
@@ -272,6 +277,12 @@ class Pointer extends STO{
   
 }
 
+class Typedef extends STO{
+  Typedef(){initSTO();}
+  Typedef(String ID, boolean isGlobal, types type){initSTO(0, -1, ID, isGlobal, false,type, null); }
+}
+
+
 public class CCompiler extends CBaseVisitor<String> {
 
   int mem; 
@@ -300,6 +311,8 @@ public class CCompiler extends CBaseVisitor<String> {
   STO current_variable_object = null;
   STO current_array_object = null;
   STO current_enum_object = null;
+  STO current_typedef_object = null;
+  STO current_string_object = null;
 
   types current_type = null;
   int pointer_depth = 0;
@@ -537,7 +550,11 @@ public class CCompiler extends CBaseVisitor<String> {
       case "unsigned":
         return types.UNSIGNED;
       default:
-        return null;
+        //TODO: search for typedef, return corresponding type
+        STO typedefObj = getIDSymbolTable(type);
+        types typedef_val = typedefObj.type;
+
+        return typedef_val;
     }
   }
 
@@ -623,6 +640,14 @@ public class CCompiler extends CBaseVisitor<String> {
 
 
     return charValues;
+  }
+
+  //Takes string, outputs string size- including escape sequences
+  public int getStringSize(String sstr){
+    ArrayList<Integer> charVal = new ArrayList<>(); //holds int value of char, includes escape sequences
+    charVal = interpretString(sstr);
+
+    return charVal.size();
   }
 
   //takes escape sequence, i.e. /x112 , returns corresponding int. 
@@ -860,6 +885,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
     String ID = ctx.id.getText();
+
     if((current_function_object == null) == isGlobalScope()){
       STO varObj;
       if(pointer_depth == 0)
@@ -1063,6 +1089,7 @@ public class CCompiler extends CBaseVisitor<String> {
     return id;  // return function name to caller (invoke in case of function at parent level)
   }
 
+
   ////////////////////////////////////////////////////////////////////////////////////
   // declaring a variable with initialization
   // TYPE DEC = VAL
@@ -1070,16 +1097,28 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpInitDec(CParser.OpInitDecContext ctx) {
     String id = this.visit(ctx.left); // creates the variable object
 
-    // currently supported creations on the left: INT, ARRAY
-    // current_TYPE_object contains ref to symbol table (or just use the ID)
     if(current_array_object != null){
       values = new double[current_array_object.getElementsCount()];
       indexes = new int[current_array_object.getDimensions().size()];
       this.visit(ctx.right);
-      // System.out.println(Arrays.toString(values));
-      getIDSymbolTable(id).initialize(values);
-      mem += current_array_object.getElementsCount(); // ints for now
-      indexes = null; // so other functions can use it now
+
+      if(current_string_object != null){ //char array
+        //initialize blank string in mem
+        String null_chars = current_string_object.ID.substring(current_string_object.ID.length()-2);
+        if(!null_chars.equals("\\0")){
+          current_string_object.ID+="\\0";
+        }
+        current_string_object.size = getStringSize(current_string_object.ID);
+        System.err.println("FINAL STRING BEING STORED: "+current_string_object.ID + " SIZE: "+ current_string_object.size);
+        setIDSymbolTable(id, current_string_object);
+        current_string_object = null;
+      } 
+      else{ //int array
+        // System.out.println(Arrays.toString(values));
+        getIDSymbolTable(id).initialize(values);
+        mem += current_array_object.getElementsCount();
+        indexes = null;
+      }
     }else{
       if(!getIDSymbolTable(id).isGlobal()){
         this.visit(ctx.right);
@@ -1100,10 +1139,19 @@ public class CCompiler extends CBaseVisitor<String> {
     String id = this.visit(ctx.dec); // creates the variable object
     // currently supported creations on the left: INT, ARRAY
     // current_TYPE_object contains ref to symbol table (or just use the ID)
-    if(current_array_object != null){
-      values = new double[current_array_object.getElementsCount()];
-      getIDSymbolTable(id).initialize(values);
-      mem += current_array_object.getElementsCount(); // ints for now
+    
+    //update ID, type in typedef object. Store in symbol table
+    if(current_typedef_object != null){
+      current_typedef_object.ID = id;
+      current_typedef_object.type = current_type;
+      setIDSymbolTable(id, current_typedef_object);
+      current_typedef_object = null;
+    }  
+    else if(current_array_object != null){
+      //int array
+        values = new double[current_array_object.getElementsCount()];
+        getIDSymbolTable(id).initialize(values);
+        mem += current_array_object.getElementsCount(); // ints for now
     }else if(current_function_object == null){
       getIDSymbolTable(id).initialize("0");
     }
@@ -1130,21 +1178,17 @@ public class CCompiler extends CBaseVisitor<String> {
         String str = ctx.expr.getText();
         String sstr = str.substring(1, str.length()-1); //removing the ""s or ''
 
-        ArrayList<Integer> charVal = new ArrayList<>(); //holds int value of char, includes escape sequences
-        charVal = interpretString(sstr);
+        if(current_string_object == null){
+          //adding null character
+          STO strObj = new STOString(1, -1, sstr, isGlobalScope(), types.INT);
+          current_string_object = strObj;
+        } 
+        else{
+          current_string_object.ID+=sstr;
+        }
 
-        if(str.charAt(0)=='\"'){ //if char a[6] = "hello";
-        for(int x = 0; x<charVal.size(); x++){
-          values[x] = charVal.get(x);
-        }
-          values[charVal.size()] = 0; //NULL-terminated
-        }
-        else{ //if char a[6] = {'h','e','l','l','o','\0'};
-          values[index] = charVal.get(0);
-          indexes[index_position]++;
-        }
       } 
-      else{
+      else{ // for int arrays
         values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
         // System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
         indexes[index_position]++;
@@ -2011,19 +2055,15 @@ public class CCompiler extends CBaseVisitor<String> {
     return ctx.id.getText();
   }
 
-    ////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////
   // Sizeof
 
   // sizeof(a)
   @Override
   public String visitSizeExprUnaryExpr(CParser.SizeExprUnaryExprContext ctx){
 
-    System.out.println("SizeExprUnaryExpr");
-
-    //1. eval
     String id = this.visit(ctx.expr);
 
-    //lookup var in symbol table
     STO var = getIDSymbolTable(id);
     types t = var.getType();
     int size = typeSize(t);
@@ -2046,8 +2086,7 @@ public class CCompiler extends CBaseVisitor<String> {
     types t = parseType(arr[0]);
     int size = typeSize(t);
 
-    //for each value inside square bracket
-    for(int i = 1; (arr.length>1)&&(i<arr.length);i++){
+    for(int i = 1; (arr.length>1)&&(i<arr.length);i++){   //for each value inside square bracket
       arr[i] = arr[i].substring(0,arr[i].length()-1);
       size *= Integer.parseInt(arr[i]);
     }
@@ -2056,6 +2095,29 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("li $v0, " + ret_size);
 
     return ret_size;
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Typedef
+
+  //picks up "typedef" in typedef int a;
+  @Override
+  public String visitTypeDefStorageClassSpec(CParser.TypeDefStorageClassSpecContext ctx){
+    //Add new typedef entry to typedefTable.
+    String keyword = ctx.type.getText();
+
+    if(keyword.equals("typedef")){
+      STO typedefObj = new Typedef("", isGlobalScope(), current_type);   //ID and type will be overwritten later on
+      current_typedef_object = typedefObj;
+    }
+
+    return "";
+  }
+
+  //picks up typedef string i.e. the "CHARACTER" in CHARACTER c = 'a';
+  @Override
+  public String visitTypeDefSpec(CParser.TypeDefSpecContext ctx){
+    return ctx.type.getText();
   }
 
   ////////////////////////////////////////////////////////////////////////////////////

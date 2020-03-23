@@ -557,11 +557,12 @@ public interface CVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitOpInitDec(CParser.OpInitDecContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link CParser#storageClassSpecifier}.
+	 * Visit a parse tree produced by the {@code typeDefStorageClassSpec}
+	 * labeled alternative in {@link CParser#storageClassSpecifier}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitStorageClassSpecifier(CParser.StorageClassSpecifierContext ctx);
+	T visitTypeDefStorageClassSpec(CParser.TypeDefStorageClassSpecContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code typeOfSpec}
 	 * labeled alternative in {@link CParser#typeSpecifier}.

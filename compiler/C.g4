@@ -185,12 +185,12 @@ initDeclarator
     ;
 
 storageClassSpecifier
-    :   type=('typedef'
+    :   type=('typedef'           
     |   'extern'
     |   'static'
     |   '_Thread_local'
     |   'auto'
-    |   'register')
+    |   'register')             #typeDefStorageClassSpec  
     ;
 
 typeSpecifier
