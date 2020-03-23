@@ -227,7 +227,12 @@ class Function extends STO{
 
 class Pointer extends STO{
   Pointer(){initSTO();}
-  Pointer(int size, int offset, String ID, boolean isGlobal, types type, int depth){initSTO(size, offset, ID, isGlobal, true, type, null); setDepth(depth);}
+  Pointer(int size, int offset, String ID, boolean isGlobal, types type, int depth){
+    initSTO(size, offset, ID, isGlobal, true, type, null);
+    setDepth(depth);
+    setDimensions(new ArrayList<Integer>());
+    addDimension(1);
+  }
   @Override public void initialize(String value){
     if(!isGlobal()){
       int offset = getOffset();
@@ -298,6 +303,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   types current_type = null;
   int pointer_depth = 0;
+  int pointer_mul = 0;
 
   // array initialization
   int index_position = -1;
@@ -383,34 +389,6 @@ public class CCompiler extends CBaseVisitor<String> {
     a:
     - Size: {2,3,1} Total = 6
 
-    enum:
-    - ID: days
-    - data = {M=0, T=3, W=4}
-
-
-    enum days = {M, T=3, W}
-
-    enum days x = T
-
-    ori $v0, 3
-    sw $v0
-
-
-
-
-    enum{
-      getEnumValue(data_id) -> Int
-      data: Map<String, Integer>;
-      ID: String;
-    }
-
-    setIDSymbolTable("days", e);
-    getIDSymbolTable("days"); -> _returns an enum object_ e
-
-    
-    value of x = getIDSymbolTable("days").getEnumValue("Monday");
-
-
     // END OF SCRATCH
 
 
@@ -428,15 +406,21 @@ public class CCompiler extends CBaseVisitor<String> {
   public String threeOp(ParserRuleContext ctx){
 
     // Mem is stack offset
-
+    // check for pointer to shift operands accordingly if required
+    pointer_mul = 0;
     this.visit(ctx.getChild(0));
     System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
+    int leftPointer = pointer_mul;
 
+    pointer_mul = 0;
     this.visit(ctx.getChild(2));
     System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
+    int rightPointer = pointer_mul;
 
     System.out.println("lw $t1, " + -4*(--mem) + "($sp)");  // get right from stack
+    System.out.println("sll $t1, $t1, " + leftPointer); // if left is a pointer, align right value
     System.out.println("lw $t0, " + -4*(--mem) + "($sp)");  // get left from stack
+    System.out.println("sll $t1, $t1, " + rightPointer); // if right is a pointer, align left value
     return "";
   }
 
@@ -1068,6 +1052,14 @@ public class CCompiler extends CBaseVisitor<String> {
     }else{
       throwIllegalArgument(id, "IdPrimaryExpr (ID NOT FOUND)");
     }
+
+    // check if pointer / array
+    if(var.getDepth() != 0){
+      pointer_mul = 2; // default multiply by 4 (one memory location)
+      if(var.getType() == types.CHAR) pointer_mul = 0; // no multiply for char
+      if(var.getType() == types.DOUBLE) pointer_mul = 3; // multiply by 8 for doubles (2 memory locations)
+    }
+
     return id;  // return function name to caller (invoke in case of function at parent level)
   }
 
@@ -1891,7 +1883,7 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
-  // Array access
+  // Array access OR pointer access
   // all we want is to have the offset of the corresponding location returned
   // and then treat as a single object in operations
   // value is outputed into $v0 (and later into $f0 for floats / doubles)
