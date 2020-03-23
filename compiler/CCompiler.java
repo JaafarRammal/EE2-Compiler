@@ -58,7 +58,7 @@ abstract class STO {
     ID = i;
     isGlobal = g;
     isPointer = p;
-    pointerDepth = 1;
+    pointerDepth = 0;
     type = t;
     dimensions = v;
   }
