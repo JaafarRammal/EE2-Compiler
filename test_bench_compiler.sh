@@ -33,6 +33,9 @@ cyn=$'\x1b[96m' # Sets text to cyan
 wht=$'\x1b[97m' # Sets text to white
 rst=$'\x1b[0m'  # resets to default terminal color
 
+n_fail=0
+n_succ=0
+n_tot=0
 
 if [[ "$1" != "" ]] ; then
     compiler="$1"
@@ -82,19 +85,24 @@ for i in ${input_dir}/*.c ; do
         echo "$base, Fail, No C compiler found"
     elif [[ $REF_C_OUT -ne $GOT_P_OUT ]] ; then
         echo -e "${wht}$base.c ${red}[FAIL] ${wht}Expected ${REF_C_OUT} got ${GOT_P_OUT}"
-	echo -e "\033[33;36m" "Navigate to -> c_compiler/tests/$base.c"
-	echo -e "\033[33;36m" "	     -> tmp/compiler/$base-got.s"
-	#rm tmp/compiler/$base
+        echo -e "\033[33;36m" "Navigate to -> c_compiler/tests/$base.c"
+        echo -e "\033[33;36m" "	     -> tmp/compiler/$base-got.s"
+    	#rm tmp/compiler/$base
+        let "n_fail++"
     else
         echo -e "${wht}$base.c ${grn}[PASS]""${red}"
-	#rm tmp/compiler/$base-got.s
-	rm tmp/compiler/$base
+        #rm tmp/compiler/$base-got.s
+        rm tmp/compiler/$base
+        let "n_succ++"
     fi
 
-   
-    
+   let "n_tot++"
 
 done
  
+echo ""
+echo ${ylw}"Passed" ${n_succ} "out of "${n_tot}
+echo ${ylw}"Failed" ${n_fail} "out of "${n_tot}
+
 echo -e "\033[33;38m" "***gcc will always output an error if the C file does not compile***"
 echo -e "\033[33;38m" "***Syntax Errors are a fault of the c_compiler, not gcc***"

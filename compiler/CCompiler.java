@@ -2177,6 +2177,9 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // main class. create a tree and call a listener on the tree
   public static void main(String[] args) throws Exception {
+    System.err.println("////////////////////////////////////////////////////////////////////////");
+    System.err.println("///////////////////     BEGINNING OF COMPILATION     ///////////////////");
+    System.err.println("////////////////////////////////////////////////////////////////////////");
     // create a CharStream that reads from standard input
     ANTLRInputStream input = new ANTLRInputStream(System.in); // create a lexer that feeds off of input CharStream
     CLexer lexer = new CLexer(input); // create a buffer of tokens pulled from the lexer
@@ -2189,11 +2192,14 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     CCompiler compiler = new CCompiler(debug);
     compiler.visit(tree);
-    System.err.println("Symbol table (should have one entry of global declarations): " + compiler.symbolTable);
+    System.err.println("\n\n\nSymbol table (should have one entry of global declarations): " + compiler.symbolTable);
     System.err.println("Final mem: "+compiler.mem);
     for(Map.Entry<String, STO> e: compiler.symbolTable.pop().entrySet()){
       e.getValue().print();
     }
+    System.err.println("////////////////////////////////////////////////////////////////////////");
+    System.err.println("//////////////////////     END OF COMPILATION     //////////////////////");
+    System.err.println("////////////////////////////////////////////////////////////////////////");
   }
 
 }

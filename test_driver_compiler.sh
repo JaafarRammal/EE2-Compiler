@@ -24,6 +24,9 @@ workingout="test/mips_test/output"
 
 mkdir -p $workingout
 
+n_fail=0
+n_succ=0
+n_tot=0
 
 for DRIVER in $workingin/*_driver.c ; do
     NAME=$(basename $DRIVER _driver.c)
@@ -54,11 +57,21 @@ for DRIVER in $workingin/*_driver.c ; do
     EXP_EXIT_CODE=$?
     
     if [[ $GOT_EXIT_CODE -ne $EXP_EXIT_CODE ]]; then
-        echo -e ${wht}$NAME.c ${red}"[FAIL]" ${wht}"Expected" $EXP_EXIT_CODE ", got" $GOT_EXIT_CODE
+        echo -e ${red}$NAME.c "[FAIL]" ${pur}"Expected" $EXP_EXIT_CODE ", got" $GOT_EXIT_CODE ${wht}
+        let "n_fail++"
     else
-   	    echo -e ${wht}$NAME.c ${grn}"[PASS]"
+   	    echo -e ${grn}$NAME.c "[PASS]"${wht}
+        let "n_succ++"
     fi
-    
+
+    let "n_tot++"
     
 done
+
+echo ""
+echo ${ylw}"Passed" ${n_succ} "out of "${n_tot}
+echo ${ylw}"Failed" ${n_fail} "out of "${n_tot}
+
+echo -e "\033[33;38m" "***gcc will always output an error if the C file does not compile***"
+echo -e "\033[33;38m" "***Syntax Errors are a fault of the c_compiler, not gcc***"
 
