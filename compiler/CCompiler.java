@@ -237,7 +237,7 @@ class Array extends STO{
 
   @Override public void print(){
     super.print();
-    System.out.println("Dimensions: " + getDimensions());
+    System.err.println("Dimensions: " + getDimensions());
   }
 }
 
@@ -251,8 +251,8 @@ class Function extends STO{
   Function(int paramCount, String ID, types type, ArrayList<Integer> params){initSTO(paramCount, -1, ID, true, false, type, params, STOtypes.FUN);}
   @Override public void print(){
     super.print();
-    System.out.println("Parameters count:" + size);
-    if(size != 0) System.out.println("Parameters (dimension based): " + getDimensions());
+    System.err.println("Parameters count:" + size);
+    if(size != 0) System.err.println("Parameters (dimension based): " + getDimensions());
   }
 }
 
