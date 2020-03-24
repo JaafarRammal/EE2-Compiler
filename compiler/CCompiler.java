@@ -137,6 +137,16 @@ abstract class STO {
     throw new IllegalStateException("Operation init(String) not implemented for current object " + getID());
   }
 
+  // debuging print function
+  public void print(){
+    System.err.println("\nSTO type: " + STOtype);
+    System.err.println("ID: " + ID);
+    System.err.println("Is global: " + isGlobal);
+    System.err.println("Type: " + type);
+    System.err.println("Stack offset: " + offset);
+    System.err.println("Size: " + size);
+  }
+
 }
 
 class Variable extends STO{
@@ -224,6 +234,11 @@ class Array extends STO{
       setOffset(offset -4*values.length);
     }
   }
+
+  @Override public void print(){
+    super.print();
+    System.out.println("Dimensions: " + getDimensions());
+  }
 }
 
 class STOString extends STO{
@@ -234,7 +249,11 @@ class STOString extends STO{
 class Function extends STO{
   Function(){initSTO();}
   Function(int paramCount, String ID, types type, ArrayList<Integer> params){initSTO(paramCount, -1, ID, true, false, type, params, STOtypes.FUN);}
-  
+  @Override public void print(){
+    super.print();
+    System.out.println("Parameters count:" + size);
+    if(size != 0) System.out.println("Parameters (dimension based): " + getDimensions());
+  }
 }
 
 class Pointer extends STO{
@@ -281,7 +300,10 @@ class Pointer extends STO{
       }
     }
   }
-  
+  @Override public void print(){
+    super.print();
+    System.out.println("Pointer depth:" + this.getDepth());
+  }
 }
 
 class Typedef extends STO{
@@ -1587,12 +1609,8 @@ public class CCompiler extends CBaseVisitor<String> {
       default:
         throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
     }
-    if(){
-      System.out.println("sw $v0,%lo(" + id + ")($v1)");
-    }else{
-      System.out.println("sw $v0, 0($v1)");
-    }
-    
+    System.out.println("sw $v0, 0($v1)");
+
     return id;
   }
 
@@ -2173,6 +2191,9 @@ public class CCompiler extends CBaseVisitor<String> {
     compiler.visit(tree);
     System.err.println("Symbol table (should have one entry of global declarations): " + compiler.symbolTable);
     System.err.println("Final mem: "+compiler.mem);
+    for(Map.Entry<String, STO> e: compiler.symbolTable.pop().entrySet()){
+      e.getValue().print();
+    }
   }
 
 }
