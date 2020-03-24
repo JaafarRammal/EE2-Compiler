@@ -23,6 +23,7 @@ import java.util.Arrays;
 
 
 enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED};
+enum STOtypes {VAR, ARR, PTR, FUN, STR, DEF};
 
 abstract class STO {
 
@@ -33,6 +34,7 @@ abstract class STO {
   protected boolean isGlobal;
   protected boolean isPointer;
   protected types type;
+  protected STOtypes STOtype;
 
   // arrays extra (used by functions as well)
   public ArrayList<Integer> dimensions;
@@ -52,7 +54,7 @@ abstract class STO {
     dimensions = null;
   }
 
-  protected void initSTO(int s, int o, String i, boolean g, boolean p, types t, ArrayList<Integer> v){
+  protected void initSTO(int s, int o, String i, boolean g, boolean p, types t, ArrayList<Integer> v, STOtypes st){
     size = s;
     offset = o;
     ID = i;
@@ -61,6 +63,7 @@ abstract class STO {
     pointerDepth = 0;
     type = t;
     dimensions = v;
+    STOtype = st;
   }
 
   // common functions
@@ -74,6 +77,7 @@ abstract class STO {
   public void setGlobal(boolean g){this.isGlobal = g;}
   public types getType(){return this.type;}
   public void setType(types t){this.type = t;}
+  public STOtypes getSTOType(){return this.STOtype;}
 
   // array functions
   public ArrayList<Integer> getDimensions(){return this.dimensions;}
@@ -137,7 +141,7 @@ abstract class STO {
 
 class Variable extends STO{
   Variable(){initSTO();}
-  Variable(int size, int offset, String ID, boolean isGlobal, types type){initSTO(size, offset, ID, isGlobal, false, type, null);}
+  Variable(int size, int offset, String ID, boolean isGlobal, types type){initSTO(size, offset, ID, isGlobal, false, type, null, STOtypes.VAR);}
   @Override public void initialize(String value){
     if(!isGlobal()){
       int offset = getOffset();
@@ -178,7 +182,7 @@ class Variable extends STO{
 
 class Array extends STO{
   Array(){initSTO();}
-  Array(int size, int offset, String ID, boolean isGlobal, types type, ArrayList<Integer> dimensions){initSTO(size, offset, ID, isGlobal, false, type, dimensions);}
+  Array(int size, int offset, String ID, boolean isGlobal, types type, ArrayList<Integer> dimensions){initSTO(size, offset, ID, isGlobal, false, type, dimensions, STOtypes.ARR);}
   @Override public void initialize(double[] values){
     if(isGlobal()){
       System.out.println(getID()+":");
@@ -198,7 +202,8 @@ class Array extends STO{
         
       }
     }else{
-      for(int i=0; i<values.length; i++){
+      // store the reversed way because GCC wants it like that on the stack
+      for(int i=values.length-1; i>=0; i--){
         switch(getType()){
           case INT:{
             System.out.println("li $v0, " + (int)values[i]);
@@ -215,25 +220,27 @@ class Array extends STO{
             break;
         } 
       }
+      // now finalize the reverse by pointing to the "last element" (which is the first element of the array)
+      setOffset(offset -4*values.length);
     }
   }
 }
 
 class STOString extends STO{
   STOString(){initSTO();}
-  STOString(int size, int offset, String string_literal, boolean isGlobal, types type){initSTO(size, offset, string_literal, isGlobal, false, type, null);}
+  STOString(int size, int offset, String string_literal, boolean isGlobal, types type){initSTO(size, offset, string_literal, isGlobal, false, type, null, STOtypes.STR);}
 }
 
 class Function extends STO{
   Function(){initSTO();}
-  Function(int paramCount, String ID, types type, ArrayList<Integer> params){initSTO(paramCount, -1, ID, true, false, type, params);}
+  Function(int paramCount, String ID, types type, ArrayList<Integer> params){initSTO(paramCount, -1, ID, true, false, type, params, STOtypes.FUN);}
   
 }
 
 class Pointer extends STO{
   Pointer(){initSTO();}
   Pointer(int size, int offset, String ID, boolean isGlobal, types type, int depth){
-    initSTO(size, offset, ID, isGlobal, true, type, null);
+    initSTO(size, offset, ID, isGlobal, true, type, null, STOtypes.PTR);
     setDepth(depth);
     setDimensions(new ArrayList<Integer>());
     addDimension(1);
@@ -279,7 +286,7 @@ class Pointer extends STO{
 
 class Typedef extends STO{
   Typedef(){initSTO();}
-  Typedef(String ID, boolean isGlobal, types type){initSTO(0, -1, ID, isGlobal, false,type, null); }
+  Typedef(String ID, boolean isGlobal, types type){initSTO(0, -1, ID, isGlobal, false,type, null, STOtypes.DEF); }
 }
 
 
@@ -1049,31 +1056,39 @@ public class CCompiler extends CBaseVisitor<String> {
     STO var = getIDSymbolTable(id);
     if(var != null){
       if(!var.isGlobal()){
-        switch(var.getType()){
-          case INT: {
-            System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
-            break;
+        if(var.getSTOType() == STOtypes.ARR){
+          System.out.println("addiu $v0, $fp, " + -4*getIDSymbolTable(id).getOffset()); // address of array. Ex: {int a[3]; return a;} returns address of array
+        }else{
+          switch(var.getType()){
+            case INT: {
+              System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+              break;
+            }
+            case CHAR:{
+              System.out.println("lbu $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+              break;
+            }
+            default:
+              break;
+          }
+        }
+      }else{
+        if(var.getSTOType() == STOtypes.ARR){
+          System.out.println("lui $v0, %hi(" + id +")\naddiu $v0, $v0, %lo(" + id + ")");
+        }else{
+          switch(var.getType()){
+          case INT:{
+              System.out.println("lui $v0,%hi(" + id + ")\nlw $v0,%lo(" + id + ")($v0)");
+              break;
           }
           case CHAR:{
-            System.out.println("lbu $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
-            break;
+              System.out.println("lui $v0,%hi(" + id + ")\nlb $v0,%lo(" + id + ")($v0)");
+              break;
           }
           default:
             break;
+          }
         }
-      }else{
-        switch(var.getType()){
-        case INT:{
-            System.out.println("lui $v0,%hi(" + id + ")\nlw $v0,%lo(" + id + ")($v0)");
-            break;
-        }
-        case CHAR:{
-            System.out.println("lui $v0,%hi(" + id + ")\nlb $v0,%lo(" + id + ")($v0)");
-            break;
-        }
-        default:
-          break;
-      }
       }
     }else{
       throwIllegalArgument(id, "IdPrimaryExpr (ID NOT FOUND)");
@@ -1522,8 +1537,12 @@ public class CCompiler extends CBaseVisitor<String> {
     String id = this.visit(ctx.left); // an array or a pointer dereference will return the destination instead in $v1
     int destination = 0;
     if(getIDSymbolTable(id) != null){
-      destination = -4*getIDSymbolTable(id).getOffset();
-      System.out.println("li $v1, " + destination);
+      if(getIDSymbolTable(id).isGlobal())
+        System.out.println("lui $v0,%hi(" + id + ")");
+      else{
+        destination = -4*getIDSymbolTable(id).getOffset();
+        System.out.println("li $v1, " + destination);
+      }
       System.out.println("addu $v1, $fp, $v1");
     }
   
@@ -1568,7 +1587,11 @@ public class CCompiler extends CBaseVisitor<String> {
       default:
         throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
     }
-    System.out.println("sw $v0, 0($v1)");
+    if(){
+      System.out.println("sw $v0,%lo(" + id + ")($v1)");
+    }else{
+      System.out.println("sw $v0, 0($v1)");
+    }
     
     return id;
   }
@@ -1960,14 +1983,27 @@ public class CCompiler extends CBaseVisitor<String> {
       System.out.println("addu $t2, $t2, $t0"); // index += indexes[indexes.length-1];
       mem--; mem -= index_position; // set memory back in place
       
-      System.out.println("li $t0, " + getIDSymbolTable(id).getOffset());
-      System.out.println("addu $t2, $t2, $t0"); // index = (getIDSymbolTable(id).getOffset() + index);
-      
-      System.out.println("li $t0, -4");
-      System.out.println("nop\nmult $t0, $t2");
-      System.out.println("mflo $t2"); // index = -4 * index
+      // // for array, use the offset directly
+      // // for pointer, get address pointed by the pointer
+      int offset = getIDSymbolTable(id).getOffset(); // offset of the variable
+      if(getIDSymbolTable(id).getDepth() == 0){
+        // it's an array, use it's offset
+        if(getIDSymbolTable(id).isGlobal()) System.out.println("lui $t0, %hi(" + id +")\naddiu $t0, $t0, %lo(" + id + ")");
+        else {
+          System.out.println("li $t0, " + -4*offset); // address
+          System.out.println("addu $t0, $fp, $t0");
+        } 
+      }else{
+        // it's a pointer, get the variable being pointed to. Address is right now the pointer itself. We want it to be the value of the pointer
+        if(getIDSymbolTable(id).isGlobal())System.out.println("lui $v0,%hi(" + id + ")\nlw $v0,%lo(" + id + ")($v0)");
+        else System.out.println("lw $v0, " + -4*offset + "($fp)");
+        System.out.println("addu $t0, $v0, $zero"); // put the value of the pointer (which is the address of interest) in t0
+      }
+      System.out.println("li $t1, 4");
+      System.out.println("nop\nmult $t1, $t2");
+      System.out.println("mflo $t2"); // index = 4 * index GCC policy
+      System.out.println("addu $t2, $t2, $t0"); // index = (address + index);
       // load in $v0 or $f0
-      System.out.println("addu $t2, $fp, $t2");
       switch(getIDSymbolTable(id).getType()){
         case INT:{
           System.out.println("lw $v0, 0($t2)");
