@@ -2177,9 +2177,6 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // main class. create a tree and call a listener on the tree
   public static void main(String[] args) throws Exception {
-    System.err.println("////////////////////////////////////////////////////////////////////////");
-    System.err.println("///////////////////     BEGINNING OF COMPILATION     ///////////////////");
-    System.err.println("////////////////////////////////////////////////////////////////////////");
     // create a CharStream that reads from standard input
     ANTLRInputStream input = new ANTLRInputStream(System.in); // create a lexer that feeds off of input CharStream
     CLexer lexer = new CLexer(input); // create a buffer of tokens pulled from the lexer
@@ -2190,6 +2187,9 @@ public class CCompiler extends CBaseVisitor<String> {
     if(args.length > 0){
       if(args[0].equals("-debug"))debug = true;
     }
+    System.err.println("////////////////////////////////////////////////////////////////////////");
+    System.err.println("///////////////////     BEGINNING OF COMPILATION     ///////////////////");
+    System.err.println("////////////////////////////////////////////////////////////////////////");
     CCompiler compiler = new CCompiler(debug);
     compiler.visit(tree);
     System.err.println("\n\n\nSymbol table (should have one entry of global declarations): " + compiler.symbolTable);
