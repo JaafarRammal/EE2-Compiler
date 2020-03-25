@@ -84,13 +84,13 @@ for i in ${input_dir}/*.c ; do
     if [[ ${have_compiler} -ne 0 ]] ; then
         echo "$base, Fail, No C compiler found"
     elif [[ $REF_C_OUT -ne $GOT_P_OUT ]] ; then
-        echo -e "${wht}$base.c ${red}[FAIL] ${wht}Expected ${REF_C_OUT} got ${GOT_P_OUT}"
+        echo -e "${red}$base.c ${red}[FAIL] ${pur}Expected ${REF_C_OUT} got ${GOT_P_OUT}${wht}"
         echo -e "\033[33;36m" "Navigate to -> c_compiler/tests/$base.c"
-        echo -e "\033[33;36m" "	     -> tmp/compiler/$base-got.s"
+        echo -e "\033[33;36m" "	     -> tmp/compiler/$base-got.s${ylw}"
     	#rm tmp/compiler/$base
         let "n_fail++"
     else
-        echo -e "${wht}$base.c ${grn}[PASS]""${red}"
+        echo -e "${grn}$base.c ${grn}[PASS]""${ylw}"
         #rm tmp/compiler/$base-got.s
         rm tmp/compiler/$base
         let "n_succ++"

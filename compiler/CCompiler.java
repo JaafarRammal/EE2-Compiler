@@ -1569,8 +1569,8 @@ public class CCompiler extends CBaseVisitor<String> {
       else{
         destination = -4*getIDSymbolTable(id).getOffset();
         System.out.println("li $v1, " + destination);
+        System.out.println("addu $v1, $fp, $v1");
       }
-      System.out.println("addu $v1, $fp, $v1");
     }
   
     
@@ -1668,7 +1668,7 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("sltiu $v0, $v0, 1");
         break;
       case "!=":
-        System.out.println("sltu $v0, $vzero, $v0");
+        System.out.println("sltu $v0, $zero, $v0");
         break;
       default:
         throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
@@ -1839,6 +1839,7 @@ public class CCompiler extends CBaseVisitor<String> {
     String beginLabel = makeName("for_stat_begin");
     String endLabel = makeName("for_stat_end");
     current_break_context.add(endLabel);
+    current_continue_context.add(beginLabel);
     insertLabel(beginLabel);
 
     if(ctx.cond != null){
@@ -1854,6 +1855,7 @@ public class CCompiler extends CBaseVisitor<String> {
     //return to top of loop
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
+    current_continue_context.pop();
     current_break_context.pop();
     return "";
   }
@@ -2101,7 +2103,7 @@ public class CCompiler extends CBaseVisitor<String> {
     // this.visit(ctx.expr); // will put the value in $v0
     String enumVal_s = interpret(ctx.expr.getText()); // get the numerical value
     Integer enumVal = Integer.parseInt(enumVal_s);
-    System.out.println("li $v0, " + enumVal);
+    if(!isGlobalScope())System.out.println("li $v0, " + enumVal);
 
     enum_state = enumVal+1; //reset enum to previous value
 
