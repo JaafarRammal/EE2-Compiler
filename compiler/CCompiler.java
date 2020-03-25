@@ -1310,6 +1310,11 @@ public class CCompiler extends CBaseVisitor<String> {
     return "*" + this.visit(ctx.type);
   }
 
+  @Override public String visitEnumTypeSpec(CParser.EnumTypeSpecContext ctx) {
+    visitChildren(ctx);
+    return "int";
+  }
+
   // end variable manipulation
   ////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////
@@ -1560,7 +1565,7 @@ public class CCompiler extends CBaseVisitor<String> {
     int destination = 0;
     if(getIDSymbolTable(id) != null){
       if(getIDSymbolTable(id).isGlobal())
-        System.out.println("lui $v0,%hi(" + id + ")");
+        System.out.println("lui $v1,%hi(" + id + ")");
       else{
         destination = -4*getIDSymbolTable(id).getOffset();
         System.out.println("li $v1, " + destination);
@@ -1663,7 +1668,7 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("sltiu $v0, $v0, 1");
         break;
       case "!=":
-        System.out.println("sltu $v0, $v0, $zero");
+        System.out.println("sltu $v0, $vzero, $v0");
         break;
       default:
         throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
@@ -1753,12 +1758,14 @@ public class CCompiler extends CBaseVisitor<String> {
     String beginLabel = makeName("while_stat_begin");
     String endLabel = makeName("while_stat_end");
     current_break_context.add(endLabel);
+    current_continue_context.add(beginLabel);
     insertLabel(beginLabel);
     this.visit(ctx.cond); // condition is now in $v0
     System.out.println("beq $v0, $zero, " + endLabel + "\nnop");
     this.visit(ctx.exec); // while loop execution body
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
+    current_continue_context.pop();
     current_break_context.pop();
     removeSymbolTable();
     return "";
@@ -1802,6 +1809,7 @@ public class CCompiler extends CBaseVisitor<String> {
     String beginLabel = makeName("for_stat_begin");
     String endLabel = makeName("for_stat_end");
     current_break_context.add(endLabel);
+    current_continue_context.add(beginLabel);
     insertLabel(beginLabel);
     
     if(ctx.cond != null){
@@ -1817,6 +1825,7 @@ public class CCompiler extends CBaseVisitor<String> {
     //return to top of loop
     System.out.println("j " + beginLabel + "\nnop");
     insertLabel(endLabel);
+    current_continue_context.pop();
     current_break_context.pop();
     return "";
   }
@@ -2050,8 +2059,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitDecEnumSpec(CParser.DecEnumSpecContext ctx){
     enum_state = 0;
-    System.err.println("In dec enum");
-    String enumID = ctx.id.getText();
+    // String enumID = ctx.id.getText(); unused and optional
     this.visit(ctx.enumL); //evaluates each expression in brackets
     
     return "";
@@ -2078,6 +2086,7 @@ public class CCompiler extends CBaseVisitor<String> {
     STO varObj = new Variable(1, mem++, enumConstId, isGlobalScope(), types.INT);
     current_enum_object = varObj;
     setIDSymbolTable(enumConstId,varObj);
+    System.out.println("li $v0, " + enumVal_s);
     getIDSymbolTable(enumConstId).initialize(interpret(enumVal_s));
 
     enum_state++;
@@ -2089,10 +2098,12 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitAssgnEnum(CParser.AssgnEnumContext ctx){
 
     String enumConstId = this.visit(ctx.enume);
-    String enumVal_s = this.visit(ctx.expr); 
+    // this.visit(ctx.expr); // will put the value in $v0
+    String enumVal_s = interpret(ctx.expr.getText()); // get the numerical value
     Integer enumVal = Integer.parseInt(enumVal_s);
+    System.out.println("li $v0, " + enumVal);
 
-    enum_state = enumVal; //reset enum to previous value
+    enum_state = enumVal+1; //reset enum to previous value
 
     STO varObj = new Variable(1, mem++, enumConstId, isGlobalScope(), types.INT);
     current_enum_object = varObj;
@@ -2181,15 +2192,15 @@ public class CCompiler extends CBaseVisitor<String> {
     ANTLRInputStream input = new ANTLRInputStream(System.in); // create a lexer that feeds off of input CharStream
     CLexer lexer = new CLexer(input); // create a buffer of tokens pulled from the lexer
     CommonTokenStream tokens = new CommonTokenStream(lexer); // create a parser that feeds off the tokens buffer
+    System.err.println("\n\n\n////////////////////////////////////////////////////////////////////////");
+    System.err.println("///////////////////     BEGINNING OF COMPILATION     ///////////////////");
+    System.err.println("////////////////////////////////////////////////////////////////////////");
     CParser parser = new CParser(tokens);
     ParseTree tree = parser.compilationUnit(); // begin parsing at init rule
     boolean debug = false;
     if(args.length > 0){
       if(args[0].equals("-debug"))debug = true;
     }
-    System.err.println("////////////////////////////////////////////////////////////////////////");
-    System.err.println("///////////////////     BEGINNING OF COMPILATION     ///////////////////");
-    System.err.println("////////////////////////////////////////////////////////////////////////");
     CCompiler compiler = new CCompiler(debug);
     compiler.visit(tree);
     System.err.println("\n\n\nSymbol table (should have one entry of global declarations): " + compiler.symbolTable);
@@ -2197,7 +2208,7 @@ public class CCompiler extends CBaseVisitor<String> {
     for(Map.Entry<String, STO> e: compiler.symbolTable.pop().entrySet()){
       e.getValue().print();
     }
-    System.err.println("////////////////////////////////////////////////////////////////////////");
+    System.err.println("\n\n\n////////////////////////////////////////////////////////////////////////");
     System.err.println("//////////////////////     END OF COMPILATION     //////////////////////");
     System.err.println("////////////////////////////////////////////////////////////////////////");
   }
