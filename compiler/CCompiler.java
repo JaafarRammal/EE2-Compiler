@@ -161,32 +161,28 @@ class Variable extends STO{
       if(value == "0")
         reg = "$zero";
       switch(getType()){
-        case INT:{
-            System.out.println("sw " + reg + ", " + -4*offset + "($sp)");
-            break;
-        }
         case CHAR:{
             System.out.println("sb " + reg + ", " + -4*offset + "($sp)");
             break;
         }
-        default:
+        default:{
+          System.out.println("sw " + reg + ", " + -4*offset + "($sp)");
           break;
+        }
       }
     }else{
       if(value.equals("true")) value = "1";
       if(value.equals("false")) value = "0";
       Integer intValue = (int) Math.round(Double.parseDouble(value));
       switch(getType()){
-        case INT:{
-            System.out.println(getID() + ":\n\t.word " + intValue);
-            break;
-        }
         case CHAR:{
             System.out.println(getID() + ":\n\t.byte " + intValue);
             break;
         }
-        default:
+        default:{
+          System.out.println(getID() + ":\n\t.word " + intValue);
           break;
+        }
       }
     }
   }
@@ -200,16 +196,14 @@ class Array extends STO{
       System.out.println(getID()+":");
       for(double val: values){
         switch(getType()){
-          case INT:{
-              System.out.println("\t.word " + (int)val);
-              break;
-          }
           case CHAR:{
               System.out.println("\t.byte " + ((((int)val)<<24) >> 24));
               break;
           }
-          default:
+          default:{
+            System.out.println("\t.word " + (int)val);
             break;
+          }
         }
         
       }
@@ -217,19 +211,16 @@ class Array extends STO{
       // store the reversed way because GCC wants it like that on the stack
       for(int i=0; i<values.length; i++){
         switch(getType()){
-          case INT:{
-            System.out.println("li $v0, " + (int)values[values.length - i - 1]);
-            System.out.println("sw $v0, " + -4*(offset+i) + "($sp)");
-            break;
-        }
-        case CHAR:{
+          case CHAR:{
             //All char arrays stored in heap
             // System.out.println("li $v0, " + ((((int)values[i])<<24) >> 24));
             // System.out.println("sb $v0, " + -4*(offset+i) + "($sp)");
             break;
-        }
-          default:
-            break;
+          }
+          default:{
+            System.out.println("li $v0, " + (int)values[values.length - i - 1]);
+            System.out.println("sw $v0, " + -4*(offset+i) + "($sp)");
+          }
         } 
       }
       // now finalize the reverse by pointing to the "last element" (which is the first element of the array)
@@ -273,31 +264,26 @@ class Pointer extends STO{
       if(value == "0")
         reg = "$zero";
       switch(getType()){
-        case INT:{
-            System.out.println("sw " + reg + ", " + -4*offset + "($sp)");
-            break;
-        }
         case CHAR:{
             System.out.println("sb " + reg + ", " + -4*offset + "($sp)");
             break;
         }
-        default:
+        default:{
+          System.out.println("sw " + reg + ", " + -4*offset + "($sp)");
           break;
+        }
       }
     }else{
       if(value.equals("true")) value = "1";
       if(value.equals("false")) value = "0";
       Integer intValue = (int) Math.round(Double.parseDouble(value));
       switch(getType()){
-        case INT:{
-            System.out.println(getID() + ":\n\t.word " + intValue);
-            break;
-        }
         case CHAR:{
             System.out.println(getID() + ":\n\t.byte " + intValue);
             break;
         }
         default:
+          System.out.println(getID() + ":\n\t.word " + intValue);
           break;
       }
     }
@@ -603,6 +589,8 @@ public class CCompiler extends CBaseVisitor<String> {
       case FLOAT:
         return 4;
       case UNSIGNED:
+        return 4;
+      case SIGNED:
         return 4;
       default:
         throwIllegalArgument(type.toString(), "typeSize conversion");
@@ -1086,15 +1074,12 @@ public class CCompiler extends CBaseVisitor<String> {
           System.out.println("addiu $v0, $fp, " + -4*getIDSymbolTable(id).getOffset()); // address of array. Ex: {int a[3]; return a;} returns address of array
         }else{
           switch(var.getType()){
-            case INT: {
-              System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
-              break;
-            }
             case CHAR:{
               System.out.println("lb $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
               break;
             }
             default:
+              System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
               break;
           }
         }
@@ -1103,16 +1088,14 @@ public class CCompiler extends CBaseVisitor<String> {
           System.out.println("lui $v0, %hi(" + id +")\naddiu $v0, $v0, %lo(" + id + ")");
         }else{
           switch(var.getType()){
-          case INT:{
+            case CHAR:{
+                System.out.println("lui $v0,%hi(" + id + ")\nlb $v0,%lo(" + id + ")($v0)");
+                break;
+            }
+            default:{
               System.out.println("lui $v0,%hi(" + id + ")\nlw $v0,%lo(" + id + ")($v0)");
               break;
-          }
-          case CHAR:{
-              System.out.println("lui $v0,%hi(" + id + ")\nlb $v0,%lo(" + id + ")($v0)");
-              break;
-          }
-          default:
-            break;
+            }
           }
         }
       }
@@ -1279,12 +1262,11 @@ public class CCompiler extends CBaseVisitor<String> {
         // store destination in $v1
         System.out.println("addu $v1, $v0, $zero");
         switch(getIDSymbolTable(id).getType()){
-          case INT:
-            System.out.println("lw $v0, 0($v0)");
-            break;
           case CHAR:
             System.out.println("lb $v0, 0($v0)");
             break;
+          default:
+            System.out.println("lw $v0, 0($v0)");
         }
         return "*";
       default:
@@ -2042,15 +2024,12 @@ public class CCompiler extends CBaseVisitor<String> {
       System.out.println("addu $t2, $t2, $t0"); // index = (address + index);
       // load in $v0 or $f0
       switch(getIDSymbolTable(id).getType()){
-        case INT:{
-          System.out.println("lw $v0, 0($t2)");
-          break;
-        }
         case CHAR:{
           System.out.println("lb $v0, 0($t2)");
           break;
         }
         default:
+          System.out.println("lw $v0, 0($t2)");
           break;
       } 
       // indexes = null; // clean indexing for next array
