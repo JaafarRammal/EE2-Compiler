@@ -215,10 +215,10 @@ class Array extends STO{
       }
     }else{
       // store the reversed way because GCC wants it like that on the stack
-      for(int i=values.length-1; i>=0; i--){
+      for(int i=0; i<values.length; i++){
         switch(getType()){
           case INT:{
-            System.out.println("li $v0, " + (int)values[i]);
+            System.out.println("li $v0, " + (int)values[values.length - i - 1]);
             System.out.println("sw $v0, " + -4*(offset+i) + "($sp)");
             break;
         }
@@ -233,7 +233,7 @@ class Array extends STO{
         } 
       }
       // now finalize the reverse by pointing to the "last element" (which is the first element of the array)
-      setOffset(offset -4*values.length);
+      setOffset(offset + values.length - 1);
     }
   }
 

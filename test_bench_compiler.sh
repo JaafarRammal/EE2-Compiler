@@ -77,7 +77,7 @@ for i in ${input_dir}/*.c ; do
 	mips-linux-gnu-gcc -march=mips1 -mfp32 -w -O0 -static  ${working}/$base-got.s -o ${working}/$base-got	
 
         # Run the DUT assembly version
-        echoerr $base
+        >&2 echo $base
         qemu-mips ${working}/$base-got
         GOT_P_OUT=$?
     fi
