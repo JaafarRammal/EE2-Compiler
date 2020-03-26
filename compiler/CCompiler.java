@@ -302,7 +302,7 @@ class Pointer extends STO{
   }
   @Override public void print(){
     super.print();
-    System.out.println("Pointer depth:" + this.getDepth());
+    System.err.println("Pointer depth:" + this.getDepth());
   }
 }
 
