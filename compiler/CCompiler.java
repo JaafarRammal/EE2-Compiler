@@ -22,7 +22,7 @@ import java.lang.Double.*;
 import java.util.Arrays;
 
 
-enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED};
+enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED, SIGNED};
 enum STOtypes {VAR, ARR, PTR, FUN, STR, DEF};
 
 abstract class STO {
@@ -122,6 +122,8 @@ abstract class STO {
       case FLOAT:
         return 4;
       case UNSIGNED:
+        return 4;
+      case SIGNED:
         return 4;
       default:
         return -1;
@@ -578,6 +580,8 @@ public class CCompiler extends CBaseVisitor<String> {
         return types.FLOAT;
       case "unsigned":
         return types.UNSIGNED;
+      case "signed":
+        return types.SIGNED;
       default:
         //TODO: search for typedef, return corresponding type
         STO typedefObj = getIDSymbolTable(type);
@@ -1087,7 +1091,7 @@ public class CCompiler extends CBaseVisitor<String> {
               break;
             }
             case CHAR:{
-              System.out.println("lbu $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+              System.out.println("lb $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
               break;
             }
             default:
@@ -1592,7 +1596,7 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("sllv $v0, $v0, $t2");
         break;
       case(">>="):
-       System.out.println("srav $v0, $v0, $t2");
+       System.out.println("srav $v0, $t2, $v0");
        break;
       case("&="):
         System.out.println("and $v0, $v0, $t2");
