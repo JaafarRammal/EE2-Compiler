@@ -1381,15 +1381,15 @@ public class CCompiler extends CBaseVisitor<String> {
     String failEnd = makeName("logical_or_fail");
 
     this.visit(ctx.left);
-    System.out.println("bne $v0, $zero, " + successEnd + "\nnop"); // if left is zero, return false
+    System.out.println("bne $v0, $zero, " + successEnd + "\nnop"); // if left not zero, return true
 
     this.visit(ctx.right);
-    System.out.println("bne $v0, $zero, " + successEnd + "\nnop"); // if right is zero, return false
+    System.out.println("bne $v0, $zero, " + successEnd + "\nnop"); // if right not zero, return true
 
-    System.out.println("addu $v0, $zero, $zero"); // both weren't zero, return true
+    System.out.println("li $v0, 0"); // both were zero, return false
     System.out.println("j " + failEnd + "\nnop");
     insertLabel(successEnd);
-    System.out.println("addiu $v0, $zero, 1");
+    System.out.println("li $v0, 1");
     insertLabel(failEnd);
     return "";
   }
@@ -1407,10 +1407,10 @@ public class CCompiler extends CBaseVisitor<String> {
     this.visit(ctx.right);
     System.out.println("beq $v0, $zero, " + failEnd + "\nnop"); // if right is zero, return false
 
-    System.out.println("addiu $v0, $zero, 1"); // both weren't zero, return true
+    System.out.println("li $v0, 1"); // both weren't zero, return true
     System.out.println("j " + successEnd + "\nnop");
     insertLabel(failEnd);
-    System.out.println("addu $v0, $zero, $zero");
+    System.out.println("li $v0, 0");
     insertLabel(successEnd);
     return "";
   }
@@ -1811,9 +1811,10 @@ public class CCompiler extends CBaseVisitor<String> {
 
     //for loop
     String beginLabel = makeName("for_stat_begin");
+    String updateLabel = makeName("for_stat_update");
     String endLabel = makeName("for_stat_end");
     current_break_context.add(endLabel);
-    current_continue_context.add(beginLabel);
+    current_continue_context.add(updateLabel);
     insertLabel(beginLabel);
     
     if(ctx.cond != null){
@@ -1824,6 +1825,7 @@ public class CCompiler extends CBaseVisitor<String> {
     // compiles body from parent
     this.visit(ctx.getParent());
 
+    insertLabel(updateLabel);
     if(ctx.update != null)  this.visit(ctx.update); // increment variable (or whatever update)
 
     //return to top of loop
@@ -1841,9 +1843,10 @@ public class CCompiler extends CBaseVisitor<String> {
 
     //for loop
     String beginLabel = makeName("for_stat_begin");
+    String updateLabel = makeName("for_stat_update");
     String endLabel = makeName("for_stat_end");
     current_break_context.add(endLabel);
-    current_continue_context.add(beginLabel);
+    current_continue_context.add(updateLabel);
     insertLabel(beginLabel);
 
     if(ctx.cond != null){
@@ -1854,6 +1857,7 @@ public class CCompiler extends CBaseVisitor<String> {
     // compiles body from parent
     this.visit(ctx.getParent());
 
+    insertLabel(updateLabel);
     if(ctx.update != null)  this.visit(ctx.update); // increment variable (or whatever update)
 
     //return to top of loop
