@@ -1551,7 +1551,7 @@ public class CCompiler extends CBaseVisitor<String> {
     int destination = 0;
     if(getIDSymbolTable(id) != null){
       if(getIDSymbolTable(id).isGlobal())
-        System.out.println("lui $v1,%hi(" + id + ")");
+        System.out.println("lui $v1,%hi(" + id + ")\naddiu $v1, $v1, %lo(" + id + ")");
       else{
         destination = -4*getIDSymbolTable(id).getOffset();
         System.out.println("li $v1, " + destination);

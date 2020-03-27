@@ -31,6 +31,7 @@ n_tot=0
 for DRIVER in $workingin/*_driver.c ; do
     NAME=$(basename $DRIVER _driver.c)
     TESTCODE=$workingin/$NAME.c
+    >&2 echo $NAME
         
     # Generate assembly for driver
     mips-linux-gnu-gcc -S -w -march=mips1 -mfp32 -O0 $DRIVER -o $workingout/${NAME}_driver.s

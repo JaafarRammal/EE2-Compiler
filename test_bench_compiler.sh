@@ -59,7 +59,10 @@ mkdir -p ${working}
 
 
 for i in ${input_dir}/*.c ; do
+
     base=$(echo $i | sed -E -e "s|${input_dir}/([^.]+)[.]c|\1|g");
+    >&2 echo $base
+
     # Compile the reference C version
     gcc $i -std=c89 -ansi -o $working/$base
     
@@ -77,7 +80,6 @@ for i in ${input_dir}/*.c ; do
 	mips-linux-gnu-gcc -march=mips1 -mfp32 -w -O0 -static  ${working}/$base-got.s -o ${working}/$base-got	
 
         # Run the DUT assembly version
-        >&2 echo $base
         qemu-mips ${working}/$base-got
         GOT_P_OUT=$?
     fi

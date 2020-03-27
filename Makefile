@@ -5,8 +5,8 @@ bin/c_compiler:
 	make java
 	rm -rf ./bin
 	mkdir bin
-	make parser
-	make simulator
+	# make parser
+	# make simulator
 	cp ./c_compiler.sh ./bin
 	mv ./bin/c_compiler.sh ./bin/c_compiler
 	chmod u+x ./bin/c_compiler
