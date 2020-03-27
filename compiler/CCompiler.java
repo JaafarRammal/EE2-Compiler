@@ -159,38 +159,53 @@ class Variable extends STO{
   @Override public void initialize(String value){
     if(!isGlobal()){
       int offset = getOffset();
-      String reg = "$v0";
-      if(value == "0")
-        reg = "$zero";
+      String reg = "$v0"; // 
       switch(getType()){
         case CHAR:{
-            System.out.println("sb " + reg + ", " + -4*offset + "($sp)");
-            break;
+          System.out.println("sb $v0, " + -4*offset + "($sp)");
+          break;
         }
         case SHORT:{
-            System.out.println("sh " + reg + ", " + -4*offset + "($sp)");
-            break;
+          System.out.println("sh $v0, " + -4*offset + "($sp)");
+          break;
+        }
+        case FLOAT:{
+          System.out.println("s.s $f0, " + -4*offset + "($sp)");
+          break;
+        }
+        case DOUBLE:{
+          System.out.println("s.d $f0, " + -4*offset + "($sp)");
+          break;
         }
         default:{
-          System.out.println("sw " + reg + ", " + -4*offset + "($sp)");
+          System.out.println("sw $v0, " + -4*offset + "($sp)");
           break;
         }
       }
     }else{
+      value = getType() == types.FLOAT ? CCompiler.removeF(value) : value;
+      value = CCompiler.interpret(value);
       if(value.equals("true")) value = "1";
       if(value.equals("false")) value = "0";
-      Integer intValue = (int) Math.round(Double.parseDouble(value));
       switch(getType()){
         case CHAR:{
-            System.out.println(getID() + ":\n\t.byte " + intValue);
-            break;
+          System.out.println(getID() + ":\n\t.byte " + (int) Math.round(Double.parseDouble(value)));
+          break;
         }
-        case SIGNED:{
-            System.out.println(getID() + ":\n\t.half " + intValue);
-            break;
+        case SHORT:{
+          System.out.println(getID() + ":\n\t.half " + (int) Math.round(Double.parseDouble(value)));
+          break;
+        }
+        case FLOAT:{
+          System.out.println(getID() + ":\n\t.word " + CCompiler.floatBits(Float.parseFloat(value)));
+          break;
+        }
+        case DOUBLE:{
+          System.out.println(getID() + ":\n\t.word " + CCompiler.doubleBits(Double.parseDouble(value))[0] + "\n\t.word " + CCompiler.doubleBits(Double.parseDouble(value))[1]);
+          break;
         }
         default:{
-          System.out.println(getID() + ":\n\t.word " + intValue);
+          System.out.println(getID() + ":\n\t.word " + (int) Math.round(Double.parseDouble(value)));
           break;
         }
       }
@@ -347,8 +362,8 @@ public class CCompiler extends CBaseVisitor<String> {
   Stack<Map<String, STO>> symbolTable = new Stack<Map<String, STO>>();
 
   // interpreter for arithmetic expressions
-  ScriptEngineManager mgr;
-  ScriptEngine interpreter;
+  static ScriptEngineManager mgr;
+  static ScriptEngine interpreter;
 
   // STO context passing
   STO current_function_object = null;
@@ -563,7 +578,7 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   // interpret constant expression
-  public String interpret(String expression){
+  public static String interpret(String expression){
     if(expression.charAt(0) == '\''){
       int v = (int) expression.charAt(1);
       return "" + v;
@@ -630,16 +645,25 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   // get floats (32 bits) / double (64 bits) binary representation
-  public int floatBits(float f){
+  public static int floatBits(float f){
     return Float.floatToIntBits(f);
   }
 
-  public int[] doubleBits(double d){
+  public static int[] doubleBits(double d){
     int arr[] = new int[2];
     long v = Double.doubleToLongBits(d);
     arr[0] = (int) (v >> 32);
     arr[1] = (int) (v - ((v >> 32) << 32));
     return arr;
+  }
+
+  // remove float indicator
+  public static String removeF(String s){
+    s = s.replaceAll("f", "");
+    s = s.replaceAll("F", "");
+    s = s.replaceAll("l", "");
+    s = s.replaceAll("L", "");
+    return s;
   }
 
   // array count update
@@ -894,8 +918,10 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
     mem = 0;
+    this.visit(ctx.spec);
+    System.out.println(current_type);
     String functionName = this.visit(ctx.func_dec);
-    current_function_object = new Function(0, functionName, types.INT, new ArrayList<Integer>());
+    current_function_object = new Function(0, functionName, current_type, new ArrayList<Integer>());
     setIDSymbolTable(functionName, current_function_object);
     extendSymbolTable();
     this.visit(ctx.func_dec);
@@ -940,8 +966,10 @@ public class CCompiler extends CBaseVisitor<String> {
 
     if((current_function_object == null) == isGlobalScope()){
       STO varObj;
-      if(pointer_depth == 0)
+      if(pointer_depth == 0){
         varObj = new Variable(1, mem++, ID, isGlobalScope(), current_type);
+        if(current_type == types.DOUBLE) mem++;
+      }
       else 
         varObj = new Pointer(1, mem++, ID, isGlobalScope(), current_type, pointer_depth);
       current_variable_object = varObj;
@@ -958,7 +986,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitParamlDirDec(CParser.ParamlDirDecContext ctx){
     String functionName = this.visit(ctx.dec);
     param_count = 0;
-    current_function_object = new Function(param_count, functionName, types.INT, new ArrayList<Integer>());
+    current_function_object = new Function(param_count, functionName, current_type, new ArrayList<Integer>());
     mem = 0;
     this.visit(ctx.paramL);
     current_function_object.setParamCount(param_count);
@@ -972,7 +1000,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitIdlDirDec(CParser.IdlDirDecContext ctx){
     String functionName = this.visit(ctx.dec);
     param_count = 0;
-    current_function_object = new Function(param_count, functionName, types.INT, new ArrayList<Integer>());
+    current_function_object = new Function(param_count, functionName, current_type, new ArrayList<Integer>());
     mem = 0;
     if(ctx.idL != null) this.visit(ctx.idL);
     current_function_object.setParamCount(param_count);
@@ -1085,8 +1113,23 @@ public class CCompiler extends CBaseVisitor<String> {
           System.out.println("li $v0, " + intConst_val);
         }
       } 
-      else{ //if int const
-        System.out.println("li $v0, " + intConst_val);
+      else{ // not a character cases
+        intConst_val = removeF(intConst_val);
+        switch(current_type){
+          case FLOAT:
+            int f0 = floatBits(Float.parseFloat(intConst_val));
+            System.out.println("li $v0, " + f0 + "\nsw $v0, " + -4*mem + "($sp)\nl.s $f0, " + -4*mem + "($sp)"); // $sp because inside function arguments as well. Maybe offseted at that stage
+            break;
+          case DOUBLE:
+            f0 = doubleBits(Double.parseDouble(intConst_val))[1];
+            int f1 = doubleBits(Double.parseDouble(intConst_val))[0];
+            System.out.println("li $v0, " + f0 + "\nsw $v0, " + -4*mem + "($sp)\nl.s $f0, " + -4*mem + "($sp)");
+            System.out.println("li $v0, " + f1 + "\nsw $v0, " + -4*mem + "($sp)\nl.s $f1, " + -4*mem + "($sp)");
+            break;
+          default:
+            int v0 = Integer.parseInt(intConst_val);
+            System.out.println("li $v0, " + v0);
+        }
       }
     }
     return intConst_val;
@@ -1113,6 +1156,14 @@ public class CCompiler extends CBaseVisitor<String> {
               System.out.println("lh $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
               break;
             }
+            case FLOAT:{
+              System.out.println("l.s $f0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+              break;
+            }
+            case DOUBLE:{
+              System.out.println("l.d $f0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)"); // should load te pair into $f0, $f1
+              break;
+            }
             default:
               System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
               break;
@@ -1129,6 +1180,14 @@ public class CCompiler extends CBaseVisitor<String> {
             }
             case SHORT:{
                 System.out.println("lui $v0,%hi(" + id + ")\nlh $v0,%lo(" + id + ")($v0)");
+                break;
+            }
+            case FLOAT:{
+                System.out.println("lui $v0,%hi(" + id + ")\nl.s $f0,%lo(" + id + ")($v0)");
+                break;
+            }
+            case DOUBLE:{
+                System.out.println("lui $v0,%hi(" + id + ")\nl.d $f0,%lo(" + id + "+4)($v0)");
                 break;
             }
             default:{
@@ -1149,6 +1208,8 @@ public class CCompiler extends CBaseVisitor<String> {
       if(var.getType() == types.SHORT) pointer_mul = 1; // multiply by 2 for shorts
       if(var.getType() == types.DOUBLE) pointer_mul = 3; // multiply by 8 for doubles (2 memory locations)
     }
+
+    current_type = var.getType();
 
     return id;  // return function name to caller (invoke in case of function at parent level)
   }
@@ -1188,7 +1249,7 @@ public class CCompiler extends CBaseVisitor<String> {
         this.visit(ctx.right);
         getIDSymbolTable(id).initialize("");
       }else
-        getIDSymbolTable(id).initialize(interpret(ctx.right.getText()));
+        getIDSymbolTable(id).initialize(ctx.right.getText());
     }
     current_array_object = null; // we are done initializing the array
     return "";
@@ -1253,8 +1314,13 @@ public class CCompiler extends CBaseVisitor<String> {
 
       } 
       else{ // for int arrays
-        values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
         // System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
+        switch(current_type){
+          case FLOAT:
+
+          default:
+            values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
+        }
         indexes[index_position]++;
       }
 
@@ -1326,12 +1392,14 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // Getting variable type
   @Override public String visitInitSpecDeclaration(CParser.InitSpecDeclarationContext ctx) { 
-    current_type = parseType(this.visit(ctx.spec));
+    // current_type = parseType(this.visit(ctx.spec));
+    this.visit(ctx.spec);
     String id = this.visit(ctx.initList);
     return id;
   }
 
   @Override public String visitBaseTypeSpec(CParser.BaseTypeSpecContext ctx) { 
+    current_type = parseType(ctx.type.getText());
     return ctx.type.getText();
   }
 
@@ -1378,6 +1446,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // return statement
   @Override
   public String visitReturnJumpStat(CParser.ReturnJumpStatContext ctx){
+    current_type = current_function_object.getType();
     if(ctx.expr != null) this.visit(ctx.expr);
     System.out.println("j " + current_return_context.peek() + "\nnop");
     return "";
@@ -1586,6 +1655,9 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpAssgnExpr(CParser.OpAssgnExprContext ctx) {
     // currently storing into int variable
     // will be modified later for arrays
+
+    this.visit(ctx.left); // very ugly, will generate garbage assembly unused. This is because we need to update the current_type
+
     this.visit(ctx.right);
     // $v0 contains the value of whatever was on the right
     System.out.println("sw $v0, " + -4*(mem++) + "($sp)"); // push right on stack

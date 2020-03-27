@@ -11,6 +11,12 @@ bin/c_compiler:
 	mv ./bin/c_compiler.sh ./bin/c_compiler
 	chmod u+x ./bin/c_compiler
 
+tree/translator:
+	java org.antlr.v4.gui.TestRig translator.antlr.C translation_unit -gui
+
+tree/compiler:
+	java org.antlr.v4.gui.TestRig compiler.antlr.C compilationUnit -gui
+
 java:
 	make clean
 	javac ./translator/antlr/*.java
