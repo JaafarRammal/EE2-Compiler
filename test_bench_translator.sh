@@ -79,13 +79,13 @@ for i in ${input_dir}/*.c ; do
         echo "$base, Fail, No C translator found"
         let "n_fail++"
     elif [[ $REF_C_OUT -ne $GOT_P_OUT ]] ; then
-        echo -e "${red}$base.c [FAIL] ${pur}Expected ${REF_C_OUT} got ${GOT_P_OUT}${wht}"
+        echo -e "${red}$base.c [FAIL] ${pur}Expected ${REF_C_OUT} got ${GOT_P_OUT}${ylw}"
         echo -e "\033[33;36m" "Navigate to -> c_translator/formative/$base.c"
         echo -e "\033[33;36m" "	     -> tmp/formative/$base-got.py"
         rm tmp/formative/$base
         let "n_fail++"
     else
-        echo -e "${wht}$base.c ${grn}[PASS]""${wht}"
+        echo -e "${grn}$base.c ${grn}[PASS]""${wht}"
 	    #rm tmp/formative/$base-got.py
 	    rm tmp/formative/$base
         let "n_succ++"

@@ -22,7 +22,7 @@ import java.lang.Double.*;
 import java.util.Arrays;
 
 
-enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED, SIGNED};
+enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED, SIGNED, SHORT};
 enum STOtypes {VAR, ARR, PTR, FUN, STR, DEF};
 
 abstract class STO {
@@ -125,6 +125,8 @@ abstract class STO {
         return 4;
       case SIGNED:
         return 4;
+      case SHORT:
+        return 2;
       default:
         return -1;
     }
@@ -165,6 +167,10 @@ class Variable extends STO{
             System.out.println("sb " + reg + ", " + -4*offset + "($sp)");
             break;
         }
+        case SHORT:{
+            System.out.println("sh " + reg + ", " + -4*offset + "($sp)");
+            break;
+        }
         default:{
           System.out.println("sw " + reg + ", " + -4*offset + "($sp)");
           break;
@@ -177,6 +183,10 @@ class Variable extends STO{
       switch(getType()){
         case CHAR:{
             System.out.println(getID() + ":\n\t.byte " + intValue);
+            break;
+        }
+        case SIGNED:{
+            System.out.println(getID() + ":\n\t.half " + intValue);
             break;
         }
         default:{
@@ -200,6 +210,10 @@ class Array extends STO{
               System.out.println("\t.byte " + ((((int)val)<<24) >> 24));
               break;
           }
+          case SHORT:{
+            System.out.println("\t.half " + (int)val);
+            break;
+        }
           default:{
             System.out.println("\t.word " + (int)val);
             break;
@@ -215,6 +229,11 @@ class Array extends STO{
             //All char arrays stored in heap
             // System.out.println("li $v0, " + ((((int)values[i])<<24) >> 24));
             // System.out.println("sb $v0, " + -4*(offset+i) + "($sp)");
+            break;
+          }
+          case SHORT:{
+            System.out.println("li $v0, " + (int)values[values.length - i - 1]);
+            System.out.println("sh $v0, " + -4*(offset+i) + "($sp)");
             break;
           }
           default:{
@@ -268,6 +287,10 @@ class Pointer extends STO{
             System.out.println("sb " + reg + ", " + -4*offset + "($sp)");
             break;
         }
+        case SHORT:{
+            System.out.println("sh " + reg + ", " + -4*offset + "($sp)");
+            break;
+        }
         default:{
           System.out.println("sw " + reg + ", " + -4*offset + "($sp)");
           break;
@@ -280,6 +303,10 @@ class Pointer extends STO{
       switch(getType()){
         case CHAR:{
             System.out.println(getID() + ":\n\t.byte " + intValue);
+            break;
+        }
+        case SHORT:{
+            System.out.println(getID() + ":\n\t.half " + intValue);
             break;
         }
         default:
@@ -568,6 +595,8 @@ public class CCompiler extends CBaseVisitor<String> {
         return types.UNSIGNED;
       case "signed":
         return types.SIGNED;
+      case "short":
+        return types.SHORT;
       default:
         //TODO: search for typedef, return corresponding type
         STO typedefObj = getIDSymbolTable(type);
@@ -592,6 +621,8 @@ public class CCompiler extends CBaseVisitor<String> {
         return 4;
       case SIGNED:
         return 4;
+      case SHORT:
+        return 2;
       default:
         throwIllegalArgument(type.toString(), "typeSize conversion");
         return -1;
@@ -1078,6 +1109,10 @@ public class CCompiler extends CBaseVisitor<String> {
               System.out.println("lb $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
               break;
             }
+            case SHORT:{
+              System.out.println("lh $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+              break;
+            }
             default:
               System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
               break;
@@ -1090,6 +1125,10 @@ public class CCompiler extends CBaseVisitor<String> {
           switch(var.getType()){
             case CHAR:{
                 System.out.println("lui $v0,%hi(" + id + ")\nlb $v0,%lo(" + id + ")($v0)");
+                break;
+            }
+            case SHORT:{
+                System.out.println("lui $v0,%hi(" + id + ")\nlh $v0,%lo(" + id + ")($v0)");
                 break;
             }
             default:{
@@ -1107,6 +1146,7 @@ public class CCompiler extends CBaseVisitor<String> {
     if(var.getDepth() != 0){
       pointer_mul = 2; // default multiply by 4 (one memory location)
       if(var.getType() == types.CHAR) pointer_mul = 0; // no multiply for char
+      if(var.getType() == types.SHORT) pointer_mul = 1; // multiply by 2 for shorts
       if(var.getType() == types.DOUBLE) pointer_mul = 3; // multiply by 8 for doubles (2 memory locations)
     }
 
@@ -1264,6 +1304,9 @@ public class CCompiler extends CBaseVisitor<String> {
         switch(getIDSymbolTable(id).getType()){
           case CHAR:
             System.out.println("lb $v0, 0($v0)");
+            break;
+          case SHORT:
+            System.out.println("lh $v0, 0($v0)");
             break;
           default:
             System.out.println("lw $v0, 0($v0)");
@@ -2026,6 +2069,10 @@ public class CCompiler extends CBaseVisitor<String> {
       switch(getIDSymbolTable(id).getType()){
         case CHAR:{
           System.out.println("lb $v0, 0($t2)");
+          break;
+        }
+        case SHORT:{
+          System.out.println("lh $v0, 0($t2)");
           break;
         }
         default:
