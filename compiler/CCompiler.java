@@ -37,8 +37,11 @@ abstract class STO {
   protected types type;
   protected STOtypes STOtype;
 
-  // arrays extra (used by functions as well)
+  // arrays extra
   public ArrayList<Integer> dimensions;
+
+  // functions extra
+  public ArrayList<types> parameters;
 
   // pointers extra
   public int pointerDepth;
@@ -100,12 +103,12 @@ abstract class STO {
   }
 
   // function functions
-  public ArrayList<Integer> getParameters(){return this.dimensions;}
-  public int getParameter(int i){return this.dimensions.get(i);}
-  public void addParameter(int i){this.dimensions.add(i);}
+  public ArrayList<types> getParameters(){return this.parameters;}
+  public types getParameter(int i){return this.parameters.get(i);}
+  public void addParameter(types i){this.parameters.add(i);}
   public void setParamCount(int s){this.size = s;}
   public int getParamCount(){return this.size;}
-  public void setParameters(ArrayList<Integer> params){this.dimensions = params;}
+  public void setParameters(ArrayList<types> params){this.parameters = params;}
 
   // pointers functions
   public void setDepth(int d){this.pointerDepth = d;}
@@ -278,11 +281,14 @@ class STOString extends STO{
 
 class Function extends STO{
   Function(){initSTO();}
-  Function(int paramCount, String ID, types type, ArrayList<Integer> params){initSTO(paramCount, -1, ID, true, false, type, params, STOtypes.FUN);}
+  Function(int paramCount, String ID, types type, ArrayList<types> params){
+    initSTO(paramCount, -1, ID, true, false, type, null, STOtypes.FUN);
+    setParameters(params);
+  }
   @Override public void print(){
     super.print();
     System.err.println("Parameters count:" + size);
-    if(size != 0) System.err.println("Parameters (dimension based): " + getDimensions());
+    if(size != 0) System.err.println("Parameters: " + getParameters());
   }
 }
 
@@ -339,6 +345,7 @@ public class CCompiler extends CBaseVisitor<String> {
   Stack<String> current_return_context = new Stack<String>();   // Return: functions              (return_context)
   Stack<Integer> current_arguments_context = new Stack<Integer>(); // Informs us of memory location of switch. Used for nested switches
   Stack<Integer> current_mem_context = new Stack<Integer>();   // Mem context (retrieve stack offset context)
+  Stack<STO> current_func_invoc = new Stack<STO>(); // Nested function calls arguments type tracking
 
   Stack<Map<String, STO>> symbolTable = new Stack<Map<String, STO>>();
 
@@ -945,9 +952,9 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
     mem = 0;
-    this.visit(ctx.spec);
     String functionName = this.visit(ctx.func_dec);
-    current_function_object = new Function(0, functionName, current_type, new ArrayList<Integer>());
+    this.visit(ctx.spec);
+    current_function_object = new Function(0, functionName, current_type, new ArrayList<types>());
     setIDSymbolTable(functionName, current_function_object);
     extendSymbolTable();
     this.visit(ctx.func_dec);
@@ -956,7 +963,7 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("\t.set noreorder\n\t.text\n\t.align 2\n\t.globl " + functionName);
     insertLabel(functionName);
     if(!functionName.equals("main")){
-      System.out.println("# store function arguments\nsw $a0, 0($sp)\nsw $a1, 4($sp)\nsw $a2, 8($sp)\nsw $a3, 12($sp)\n"); // store arguments on main stack
+      // System.out.println("# store function arguments\nsw $a0, 0($sp)\nsw $a1, 4($sp)\nsw $a2, 8($sp)\nsw $a3, 12($sp)\n"); // store arguments on caller stack (NOT NEEDED ?)
       System.out.println("move $t0, $sp"); // remember where the stack pointer was
     }
     System.out.println("# " + functionName + ": function entry");
@@ -964,11 +971,58 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("addiu $sp, $sp, -12\nsw $fp, 4($sp)\nsw $ra, 8($sp)\nmove $fp, $sp\n");
     // now load all input parameters on the function stack
     mem = 0;
+    boolean seenInt = false;
+    int arg = 0;
     // current_function_object.setParamCount(param_count);
     setIDSymbolTable(functionName, current_function_object);
     for(int i=0; i<param_count; i++){
-      System.out.println("lw $t1, " + 4*i + "($t0)");
-      System.out.println("sw $t1, " + -4*(mem++) + "($sp)");
+      switch(current_function_object.getParameter(i)){
+        case DOUBLE:
+          if(arg < 3){
+            if(seenInt){
+              if(arg == 1) arg++;
+              System.out.println("sw $a" + arg++ + ", " + -4*(mem++) + "($sp)");
+              System.out.println("sw $a" + arg++ + ", " + -4*(mem) + "($sp)");
+            }
+            else
+              if(i==0)
+                {System.out.println("s.d $f12, " + -4*(mem++) + "($sp)");arg+=2;}
+              else if(i==1)
+                {System.out.println("s.d $f14, " + -4*(mem++) + "($sp)");arg+=2;}
+              else
+                {System.out.println("sw $a" + arg++ + ", " + -4*(mem++) + "($sp)"); System.out.println("sw $a" + arg++ + ", " + -4*(mem) + "($sp)");}
+          }else{
+            if(arg == 3) mem++;
+            System.out.println("lw $t1, " + 4*mem + "($t0)");System.out.println("sw $t1, " + -4*(mem++) + "($sp)");
+            System.out.println("lw $t1, " + 4*mem + "($t0)");System.out.println("sw $t1, " + -4*(mem) + "($sp)");
+          }
+          mem++;
+          break;
+        case FLOAT:
+          if(arg < 4){
+            if(seenInt)
+              System.out.println("sw $a" + arg++ + ", " + -4*(mem++) + "($sp)");
+            else
+              if(i==0)
+                {System.out.println("s.s $f12, " + -4*(mem++) + "($sp)");arg++;}
+              else if(i==1)
+                {System.out.println("s.s $f14, " + -4*(mem++) + "($sp)");arg++;}
+              else
+                System.out.println("sw $a" + arg++ + ", " + -4*(mem++) + "($sp)");
+          }else{
+            System.out.println("lw $t1, " + 4*mem + "($t0)");
+            System.out.println("sw $t1, " + -4*(mem++) + "($sp)");
+          }
+          break;
+        default:
+          seenInt = true;
+          if(arg < 4){
+            System.out.println("sw $a" + arg++ + ", " + -4*(mem++) + "($sp)");
+          }else{
+            System.out.println("lw $t1, " + 4*mem + "($t0)");
+            System.out.println("sw $t1, " + -4*(mem++) + "($sp)");
+          }
+      }
     }
     System.out.println("# " + functionName + ": function body");
     this.visit(ctx.comp_stat);
@@ -1012,7 +1066,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitParamlDirDec(CParser.ParamlDirDecContext ctx){
     String functionName = this.visit(ctx.dec);
     param_count = 0;
-    current_function_object = new Function(param_count, functionName, current_type, new ArrayList<Integer>());
+    current_function_object = new Function(param_count, functionName, current_type, new ArrayList<types>());
     mem = 0;
     this.visit(ctx.paramL);
     current_function_object.setParamCount(param_count);
@@ -1026,7 +1080,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitIdlDirDec(CParser.IdlDirDecContext ctx){
     String functionName = this.visit(ctx.dec);
     param_count = 0;
-    current_function_object = new Function(param_count, functionName, current_type, new ArrayList<Integer>());
+    current_function_object = new Function(param_count, functionName, current_type, new ArrayList<types>());
     mem = 0;
     if(ctx.idL != null) this.visit(ctx.idL);
     current_function_object.setParamCount(param_count);
@@ -1042,17 +1096,61 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitFuncInvocPostExpr(CParser.FuncInvocPostExprContext ctx){
     String functionName = this.visit(ctx.expr); // get function ID. From symbol table with type return later
+    current_func_invoc.add(getIDSymbolTable(functionName));
     int argsCount = getIDSymbolTable(functionName).getParamCount(); // prepare to move the stack pointer accordingly
     mem += Math.max(4, argsCount); // allocate at least 4 locations as subroutine is allowed to write over the 4 arguments
     // current_arguments_context.add(argsCount-1); // save the count state for parameters (for nested cases like f(g(1), h(2, 3)) where another function gets ready for parameters). -1 because index starts at 0
     current_arguments_context.add(0); // start at offset zero in the argument context
+    current_mem_context.add(0);
     System.out.println("addiu $sp, $sp, " + -4*(mem)); // secure memory locations for arguments. CURRENTLY INTEGERS. LATER USE THE TABLE
     if(ctx.args != null) this.visit(ctx.args); // get parameters
-    for(int i=0; i<4 && i<argsCount; i++){  // store parameters in $a0-$a3
-      System.out.println("lw $a"+ i + ", " + 4*i + "($sp)"); // CURRENTLY INTEGERS. LATER USE THE TABLE
+    int arg = 0;
+    boolean seenInt = false;
+    int offset = 0;
+    for(int i=0; i<4 && i<argsCount; i++){  // store parameters in $a0-$a3 or $f12-$f14
+      switch(getIDSymbolTable(functionName).getParameter(i)){
+        case DOUBLE:
+          if(arg < 3){
+            if(seenInt){
+              if(arg == 1) arg++;
+              System.out.println("lw $a" + arg++ + ", " + 4*(offset++) + "($sp)");
+              System.out.println("lw $a" + arg++ + ", " + 4*(offset) + "($sp)");
+            }
+            else
+              if(i==0)
+                {System.out.println("l.d $f12, " + 4*(offset++) + "($sp)");arg+=2;}
+              else if(i==1)
+                {System.out.println("l.d $f14, " + 4*(offset++) + "($sp)");arg+=2;}
+              else
+                {System.out.println("lw $a" + arg++ + ", " + 4*(offset++) + "($sp)"); System.out.println("lw $a" + arg++ + ", " + -4*(offset) + "($sp)");}
+
+            offset++;
+          }
+          break;
+        case FLOAT:
+          if(arg < 4){
+            if(seenInt)
+              System.out.println("lw $a" + arg++ + ", " + 4*(offset++) + "($sp)");
+            else
+              if(i==0)
+                {System.out.println("l.s $f12, " + 4*(offset++) + "($sp)");arg++;}
+              else if(i==1)
+                {System.out.println("l.s $f14, " + 4*(offset++) + "($sp)");arg++;}
+              else
+                System.out.println("lw $a" + arg++ + ", " + 4*(offset++) + "($sp)");
+          }
+          break;
+        default:
+          seenInt = true;
+          if(arg < 4){
+            System.out.println("lw $a" + arg++ + ", " + 4*(offset++) + "($sp)");
+          }
+      }
     }
     System.out.println("jal " + functionName + "\nnop"); // jump and link
     System.out.println("addiu $sp, $sp, " + 4*(mem)); // restore stack
+    current_func_invoc.pop();
+    current_mem_context.pop();
     current_arguments_context.pop();
     mem -= Math.max(4, argsCount);
     return "";
@@ -1074,7 +1172,7 @@ public class CCompiler extends CBaseVisitor<String> {
     param_count += 1;
     current_type = parseType(this.visit(ctx.spec));
     this.visit(ctx.dec);
-    current_function_object.addParameter(typeSize(current_type));
+    current_function_object.addParameter(current_type);
     return "";
   }
 
@@ -1083,8 +1181,22 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitSingleArgExprList(CParser.SingleArgExprListContext ctx) { 
     Integer currentArgumentCount = current_arguments_context.pop();
-    this.visit(ctx.expr); // value is in $v0. Only bottom part of stack is being used
-    System.out.println("sw $v0, " + 4*currentArgumentCount + "($sp)");
+    Integer offset = current_mem_context.pop();
+    current_type = current_func_invoc.peek().getParameter(current_func_invoc.peek().getSize() - currentArgumentCount - 1);
+    this.visit(ctx.expr); // value is in $v0 or $f0. Only bottom part of stack is being used
+    switch(current_type){
+      case DOUBLE:{
+        System.out.println("s.d $f0, " + 4*offset++ + "($sp)");
+        break;
+      }
+      case FLOAT:{
+        System.out.println("s.s $f0, " + 4*offset + "($sp)");
+        break;
+      }
+      default:
+        System.out.println("sw $v0, " + 4*offset + "($sp)");
+    }
+    current_mem_context.add(offset+1);
     current_arguments_context.add(currentArgumentCount+1);  // argument currently treated as integer with size 1 not 4. Later refer to typeSize table
     return "";
   }
@@ -1092,8 +1204,22 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitMultArgExprList(CParser.MultArgExprListContext ctx) { 
     Integer currentArgumentCount = current_arguments_context.pop();
-    this.visit(ctx.expr); // value is in $v0. Only bottom part of stack is being used
-    System.out.println("sw $v0, " + 4*currentArgumentCount + "($sp)");
+    Integer offset = current_mem_context.pop();
+    current_type = current_func_invoc.peek().getParameter(current_func_invoc.peek().getSize() - currentArgumentCount - 1);
+    this.visit(ctx.expr); // value is in $v0 or $f0. Only bottom part of stack is being used
+    switch(current_type){
+      case DOUBLE:{
+        System.out.println("s.d $f0, " + 4*offset++ + "($sp)");
+        break;
+      }
+      case FLOAT:{
+        System.out.println("s.s $f0, " + 4*offset + "($sp)");
+        break;
+      }
+      default:
+        System.out.println("sw $v0, " + 4*offset + "($sp)");
+    }
+    current_mem_context.add(offset+1);
     current_arguments_context.add(currentArgumentCount+1);
     this.visit(ctx.args);
     return "";
@@ -1372,7 +1498,20 @@ public class CCompiler extends CBaseVisitor<String> {
       case "+":
         break;
       case "-":
-        System.out.println("subu $v0, $zero, $v0"); // return v0 becomes -v0
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("s.s $f1, " + -4*mem + "($sp)");
+            System.out.println("li $t1,-2147483648\nl.s $t2, " + -4*mem + "($sp)\nxor $t1, $t1, $t2");
+            System.out.println("sw $t1, " + -4*mem + "($sp)\nl.s $f1, " + -4*mem + "($sp)");
+            break;
+          case FLOAT:
+            System.out.println("s.s $f0, " + -4*mem + "($sp)");
+            System.out.println("li $t1,-2147483648\nl.s $t2, " + -4*mem + "($sp)\nxor $t1, $t1, $t2");
+            System.out.println("sw $t1, " + -4*mem + "($sp)\nl.s $f0, " + -4*mem + "($sp)");
+            break;
+          default:
+            System.out.println("subu $v0, $zero, $v0"); // return v0/f0 becomes -v0/-f0
+        }
         break;
       case "~":
         System.out.println("not $v0, $v0"); // ~v0 = bitwiseNOT($v0)
@@ -1581,13 +1720,31 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpMultExpr(CParser.OpMultExprContext ctx){
     threeOp(ctx);
+    String op = " ";
     switch(ctx.op.getText()){
       case("*"):
-        System.out.println("mul $v0, $t0, $t1");
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("mul.d $f0, $f0, $f2");
+            break;
+          case FLOAT:
+            System.out.println("mul.s $f0, $f0, $f2");
+            break;
+          default:
+            System.out.println("mul $v0, $t0, $t1");
+        }
         break;
       case("/"):
-        System.out.println("div $t0, $t1"); // left / right
-        System.out.println("mflo $v0");
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("div.d $f0, $f0, $f2");
+            break;
+          case FLOAT:
+            System.out.println("div.s $f0, $f0, $f2");
+            break;
+          default:
+            System.out.println("div $v0, $t0, $t1");
+        }
         break;
       case("%"):
         System.out.println("div $t0, $t1");
@@ -2481,9 +2638,9 @@ public class CCompiler extends CBaseVisitor<String> {
     ANTLRInputStream input = new ANTLRInputStream(System.in); // create a lexer that feeds off of input CharStream
     CLexer lexer = new CLexer(input); // create a buffer of tokens pulled from the lexer
     CommonTokenStream tokens = new CommonTokenStream(lexer); // create a parser that feeds off the tokens buffer
-    System.err.println("\n\n\n////////////////////////////////////////////////////////////////////////");
-    System.err.println("///////////////////     BEGINNING OF COMPILATION     ///////////////////");
-    System.err.println("////////////////////////////////////////////////////////////////////////");
+    System.err.println("\n\n\n--------------------------------");
+    System.err.println("=======     Compiling    =======");
+    System.err.println("--------------------------------");
     CParser parser = new CParser(tokens);
     ParseTree tree = parser.compilationUnit(); // begin parsing at init rule
     boolean debug = false;
@@ -2514,9 +2671,9 @@ public class CCompiler extends CBaseVisitor<String> {
     for(Map.Entry<String, STO> e: compiler.symbolTable.pop().entrySet()){
       e.getValue().print();
     }
-    System.err.println("\n\n\n////////////////////////////////////////////////////////////////////////");
-    System.err.println("//////////////////////     END OF COMPILATION     //////////////////////");
-    System.err.println("////////////////////////////////////////////////////////////////////////");
+    System.err.println("\n\n\n--------------------------------");
+    System.err.println("=======       Done       =======");
+    System.err.println("--------------------------------");
   }
 
 }
