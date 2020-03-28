@@ -295,39 +295,15 @@ class Pointer extends STO{
     if(!isGlobal()){
       int offset = getOffset();
       String reg = "$v0";
-      if(value == "0")
+      if(value == "0"){
         reg = "$zero";
-      switch(getType()){
-        case CHAR:{
-            System.out.println("sb " + reg + ", " + -4*offset + "($sp)");
-            break;
-        }
-        case SHORT:{
-            System.out.println("sh " + reg + ", " + -4*offset + "($sp)");
-            break;
-        }
-        default:{
-          System.out.println("sw " + reg + ", " + -4*offset + "($sp)");
-          break;
-        }
+        System.out.println("sw " + reg + ", " + -4*offset + "($sp)");
       }
     }else{
       if(value.equals("true")) value = "1";
       if(value.equals("false")) value = "0";
       Integer intValue = (int) Math.round(Double.parseDouble(value));
-      switch(getType()){
-        case CHAR:{
-            System.out.println(getID() + ":\n\t.byte " + intValue);
-            break;
-        }
-        case SHORT:{
-            System.out.println(getID() + ":\n\t.half " + intValue);
-            break;
-        }
-        default:
-          System.out.println(getID() + ":\n\t.word " + intValue);
-          break;
-      }
+      System.out.println(getID() + ":\n\t.word " + intValue);
     }
   }
   @Override public void print(){
@@ -473,26 +449,69 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // expression helper
   // form LEFT OP RIGHT
-  // $t0 has left
-  // $t1 has right
+  // $t0/f0 has left
+  // $t1/f2 has right
   public String threeOp(ParserRuleContext ctx){
 
     // Mem is stack offset
     // check for pointer to shift operands accordingly if required
     pointer_mul = 0;
     this.visit(ctx.getChild(0));
-    System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
+    switch(current_type){
+      case FLOAT:
+        System.out.println("s.s $f0, " + -4*(mem++) + "($sp)");
+        break;
+      case DOUBLE:
+        System.out.println("s.d $f0, " + -4*(mem++) + "($sp)");
+        mem++;
+        break;
+      default:
+        System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
+    }
     int leftPointer = pointer_mul;
 
     pointer_mul = 0;
     this.visit(ctx.getChild(2));
-    System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
+    switch(current_type){
+      case FLOAT:
+        System.out.println("s.s $f0, " + -4*(mem++) + "($sp)");
+        break;
+      case DOUBLE:
+        System.out.println("s.d $f0, " + -4*(mem++) + "($sp)");
+        mem++;
+        break;
+      default:
+        System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
+    }
     int rightPointer = pointer_mul;
 
-    System.out.println("lw $t1, " + -4*(--mem) + "($sp)");  // get right from stack
-    System.out.println("sll $t1, $t1, " + leftPointer); // if left is a pointer, align right value
-    System.out.println("lw $t0, " + -4*(--mem) + "($sp)");  // get left from stack
-    System.out.println("sll $t1, $t1, " + rightPointer); // if right is a pointer, align left value
+    // get right from stack (t1 or f2)
+    switch(current_type){
+      case FLOAT:
+        System.out.println("l.s $f2, " + -4*(--mem) + "($sp)");
+        break;
+      case DOUBLE:
+        mem--;
+        System.out.println("l.d $f2, " + -4*(--mem) + "($sp)");
+        break;
+      default:
+        System.out.println("lw $t1, " + -4*(--mem) + "($sp)");  // get right from stack
+    }
+    if(leftPointer != 0)System.out.println("sll $t1, $t1, " + leftPointer); // if left is a pointer, align right value
+    
+    // get right from stack (t0 or f0)
+    switch(current_type){
+      case FLOAT:
+        System.out.println("l.s $f0, " + -4*(--mem) + "($sp)");
+        break;
+      case DOUBLE:
+        mem--;
+        System.out.println("l.d $f0, " + -4*(--mem) + "($sp)");
+        break;
+      default:
+        System.out.println("lw $t0, " + -4*(--mem) + "($sp)");  // get right from stack
+    }
+    if(rightPointer != 0)System.out.println("sll $t1, $t1, " + rightPointer); // if right is a pointer, align left value
     return "";
   }
 
@@ -919,7 +938,6 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
     mem = 0;
     this.visit(ctx.spec);
-    System.out.println(current_type);
     String functionName = this.visit(ctx.func_dec);
     current_function_object = new Function(0, functionName, current_type, new ArrayList<Integer>());
     setIDSymbolTable(functionName, current_function_object);
@@ -1118,13 +1136,13 @@ public class CCompiler extends CBaseVisitor<String> {
         switch(current_type){
           case FLOAT:
             int f0 = floatBits(Float.parseFloat(intConst_val));
-            System.out.println("li $v0, " + f0 + "\nsw $v0, " + -4*mem + "($sp)\nl.s $f0, " + -4*mem + "($sp)"); // $sp because inside function arguments as well. Maybe offseted at that stage
+            System.out.println("li $t4, " + f0 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f0, " + -4*mem + "($sp)"); // $sp because inside function arguments as well. Maybe offseted at that stage
             break;
           case DOUBLE:
             f0 = doubleBits(Double.parseDouble(intConst_val))[1];
             int f1 = doubleBits(Double.parseDouble(intConst_val))[0];
-            System.out.println("li $v0, " + f0 + "\nsw $v0, " + -4*mem + "($sp)\nl.s $f0, " + -4*mem + "($sp)");
-            System.out.println("li $v0, " + f1 + "\nsw $v0, " + -4*mem + "($sp)\nl.s $f1, " + -4*mem + "($sp)");
+            System.out.println("li $t4, " + f0 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f0, " + -4*mem + "($sp)");
+            System.out.println("li $t4, " + f1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f1, " + -4*mem + "($sp)");
             break;
           default:
             int v0 = Integer.parseInt(intConst_val);
@@ -1316,8 +1334,6 @@ public class CCompiler extends CBaseVisitor<String> {
       else{ // for int arrays
         // System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
         switch(current_type){
-          case FLOAT:
-
           default:
             values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
         }
@@ -1582,10 +1598,16 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpAddExpr(CParser.OpAddExprContext ctx) {
     threeOp(ctx);
-    if (ctx.op.getText().equals("+")) {
-      System.out.println("add $v0, $t0, $t1");
-    } else {
-      System.out.println("sub $v0, $t0, $t1");
+    String op = ctx.op.getText().equals("+") ? "add" : "sub";
+    switch(current_type){
+      case DOUBLE:
+        System.out.println(op + ".d $f0, $f0, $f2");
+        break;
+      case FLOAT:
+        System.out.println(op + ".s $f0, $f0, $f2");
+        break;
+      default:
+        System.out.println(op + "$v0, $t0, $t1");
     }
     return "";
   }
@@ -1595,18 +1617,36 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override public String visitIncrPostExpr(CParser.IncrPostExprContext ctx) {
     String id = this.visit(ctx.expr);
     Integer offset = getIDSymbolTable(id).getOffset(); // get variable location
-    switch(ctx.op.getText()){
-      case("++"):
-        System.out.println("addi $t1, $v0, 1");
+    
+    String sign = (ctx.op.getText() == "--" ? "-" : "");
+
+    switch(current_type){
+      case FLOAT:
+        String const_1 = sign + floatBits(1);
+        System.out.println("li $t4, " + const_1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f4, " + -4*mem + "($sp)"); // $sp because inside function arguments as well. Maybe offseted at that stage
+        System.out.println("add.s $f2, $f0, $f4");
+        System.out.println("s.s $f2, " + -4*offset + "($fp)");
         break;
-      case("--"):
-        System.out.println("addi $t1, $v0, -1");
+      case DOUBLE:
+        const_1 = sign + doubleBits(1)[1];
+        String const_2 = sign + doubleBits(1)[0];
+        System.out.println("li $t4, " + const_1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f4, " + -4*mem + "($sp)");
+        System.out.println("li $t4, " + const_2 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f5, " + -4*mem + "($sp)");
+        System.out.println("add.d $f2, $f0, $f4");
+        System.out.println("s.d $f2, " + -4*offset + "($fp)");
+        break;
+      case CHAR:
+        System.out.println("addi $t1, $v0, " + sign + "1");
+        System.out.println("sb $t1, " + -4*offset + "($fp)");
+        break;
+      case SHORT:
+        System.out.println("addi $t1, $v0, " + sign + "1");
+        System.out.println("sh $t1, " + -4*offset + "($fp)");
         break;
       default:
-        throwIllegalArgument(ctx.op.getText(), "IncrPostExpr");
+        System.out.println("addi $t1, $v0, " + sign + "1");
+        System.out.println("sw $t1, " + -4*offset + "($fp)");
     }
-    
-    System.out.println("sw $t1, " + -4*offset + "($fp)"); // replace 4 by variable.getSize() later
     return id; 
   }
 
@@ -1614,18 +1654,39 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitPreIncUnaryExpr(CParser.PreIncUnaryExprContext ctx) { 
     String id = this.visit(ctx.expr);
     Integer offset = getIDSymbolTable(id).getOffset(); // get variable location
-    switch(ctx.op.getText()){
-      case("++"):
-        System.out.println("addi $v0, $v0, 1");
+    // 1 = 1065353216 for floating point bits
+    // 1 = 1072693248-0 for double bits
+    // since immediates are not allowed for floats and doubles, we need to manually create the +/- 1 int $f4 then add it to $f0
+    String sign = (ctx.op.getText() == "--" ? "-" : "");
+
+    switch(current_type){
+      case FLOAT:
+        String const_1 = sign + floatBits(1);
+        System.out.println("li $t4, " + const_1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f4, " + -4*mem + "($sp)"); // $sp because inside function arguments as well. Maybe offseted at that stage
+        System.out.println("add.s $f0, $f0, $f4");
+        System.out.println("s.s $f0, " + -4*offset + "($fp)");
         break;
-      case("--"):
-        System.out.println("addi $v0, $v0, -1");
+      case DOUBLE:
+        const_1 = sign + doubleBits(1)[1];
+        String const_2 = sign + doubleBits(1)[0];
+        System.out.println("li $t4, " + const_1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f4, " + -4*mem + "($sp)");
+        System.out.println("li $t4, " + const_2 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f5, " + -4*mem + "($sp)");
+        System.out.println("add.d $f0, $f0, $f4");
+        System.out.println("s.d $f0, " + -4*offset + "($fp)");
+        break;
+      case CHAR:
+        System.out.println("addi $v0, $v0, " + sign + "1");
+        System.out.println("sb $v0, " + -4*offset + "($fp)");
+        break;
+      case SHORT:
+        System.out.println("addi $v0, $v0, " + sign + "1");
+        System.out.println("sh $v0, " + -4*offset + "($fp)");
         break;
       default:
-        throwIllegalArgument(ctx.op.getText(), "IncrPostExpr");
+        System.out.println("addi $v0, $v0, " + sign + "1");
+        System.out.println("sw $v0, " + -4*offset + "($fp)");
     }
-    
-    System.out.println("sw $v0, " + -4*offset + "($fp)");
+
     return id; 
   } 
 
@@ -1659,8 +1720,35 @@ public class CCompiler extends CBaseVisitor<String> {
     this.visit(ctx.left); // very ugly, will generate garbage assembly unused. This is because we need to update the current_type
 
     this.visit(ctx.right);
+    String store = "sw ";
+    String load = "lw ";
     // $v0 contains the value of whatever was on the right
-    System.out.println("sw $v0, " + -4*(mem++) + "($sp)"); // push right on stack
+    // push right on stack
+    switch(current_type){
+      case FLOAT:
+        System.out.println("s.s $f0, " + -4*(mem++) + "($sp)");
+        store = "s.s "; 
+        load = "l.s "; 
+        break;
+      case DOUBLE:
+        System.out.println("s.d $f0, " + -4*(mem++) + "($sp)"); 
+        store = "s.d "; 
+        load = "l.d ";
+        mem++;
+        break;
+      case CHAR:
+        System.out.println("sb $v0, " + -4*(mem++) + "($sp)"); 
+        store = "sb ";
+        load = "lb ";  
+        break;
+      case SHORT:
+        System.out.println("sh $v0, " + -4*(mem++) + "($sp)"); 
+        store = "sh ";
+        load = "lh ";  
+        break;
+      default:
+        System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
+    }
     indexes = null;
     String id = this.visit(ctx.left); // an array or a pointer dereference will return the destination instead in $v1
     int destination = 0;
@@ -1673,21 +1761,39 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("addu $v1, $fp, $v1");
       }
     }
-  
+    String reg = "$v0";
+    String temp = "$t2";
+    String extraOp = "e ";
+    switch(current_type){
+      case DOUBLE:
+        extraOp = ".d ";
+        reg = "$f0";
+        temp = "$f2";
+        break;
+      case FLOAT:
+        extraOp = ".s ";
+        reg = "$f0";
+        temp = "$f2";
+        break;
+      default:
+        break;
+    }
     
-    System.out.println("addu $t2, $v0, $zero"); // store current value in $t2
-    System.out.println("lw $v0, " + -4*(--mem) + "($sp)"); // pop right from stack. Ready to evaluate
+    System.out.println("mov" + extraOp + temp + ", " + reg); // store current value in $t2 (or temp)
+    if(extraOp.equals("e ")) extraOp = " ";
+    if(current_type == types.DOUBLE) mem--;
+    System.out.println(load + reg + ", " + -4*(--mem) + "($sp)"); // pop right from stack. Ready to evaluate
     switch(ctx.op.getText()){
       case("="):
         break; // do nothing. Store into destination at the end
       case("+="):
-        System.out.println("add $v0, $v0, $t2");
+        System.out.println("add" + extraOp + reg + ", " + reg + ", " + temp);
         break;
       case("-="):
-        System.out.println("sub $v0, $t2, $v0");
+        System.out.println("sub" + extraOp + reg + ", " + temp + ", " + reg);
         break;
       case("*="):
-        System.out.println("mul $v0, $v0, $t2");
+        System.out.println("mul" + extraOp + reg + ", " + reg + ", " + temp);
         break;
       case("<<="):
         System.out.println("sllv $v0, $v0, $t2");
@@ -1705,8 +1811,7 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("xor $v0, $v0, $t2");
         break;
       case("/="):
-        System.out.println("div $t2, $v0");
-        System.out.println("mflo $v0");
+        System.out.println("div" + extraOp + reg + ", " + temp + ", " + reg);
         break;
       case("%="):
         System.out.println("div $t2, $v0");
@@ -1715,7 +1820,7 @@ public class CCompiler extends CBaseVisitor<String> {
       default:
         throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
     }
-    System.out.println("sw $v0, 0($v1)");
+    System.out.println(store + reg + ", 0($v1)");
 
     return id;
   }
@@ -1736,20 +1841,66 @@ public class CCompiler extends CBaseVisitor<String> {
     threeOp(ctx);
     //System.out.println("xor $t2, $t0, $t1");
     //System.out.println("sltiu $t2, $t2, 1");  // $t2 = (right == left)
+    System.out.println("li $v0, 0");
+    System.out.println("li $t3, 1");
     switch(ctx.op.getText()) {
       case ">":
-        System.out.println("slt $v0, $t1, $t0"); // right < left
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("c.lt.d $f2, $f0");
+            System.out.println("movt $v0, $t3");
+            break;
+          case FLOAT:
+            System.out.println("c.lt.s $f2, $f0");
+            System.out.println("movt $v0, $t3");
+            break;
+          default:
+            System.out.println("slt $v0, $t1, $t0"); // right < left
+        }
         break;
       case "<":
-        System.out.println("slt $v0, $t0, $t1"); // left < right
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("c.lt.d $f0, $f2");
+            System.out.println("movt $v0, $t3");
+            break;
+          case FLOAT:
+            System.out.println("c.lt.s $f0, $f2");
+            System.out.println("movt $v0, $t3");
+            break;
+          default:
+            System.out.println("slt $v0, $t0, $t1"); // right < left
+        }
         break;
       case ">=":
-        System.out.println("slt $v0, $t0, $t1"); // left < right
-        System.out.println("xori $v0, $v0, 1"); // !(left < right) = right <= left
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("c.le.d $f2, $f0");
+            System.out.println("movt $v0, $t3");
+            break;
+          case FLOAT:
+            System.out.println("c.le.s $f2, $f0");
+            System.out.println("movt $v0, $t3");
+            break;
+          default:
+            System.out.println("slt $v0, $t0, $t1"); // left < right
+            System.out.println("xori $v0, $v0, 1"); // !(left < right) = right <= left
+        }
         break;
       case "<=": 
-        System.out.println("slt $v0, $t1, $t0"); // right < left
-        System.out.println("xori $v0, $v0, 1"); // !(right<left) = right >= left
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("c.le.d $f0, $f2");
+            System.out.println("movt $v0, $t3");
+            break;
+          case FLOAT:
+            System.out.println("c.le.s $f0, $f2");
+            System.out.println("movt $v0, $t3");
+            break;
+          default:
+            System.out.println("slt $v0, $t1, $t0"); // right < left
+            System.out.println("xori $v0, $v0, 1"); // !(right<left) = right >= left
+        }
         break;
       default:
         throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
@@ -1764,12 +1915,40 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpEqualExpr(CParser.OpEqualExprContext ctx){
     threeOp(ctx);
     System.out.println("xor $v0, $t0, $t1"); // A^B = 0 only if A=B, non-zero otherwise
+    System.out.println("li $t2, 0");
+    System.out.println("li $t3, 1");
     switch(ctx.op.getText()){
       case "==":
-        System.out.println("sltiu $v0, $v0, 1");
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("c.eq.d $f0, $f2");
+            System.out.println("move $v0, $t2");
+            System.out.println("movt $v0, $t3");
+            break;
+          case FLOAT:
+            System.out.println("c.eq.s $f0, $f2");
+            System.out.println("move $v0, $t2");
+            System.out.println("movt $v0, $t3");
+            break;
+          default:
+            System.out.println("sltiu $v0, $v0, 1");
+        }
         break;
       case "!=":
-        System.out.println("sltu $v0, $zero, $v0");
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("c.eq.d $f0, $f2");
+            System.out.println("move $v0, $t3");
+            System.out.println("movt $v0, $t2");
+            break;
+          case FLOAT:
+            System.out.println("c.eq.s $f0, $f2");
+            System.out.println("move $v0, $t3");
+            System.out.println("movt $v0, $t2");
+            break;
+          default:
+            System.out.println("sltu $v0, $zero, $v0");
+        }
         break;
       default:
         throwIllegalArgument(ctx.op.getText(), "OpEqualExpr");
