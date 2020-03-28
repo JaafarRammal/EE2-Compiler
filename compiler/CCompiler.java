@@ -22,7 +22,7 @@ import java.lang.Double.*;
 import java.util.Arrays;
 
 
-enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED, SIGNED, SHORT};
+enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED, SIGNED, SHORT, VOID};
 enum STOtypes {VAR, ARR, PTR, FUN, STR, DEF};
 
 abstract class STO {
@@ -127,6 +127,8 @@ abstract class STO {
         return 4;
       case SHORT:
         return 2;
+      case VOID:
+        return 1;
       default:
         return -1;
     }
@@ -631,8 +633,9 @@ public class CCompiler extends CBaseVisitor<String> {
         return types.SIGNED;
       case "short":
         return types.SHORT;
+      case "void":
+        return types.VOID;
       default:
-        //TODO: search for typedef, return corresponding type
         STO typedefObj = getIDSymbolTable(type);
         types typedef_val = typedefObj.type;
 
@@ -657,6 +660,8 @@ public class CCompiler extends CBaseVisitor<String> {
         return 4;
       case SHORT:
         return 2;
+      case VOID:
+        return 1;
       default:
         throwIllegalArgument(type.toString(), "typeSize conversion");
         return -1;
