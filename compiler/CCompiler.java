@@ -1607,7 +1607,7 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println(op + ".s $f0, $f0, $f2");
         break;
       default:
-        System.out.println(op + "$v0, $t0, $t1");
+        System.out.println(op + " $v0, $t0, $t1");
     }
     return "";
   }
@@ -1848,11 +1848,11 @@ public class CCompiler extends CBaseVisitor<String> {
         switch(current_type){
           case DOUBLE:
             System.out.println("c.lt.d $f2, $f0");
-            System.out.println("movt $v0, $t3");
+            System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           case FLOAT:
             System.out.println("c.lt.s $f2, $f0");
-            System.out.println("movt $v0, $t3");
+            System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           default:
             System.out.println("slt $v0, $t1, $t0"); // right < left
@@ -1862,11 +1862,11 @@ public class CCompiler extends CBaseVisitor<String> {
         switch(current_type){
           case DOUBLE:
             System.out.println("c.lt.d $f0, $f2");
-            System.out.println("movt $v0, $t3");
+            System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           case FLOAT:
             System.out.println("c.lt.s $f0, $f2");
-            System.out.println("movt $v0, $t3");
+            System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           default:
             System.out.println("slt $v0, $t0, $t1"); // right < left
@@ -1876,11 +1876,11 @@ public class CCompiler extends CBaseVisitor<String> {
         switch(current_type){
           case DOUBLE:
             System.out.println("c.le.d $f2, $f0");
-            System.out.println("movt $v0, $t3");
+            System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           case FLOAT:
             System.out.println("c.le.s $f2, $f0");
-            System.out.println("movt $v0, $t3");
+            System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           default:
             System.out.println("slt $v0, $t0, $t1"); // left < right
@@ -1891,11 +1891,11 @@ public class CCompiler extends CBaseVisitor<String> {
         switch(current_type){
           case DOUBLE:
             System.out.println("c.le.d $f0, $f2");
-            System.out.println("movt $v0, $t3");
+            System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           case FLOAT:
             System.out.println("c.le.s $f0, $f2");
-            System.out.println("movt $v0, $t3");
+            System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           default:
             System.out.println("slt $v0, $t1, $t0"); // right < left
@@ -1922,13 +1922,11 @@ public class CCompiler extends CBaseVisitor<String> {
         switch(current_type){
           case DOUBLE:
             System.out.println("c.eq.d $f0, $f2");
-            System.out.println("move $v0, $t2");
-            System.out.println("movt $v0, $t3");
+            System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           case FLOAT:
             System.out.println("c.eq.s $f0, $f2");
-            System.out.println("move $v0, $t2");
-            System.out.println("movt $v0, $t3");
+            System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           default:
             System.out.println("sltiu $v0, $v0, 1");
@@ -1938,13 +1936,11 @@ public class CCompiler extends CBaseVisitor<String> {
         switch(current_type){
           case DOUBLE:
             System.out.println("c.eq.d $f0, $f2");
-            System.out.println("move $v0, $t3");
-            System.out.println("movt $v0, $t2");
+            System.out.println("cfc1 $v0, $25\nandi $v0, 1\nxori $v0, $v0, 1");
             break;
           case FLOAT:
             System.out.println("c.eq.s $f0, $f2");
-            System.out.println("move $v0, $t3");
-            System.out.println("movt $v0, $t2");
+            System.out.println("cfc1 $v0, $25\nandi $v0, 1\nxori $v0, $v0, 1");
             break;
           default:
             System.out.println("sltu $v0, $zero, $v0");
