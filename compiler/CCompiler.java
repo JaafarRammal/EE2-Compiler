@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.LinkedList; 
 import java.util.Stack;
 import java.util.ArrayList;
+import java.util.Iterator;
 
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptEngine;
@@ -130,6 +131,8 @@ abstract class STO {
         return 4;
       case SHORT:
         return 2;
+      case VOID:
+        return 1;
       default:
         return -1;
     }
@@ -334,6 +337,8 @@ public class CCompiler extends CBaseVisitor<String> {
   int dec_size; 
 
   int enum_state; //Keeps latest value of enum
+  ArrayList<String> local_strings = new ArrayList<String>();
+
 
   Stack<String> current_break_context = new Stack<String>();   // Break: switch / while / for    (break_context)
   Stack<String> current_continue_context = new Stack<String>();   // Continue: while / for          (continue_context)
@@ -641,7 +646,6 @@ public class CCompiler extends CBaseVisitor<String> {
       case "void":
         return types.VOID;
       default:
-        //TODO: search for typedef, return corresponding type
         STO typedefObj = getIDSymbolTable(type);
         types typedef_val = typedefObj.type;
 
@@ -1375,13 +1379,12 @@ public class CCompiler extends CBaseVisitor<String> {
 
       if(current_string_object != null){ //char array
         //initialize blank string in mem
-        String null_chars = current_string_object.ID.substring(current_string_object.ID.length()-2);
-        if(!null_chars.equals("\\0")){
-          current_string_object.ID+="\\0";
-        }
+
         current_string_object.size = getStringSize(current_string_object.ID);
-        System.err.println("FINAL STRING BEING STORED: "+current_string_object.ID + " SIZE: "+ current_string_object.size);
         setIDSymbolTable(id, current_string_object);
+        if(!current_string_object.isGlobal){
+          local_strings.add(current_string_object.ID);
+        }
         current_string_object = null;
       } 
       else{ //int array
@@ -2646,6 +2649,23 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     CCompiler compiler = new CCompiler(debug);
     compiler.visit(tree);
+
+
+    //Printing Strings at bottom of assembly
+    Iterator<Map<String, STO>> iter = compiler.symbolTable.iterator();
+    while (iter.hasNext()){
+      Map<String,STO> curr_map = iter.next();
+      for (Map.Entry<String, STO> e: curr_map.entrySet()){
+        if(e.getValue().getSTOType() == STOtypes.STR){
+            System.out.println(e.getKey() + ":\n\t.ascii " + "\""+e.getValue().getID()+"\\000" + "\"");
+        }
+      }
+    }
+    for (int i = 0; i < compiler.local_strings.size(); i++) {
+      System.out.println("$LC"+i+":\n\t.ascii " + "\""+compiler.local_strings.get(i)+"\\000" + "\"");
+    }
+
+
     System.err.println("\n\n\nSymbol table (should have one entry of global declarations): " + compiler.symbolTable);
     System.err.println("Final mem: "+compiler.mem);
     for(Map.Entry<String, STO> e: compiler.symbolTable.pop().entrySet()){
