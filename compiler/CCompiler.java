@@ -1618,33 +1618,33 @@ public class CCompiler extends CBaseVisitor<String> {
     String id = this.visit(ctx.expr);
     Integer offset = getIDSymbolTable(id).getOffset(); // get variable location
     
-    String sign = (ctx.op.getText() == "--" ? "-" : "");
+    int sign = (ctx.op.getText().equals("--") ? -1 : 1);
 
     switch(current_type){
       case FLOAT:
-        String const_1 = sign + floatBits(1);
+        int const_1 = floatBits(sign);
         System.out.println("li $t4, " + const_1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f4, " + -4*mem + "($sp)"); // $sp because inside function arguments as well. Maybe offseted at that stage
         System.out.println("add.s $f2, $f0, $f4");
         System.out.println("s.s $f2, " + -4*offset + "($fp)");
         break;
       case DOUBLE:
-        const_1 = sign + doubleBits(1)[1];
-        String const_2 = sign + doubleBits(1)[0];
+        const_1 = doubleBits(sign)[1];
+        int const_2 = doubleBits(sign)[0];
         System.out.println("li $t4, " + const_1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f4, " + -4*mem + "($sp)");
         System.out.println("li $t4, " + const_2 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f5, " + -4*mem + "($sp)");
         System.out.println("add.d $f2, $f0, $f4");
         System.out.println("s.d $f2, " + -4*offset + "($fp)");
         break;
       case CHAR:
-        System.out.println("addi $t1, $v0, " + sign + "1");
+        System.out.println("addi $t1, $v0, " + sign);
         System.out.println("sb $t1, " + -4*offset + "($fp)");
         break;
       case SHORT:
-        System.out.println("addi $t1, $v0, " + sign + "1");
+        System.out.println("addi $t1, $v0, " + sign);
         System.out.println("sh $t1, " + -4*offset + "($fp)");
         break;
       default:
-        System.out.println("addi $t1, $v0, " + sign + "1");
+        System.out.println("addi $t1, $v0, " + sign);
         System.out.println("sw $t1, " + -4*offset + "($fp)");
     }
     return id; 
@@ -1657,33 +1657,33 @@ public class CCompiler extends CBaseVisitor<String> {
     // 1 = 1065353216 for floating point bits
     // 1 = 1072693248-0 for double bits
     // since immediates are not allowed for floats and doubles, we need to manually create the +/- 1 int $f4 then add it to $f0
-    String sign = (ctx.op.getText() == "--" ? "-" : "");
+    int sign = (ctx.op.getText().equals("--") ? -1 : 1);
 
     switch(current_type){
       case FLOAT:
-        String const_1 = sign + floatBits(1);
+        int const_1 = floatBits(sign);
         System.out.println("li $t4, " + const_1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f4, " + -4*mem + "($sp)"); // $sp because inside function arguments as well. Maybe offseted at that stage
         System.out.println("add.s $f0, $f0, $f4");
         System.out.println("s.s $f0, " + -4*offset + "($fp)");
         break;
       case DOUBLE:
-        const_1 = sign + doubleBits(1)[1];
-        String const_2 = sign + doubleBits(1)[0];
+        const_1 = doubleBits(sign)[1];
+        int const_2 = doubleBits(sign)[0];
         System.out.println("li $t4, " + const_1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f4, " + -4*mem + "($sp)");
         System.out.println("li $t4, " + const_2 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f5, " + -4*mem + "($sp)");
         System.out.println("add.d $f0, $f0, $f4");
         System.out.println("s.d $f0, " + -4*offset + "($fp)");
         break;
       case CHAR:
-        System.out.println("addi $v0, $v0, " + sign + "1");
+        System.out.println("addi $v0, $v0, " + sign);
         System.out.println("sb $v0, " + -4*offset + "($fp)");
         break;
       case SHORT:
-        System.out.println("addi $v0, $v0, " + sign + "1");
+        System.out.println("addi $v0, $v0, " + sign);
         System.out.println("sh $v0, " + -4*offset + "($fp)");
         break;
       default:
-        System.out.println("addi $v0, $v0, " + sign + "1");
+        System.out.println("addi $v0, $v0, " + sign);
         System.out.println("sw $v0, " + -4*offset + "($fp)");
     }
 
