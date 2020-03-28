@@ -1495,7 +1495,20 @@ public class CCompiler extends CBaseVisitor<String> {
       case "+":
         break;
       case "-":
-        System.out.println("subu $v0, $zero, $v0"); // return v0 becomes -v0
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("s.s $f1, " + -4*mem + "($sp)");
+            System.out.println("li $t1,-2147483648\nl.s $t2, " + -4*mem + "($sp)\nxor $t1, $t1, $t2");
+            System.out.println("sw $t1, " + -4*mem + "($sp)\nl.s $f1, " + -4*mem + "($sp)");
+            break;
+          case FLOAT:
+            System.out.println("s.s $f0, " + -4*mem + "($sp)");
+            System.out.println("li $t1,-2147483648\nl.s $t2, " + -4*mem + "($sp)\nxor $t1, $t1, $t2");
+            System.out.println("sw $t1, " + -4*mem + "($sp)\nl.s $f0, " + -4*mem + "($sp)");
+            break;
+          default:
+            System.out.println("subu $v0, $zero, $v0"); // return v0/f0 becomes -v0/-f0
+        }
         break;
       case "~":
         System.out.println("not $v0, $v0"); // ~v0 = bitwiseNOT($v0)
@@ -1704,13 +1717,31 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitOpMultExpr(CParser.OpMultExprContext ctx){
     threeOp(ctx);
+    String op = " ";
     switch(ctx.op.getText()){
       case("*"):
-        System.out.println("mul $v0, $t0, $t1");
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("mul.d $f0, $f0, $f2");
+            break;
+          case FLOAT:
+            System.out.println("mul.s $f0, $f0, $f2");
+            break;
+          default:
+            System.out.println("mul $v0, $t0, $t1");
+        }
         break;
       case("/"):
-        System.out.println("div $t0, $t1"); // left / right
-        System.out.println("mflo $v0");
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("div.d $f0, $f0, $f2");
+            break;
+          case FLOAT:
+            System.out.println("div.s $f0, $f0, $f2");
+            break;
+          default:
+            System.out.println("div $v0, $t0, $t1");
+        }
         break;
       case("%"):
         System.out.println("div $t0, $t1");
