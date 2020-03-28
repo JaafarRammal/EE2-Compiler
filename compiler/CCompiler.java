@@ -177,7 +177,7 @@ class Variable extends STO{
           break;
         }
         case DOUBLE:{
-          System.out.println("s.d $f0, " + -4*offset + "($sp)");
+          System.out.println("s.d $f0, " + -4*(offset+1) + "($sp)");
           break;
         }
         default:{
@@ -469,8 +469,8 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("s.s $f0, " + -4*(mem++) + "($sp)");
         break;
       case DOUBLE:
-        System.out.println("s.d $f0, " + -4*(mem++) + "($sp)");
         mem++;
+        System.out.println("s.d $f0, " + -4*(mem++) + "($sp)");
         break;
       default:
         System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
@@ -484,8 +484,8 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("s.s $f0, " + -4*(mem++) + "($sp)");
         break;
       case DOUBLE:
-        System.out.println("s.d $f0, " + -4*(mem++) + "($sp)");
         mem++;
+        System.out.println("s.d $f0, " + -4*(mem++) + "($sp)");
         break;
       default:
         System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
@@ -498,8 +498,8 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("l.s $f2, " + -4*(--mem) + "($sp)");
         break;
       case DOUBLE:
-        mem--;
         System.out.println("l.d $f2, " + -4*(--mem) + "($sp)");
+        mem--;
         break;
       default:
         System.out.println("lw $t1, " + -4*(--mem) + "($sp)");  // get right from stack
@@ -512,8 +512,8 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("l.s $f0, " + -4*(--mem) + "($sp)");
         break;
       case DOUBLE:
-        mem--;
         System.out.println("l.d $f0, " + -4*(--mem) + "($sp)");
+        mem--;
         break;
       default:
         System.out.println("lw $t0, " + -4*(--mem) + "($sp)");  // get right from stack
@@ -974,6 +974,7 @@ public class CCompiler extends CBaseVisitor<String> {
     for(int i=0; i<param_count; i++){
       switch(current_function_object.getParameter(i)){
         case DOUBLE:
+          mem++;
           if(arg < 3){
             if(seenInt){
               if(arg == 1) arg++;
@@ -992,7 +993,6 @@ public class CCompiler extends CBaseVisitor<String> {
             System.out.println("lw $t1, " + 4*mem + "($t0)");System.out.println("sw $t1, " + -4*(mem++) + "($sp)");
             System.out.println("lw $t1, " + 4*mem + "($t0)");System.out.println("sw $t1, " + -4*(mem) + "($sp)");
           }
-          mem++;
           break;
         case FLOAT:
           if(arg < 4){
@@ -1107,6 +1107,7 @@ public class CCompiler extends CBaseVisitor<String> {
       switch(getIDSymbolTable(functionName).getParameter(i)){
         case DOUBLE:
           if(arg < 3){
+            offset++;
             if(seenInt){
               if(arg == 1) arg++;
               System.out.println("lw $a" + arg++ + ", " + 4*(offset++) + "($sp)");
@@ -1119,8 +1120,6 @@ public class CCompiler extends CBaseVisitor<String> {
                 {System.out.println("l.d $f14, " + 4*(offset++) + "($sp)");arg+=2;}
               else
                 {System.out.println("lw $a" + arg++ + ", " + 4*(offset++) + "($sp)"); System.out.println("lw $a" + arg++ + ", " + -4*(offset) + "($sp)");}
-
-            offset++;
           }
           break;
         case FLOAT:
@@ -1182,7 +1181,7 @@ public class CCompiler extends CBaseVisitor<String> {
     this.visit(ctx.expr); // value is in $v0 or $f0. Only bottom part of stack is being used
     switch(current_type){
       case DOUBLE:{
-        System.out.println("s.d $f0, " + 4*offset++ + "($sp)");
+        System.out.println("s.d $f0, " + 4*(++offset) + "($sp)");
         break;
       }
       case FLOAT:{
@@ -1205,7 +1204,7 @@ public class CCompiler extends CBaseVisitor<String> {
     this.visit(ctx.expr); // value is in $v0 or $f0. Only bottom part of stack is being used
     switch(current_type){
       case DOUBLE:{
-        System.out.println("s.d $f0, " + 4*offset++ + "($sp)");
+        System.out.println("s.d $f0, " + 4*(++offset) + "($sp)");
         break;
       }
       case FLOAT:{
@@ -1271,8 +1270,8 @@ public class CCompiler extends CBaseVisitor<String> {
           case DOUBLE:
             f0 = doubleBits(Double.parseDouble(intConst_val))[1];
             int f1 = doubleBits(Double.parseDouble(intConst_val))[0];
-            System.out.println("li $t4, " + f0 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f0, " + -4*mem + "($sp)");
-            System.out.println("li $t4, " + f1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f1, " + -4*mem + "($sp)");
+            System.out.println("li $t4, " + f0 + "\nsw $t4, " + -4*mem++ + "($sp)");
+            System.out.println("li $t4, " + f1 + "\nsw $t4, " + -4*mem + "($sp)\nl.d $f0, " + -4*mem-- + "($sp)");
             break;
           default:
             System.out.println("li $v0, " + intConst_val);
@@ -1308,7 +1307,7 @@ public class CCompiler extends CBaseVisitor<String> {
               break;
             }
             case DOUBLE:{
-              System.out.println("l.d $f0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)"); // should load te pair into $f0, $f1
+              System.out.println("l.d $f0, " + -4*(getIDSymbolTable(id).getOffset()+1) + "($fp)"); // should load te pair into $f0, $f1
               break;
             }
             default:
@@ -1497,9 +1496,10 @@ public class CCompiler extends CBaseVisitor<String> {
       case "-":
         switch(current_type){
           case DOUBLE:
-            System.out.println("s.s $f1, " + -4*mem + "($sp)");
-            System.out.println("li $t1,-2147483648\nl.s $t2, " + -4*mem + "($sp)\nxor $t1, $t1, $t2");
-            System.out.println("sw $t1, " + -4*mem + "($sp)\nl.s $f1, " + -4*mem + "($sp)");
+            mem++;
+            System.out.println("s.d $f0, " + -4*mem + "($sp)");
+            System.out.println("li $t1,-2147483648\nl.s $t2, " + -4*mem + "($sp)\nxor $t1, $t1, $t2"); // ( i think -4*(mem+1) )
+            System.out.println("sw $t1, " + -4*mem + "($sp)\nl.d $f0, " + -4*mem-- + "($sp)");
             break;
           case FLOAT:
             System.out.println("s.s $f0, " + -4*mem + "($sp)");
@@ -1793,7 +1793,7 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("li $t4, " + const_1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f4, " + -4*mem + "($sp)");
         System.out.println("li $t4, " + const_2 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f5, " + -4*mem + "($sp)");
         System.out.println("add.d $f2, $f0, $f4");
-        System.out.println("s.d $f2, " + -4*offset + "($fp)");
+        System.out.println("s.d $f2, " + -4*(offset+1) + "($fp)");
         break;
       case CHAR:
         System.out.println("addi $t1, $v0, " + sign);
@@ -1832,7 +1832,7 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("li $t4, " + const_1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f4, " + -4*mem + "($sp)");
         System.out.println("li $t4, " + const_2 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f5, " + -4*mem + "($sp)");
         System.out.println("add.d $f0, $f0, $f4");
-        System.out.println("s.d $f0, " + -4*offset + "($fp)");
+        System.out.println("s.d $f0, " + -4*(offset+1) + "($fp)");
         break;
       case CHAR:
         System.out.println("addi $v0, $v0, " + sign);
@@ -1891,10 +1891,10 @@ public class CCompiler extends CBaseVisitor<String> {
         load = "l.s "; 
         break;
       case DOUBLE:
+        mem++;
         System.out.println("s.d $f0, " + -4*(mem++) + "($sp)"); 
         store = "s.d "; 
         load = "l.d ";
-        mem++;
         break;
       case CHAR:
         System.out.println("sb $v0, " + -4*(mem++) + "($sp)"); 
@@ -1941,8 +1941,8 @@ public class CCompiler extends CBaseVisitor<String> {
     
     System.out.println("mov" + extraOp + temp + ", " + reg); // store current value in $t2 (or temp)
     if(extraOp.equals("e ")) extraOp = " ";
-    if(current_type == types.DOUBLE) mem--;
     System.out.println(load + reg + ", " + -4*(--mem) + "($sp)"); // pop right from stack. Ready to evaluate
+    if(current_type == types.DOUBLE) mem--;
     switch(ctx.op.getText()){
       case("="):
         break; // do nothing. Store into destination at the end
