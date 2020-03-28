@@ -1132,7 +1132,7 @@ public class CCompiler extends CBaseVisitor<String> {
         }
       } 
       else{ // not a character cases
-        intConst_val = removeF(intConst_val);
+        if(current_type == types.FLOAT) intConst_val = removeF(intConst_val);
         switch(current_type){
           case FLOAT:
             int f0 = floatBits(Float.parseFloat(intConst_val));
@@ -1145,8 +1145,7 @@ public class CCompiler extends CBaseVisitor<String> {
             System.out.println("li $t4, " + f1 + "\nsw $t4, " + -4*mem + "($sp)\nl.s $f1, " + -4*mem + "($sp)");
             break;
           default:
-            int v0 = Integer.parseInt(intConst_val);
-            System.out.println("li $v0, " + v0);
+            System.out.println("li $v0, " + intConst_val);
         }
       }
     }
