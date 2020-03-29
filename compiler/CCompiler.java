@@ -201,6 +201,7 @@ class Variable extends STO{
       value = CCompiler.interpret(value);
       if(value.equals("true")) value = "1";
       if(value.equals("false")) value = "0";
+      System.out.println(".global " + getID());
       switch(getType()){
         case CHAR:{
           System.out.println(getID() + ":\n\t.byte " + (int) Math.round(Double.parseDouble(value)));
@@ -215,7 +216,7 @@ class Variable extends STO{
           break;
         }
         case DOUBLE:{
-          System.out.println(getID() + ":\n\t.word " + CCompiler.doubleBits(Double.parseDouble(value))[0] + "\n\t.word " + CCompiler.doubleBits(Double.parseDouble(value))[1]);
+          System.out.println(getID() + ":\n\t.word " + CCompiler.doubleBits(Double.parseDouble(value))[1] + "\n\t.word " + CCompiler.doubleBits(Double.parseDouble(value))[0]);
           break;
         }
         default:{
@@ -232,6 +233,7 @@ class Array extends STO{
   Array(int size, int offset, String ID, boolean isGlobal, types type, ArrayList<Integer> dimensions){initSTO(size, offset, ID, isGlobal, false, type, dimensions, STOtypes.ARR);}
   @Override public void initialize(double[] values){
     if(isGlobal()){
+      System.out.println(".global " + getID());
       System.out.println(getID()+":");
       for(double val: values){
         switch(getType()){
@@ -242,7 +244,15 @@ class Array extends STO{
           case SHORT:{
             System.out.println("\t.half " + (int)val);
             break;
-        }
+          }
+          case FLOAT:{
+            System.out.println("\t.word " + CCompiler.floatBits(Float.parseFloat(Double.toString(val))));
+            break;
+          }
+          case DOUBLE:{
+            System.out.println("\t.word " + CCompiler.doubleBits(Double.parseDouble(Double.toString(val)))[1] + "\n\t.word " + CCompiler.doubleBits(Double.parseDouble(Double.toString(val)))[0]);
+            break;
+          }
           default:{
             System.out.println("\t.word " + (int)val);
             break;
@@ -257,12 +267,25 @@ class Array extends STO{
           case CHAR:{
             //All char arrays stored in heap
             System.out.println("li $v0, " + ((((int)values[i])<<24) >> 24));
-            System.out.println("sb $v0, " + -4*(offset)+i + "($sp)");
+            System.out.println("sb $v0, " + -4*(offset+i) + "($sp)");
             break;
           }
           case SHORT:{
             System.out.println("li $v0, " + (int)values[values.length - i - 1]);
             System.out.println("sh $v0, " + -4*(offset+i) + "($sp)");
+            break;
+          }
+          case FLOAT:{
+            System.out.println("li $t1, " + CCompiler.floatBits((float)values[values.length - i - 1]));
+            System.out.println("mtc1 $t1, $f0");
+            System.out.println("s.s $f0, " + -4*(offset+i) + "($sp)");
+            break;
+          }
+          case DOUBLE:{
+            System.out.println("li $t1, " + CCompiler.doubleBits(values[values.length - i - 1])[1]);
+            System.out.println("li $t2, " + CCompiler.doubleBits(values[values.length - i - 1])[0]);
+            System.out.println("mtc1.d $t1, $f0");
+            System.out.println("s.d $f0, " + -4*(offset+i+1) + "($sp)");
             break;
           }
           default:{
@@ -320,6 +343,7 @@ class Pointer extends STO{
       if(value.equals("true")) value = "1";
       if(value.equals("false")) value = "0";
       Integer intValue = (int) Math.round(Double.parseDouble(value));
+      System.out.println(".global " + getID());
       System.out.println(getID() + ":\n\t.word " + intValue);
     }
   }
@@ -404,6 +428,7 @@ public class CCompiler extends CBaseVisitor<String> {
   int index_position = -1;
   int[] indexes = null;
   double[] values = null;
+  boolean halt = false;
 
   // external declarations
   boolean extern = false;
@@ -1313,7 +1338,7 @@ public class CCompiler extends CBaseVisitor<String> {
           case DOUBLE:
             f0 = doubleBits(Double.parseDouble(intConst_val))[1];
             int f1 = doubleBits(Double.parseDouble(intConst_val))[0];
-            System.out.println("li $t4, " + f0 + "\nsw $t4, " + -4*mem++ + "($sp)");
+            System.out.println("li $t4, " + f0 + "\nsw $t4, " + -4*(mem++) + "($sp)");
             System.out.println("li $t4, " + f1 + "\nsw $t4, " + -4*mem + "($sp)\nl.d $f0, " + -4*mem-- + "($sp)");
             break;
           default:
@@ -1508,7 +1533,7 @@ public class CCompiler extends CBaseVisitor<String> {
         // System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
         switch(current_type){
           default:
-            values[index] = Integer.parseInt(interpret(ctx.expr.getText()));
+            values[index] = Double.parseDouble(interpret(ctx.expr.getText()));
         }
         indexes[index_position]++;
       }
@@ -1956,7 +1981,9 @@ public class CCompiler extends CBaseVisitor<String> {
     // currently storing into int variable
     // will be modified later for arrays
 
+    halt = true;
     this.visit(ctx.left); // very ugly, will generate garbage assembly unused. This is because we need to update the current_type
+    halt = false;
 
     this.visit(ctx.right);
     String store = "sw ";
@@ -2515,7 +2542,10 @@ public class CCompiler extends CBaseVisitor<String> {
       id = ctx.left.getText();
       indexes = new int[getIDSymbolTable(id).getDimensions().size()];
     }
+    if(halt) return id;
+    current_type = types.INT;
     this.visit(ctx.right);
+    current_type = getIDSymbolTable(id).getType();
     System.out.println("sw $v0, " + -4*(mem++) + "($sp)"); // store the indexes as they can be an expression
     index_position++;
     // indexes[++index_position] = Integer.parseInt(ctx.right.getText());
@@ -2573,7 +2603,7 @@ public class CCompiler extends CBaseVisitor<String> {
       index_position = -1;
       // put destination in $v1
       System.out.println("addu $v1, $t2, $zero");
-      return "123"; // just an invalid ID basically... sorry about that
+      return "123";
     }
     return id;
   }
