@@ -173,7 +173,6 @@ class Variable extends STO{
   @Override public void initialize(String value){
     if(!isGlobal()){
       int offset = getOffset();
-      String reg = "$v0"; // 
       switch(getType()){
         case CHAR:{
           System.out.println("sb $v0, " + -4*offset + "($sp)");
@@ -235,26 +234,26 @@ class Array extends STO{
     if(isGlobal()){
       System.out.println(".global " + getID());
       System.out.println(getID()+":");
-      for(double val: values){
+      for(int i=0; i<values.length;i++){
         switch(getType()){
           case CHAR:{
-              System.out.println("\t.byte " + ((((int)val)<<24) >> 24));
+              System.out.println("\t.byte " + ((((int)values[values.length-i-1])<<24) >> 24));
               break;
           }
           case SHORT:{
-            System.out.println("\t.half " + (int)val);
+            System.out.println("\t.half " + (int)values[i]);
             break;
           }
           case FLOAT:{
-            System.out.println("\t.word " + CCompiler.floatBits(Float.parseFloat(Double.toString(val))));
+            System.out.println("\t.word " + CCompiler.floatBits(Float.parseFloat(Double.toString(values[i]))));
             break;
           }
           case DOUBLE:{
-            System.out.println("\t.word " + CCompiler.doubleBits(Double.parseDouble(Double.toString(val)))[1] + "\n\t.word " + CCompiler.doubleBits(Double.parseDouble(Double.toString(val)))[0]);
+            System.out.println("\t.word " + CCompiler.doubleBits(Double.parseDouble(Double.toString(values[i])))[1] + "\n\t.word " + CCompiler.doubleBits(Double.parseDouble(Double.toString(values[i])))[0]);
             break;
           }
           default:{
-            System.out.println("\t.word " + (int)val);
+            System.out.println("\t.word " + (int)values[i]);
             break;
           }
         }
@@ -305,11 +304,6 @@ class Array extends STO{
   }
 }
 
-class STOString extends STO{
-  STOString(){initSTO();}
-  STOString(int size, int offset, String string_literal, boolean isGlobal, types type){initSTO(size, offset, string_literal, isGlobal, false, type, null, STOtypes.STR);}
-}
-
 class Function extends STO{
   Function(){initSTO();}
   Function(int paramCount, String ID, types type, ArrayList<types> params){
@@ -335,16 +329,32 @@ class Pointer extends STO{
     if(!isGlobal()){
       int offset = getOffset();
       String reg = "$v0";
-      if(value == "0"){
+      if(value == "0")
         reg = "$zero";
         System.out.println("sw " + reg + ", " + -4*offset + "($sp)");
-      }
     }else{
       if(value.equals("true")) value = "1";
       if(value.equals("false")) value = "0";
-      Integer intValue = (int) Math.round(Double.parseDouble(value));
-      System.out.println(".global " + getID());
-      System.out.println(getID() + ":\n\t.word " + intValue);
+      if(value.charAt(0) == '\"'){
+        System.out.println("$LC" + getID() + ":");
+        System.out.println("\t.byte 0");
+        String sstr = value.substring(1, value.length()-1); //removing the " "
+        int i;
+        for(i=0; i<sstr.length(); i++){
+          char curr = sstr.charAt(i);
+          int charVal = (int)curr;
+          if(curr == '\\'){
+            charVal = CCompiler.escapeSequenceValue(curr+ Character.toString(sstr.charAt(i+1)))[0];
+            i++;
+          }
+          System.out.println("\t.byte " + charVal);
+        }
+        System.out.println(getID() + ":\n\t.word $LC" + getID());
+      }else{
+        Integer intValue = (int) Math.round(Double.parseDouble(value));
+        System.out.println(".global " + getID());
+        System.out.println(getID() + ":\n\t.word " + intValue);
+      }
     }
   }
   @Override public void print(){
@@ -825,7 +835,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   //takes escape sequence, i.e. /x112 , returns corresponding int. 
   //-1 if no corresponding value.
-  public int[] escapeSequenceValue(String str){
+  static public int[] escapeSequenceValue(String str){
     int arr[] = new int[2]; //int[0] = character value, int[1] = number of characters used
     arr[1] = 1; //default only one character used
 
@@ -1356,7 +1366,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
     String id = ctx.id.getText();
     STO var = getIDSymbolTable(id);
-    if(var != null){
+    if(var != null && !halt){
       if(!var.isGlobal()){
         if(var.getSTOType() == STOtypes.ARR){
           System.out.println("addiu $v0, $fp, " + -4*getIDSymbolTable(id).getOffset()); // address of array. Ex: {int a[3]; return a;} returns address of array
@@ -1413,7 +1423,7 @@ public class CCompiler extends CBaseVisitor<String> {
       }
     }else{
       // throwIllegalArgument(id, "IdPrimaryExpr (ID NOT FOUND)");
-      System.err.println("ID not found " + id);
+      if(!halt) System.err.println("ID not found " + id);
       return id;
     }
 
@@ -1460,16 +1470,11 @@ public class CCompiler extends CBaseVisitor<String> {
         indexes = null;
       }
     }else{
-      System.out.println(getIDSymbolTable(id).getSTOType());
-      if(getIDSymbolTable(id).getSTOType() == STOtypes.PTR){
-
-      }else{
-        if(!getIDSymbolTable(id).isGlobal()){
-          this.visit(ctx.right);
-          getIDSymbolTable(id).initialize("");
-        }else
-          getIDSymbolTable(id).initialize(ctx.right.getText());
-      }
+      if(!getIDSymbolTable(id).isGlobal()){
+        this.visit(ctx.right);
+        getIDSymbolTable(id).initialize("");
+      }else
+        getIDSymbolTable(id).initialize(ctx.right.getText());
     }
     current_array_object = null; // we are done initializing the array
     return "";
@@ -1523,8 +1528,15 @@ public class CCompiler extends CBaseVisitor<String> {
       if(ctx.expr.getText().charAt(0) == '\"'){ // for string inputs
         String str = ctx.expr.getText();
         String sstr = str.substring(1, str.length()-1); //removing the ""s or ''
-        for(char c: sstr.toCharArray()){
-          values[index++] =  Double.parseDouble(interpret("\'" + Character.toString(c)));
+        int i;
+        for(i=0; i<sstr.length(); i++){
+          char curr = sstr.charAt(sstr.length()-i-1);
+          int charVal = (int)curr;
+          if(i+1 != sstr.length() && sstr.charAt(sstr.length()-i-2) == '\\'){
+            charVal = escapeSequenceValue("\\" + Character.toString(curr))[0];
+            i++;
+          }
+          values[index++] =  charVal;
         }
       } 
       else{ // for int arrays
@@ -1624,8 +1636,7 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // Getting variable type
   @Override public String visitInitSpecDeclaration(CParser.InitSpecDeclarationContext ctx) { 
-    // current_type = parseType(this.visit(ctx.spec));
-    this.visit(ctx.spec);
+    current_type = parseType(this.visit(ctx.spec));
     String id = this.visit(ctx.initList);
     extern = false;
     return id;
@@ -1637,7 +1648,7 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   @Override public String visitTypePointerSpec(CParser.TypePointerSpecContext ctx) { 
-    return "*" + this.visit(ctx.type);
+    return ("*" + this.visit(ctx.type));
   }
 
   @Override public String visitEnumTypeSpec(CParser.EnumTypeSpecContext ctx) {
@@ -1649,7 +1660,25 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // string initialization for char pointers
   @Override public String visitStrLitPrimaryExpr(CParser.StrLitPrimaryExprContext ctx) {
-    
+    String str = ctx.val.getText();
+    String sstr = str.substring(1, str.length()-1); //removing the ""s or ''
+    int i;
+    int s = 0;
+    for(i=0; i<sstr.length(); i++){
+      char curr = sstr.charAt(sstr.length()-i-1);
+      int charVal = (int)curr;
+      if(i+1 != sstr.length() && sstr.charAt(sstr.length()-i-2) == '\\'){
+        charVal = escapeSequenceValue("\\" + Character.toString(curr))[0];
+        i++;
+        s++;
+      }
+      System.out.println("li $v0, " + charVal);
+      System.out.println("sb $v0, " + (-4*mem+(i-s)) + "($sp)");
+    }
+    i--;
+    System.out.println("addiu $v0, $fp, " + (-4*mem+(i-s)) );
+    mem += (i-s)/4; // if 10 characters -> 2 extra words
+    mem += (i-s)%4 == 0 ? 0 : 1; // any other extra word used
     return "";
   }
 
@@ -2769,23 +2798,6 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     CCompiler compiler = new CCompiler(debug);
     compiler.visit(tree);
-
-
-    //Printing Strings at bottom of assembly
-    Iterator<Map<String, STO>> iter = compiler.symbolTable.iterator();
-    while (iter.hasNext()){
-      Map<String,STO> curr_map = iter.next();
-      for (Map.Entry<String, STO> e: curr_map.entrySet()){
-        if(e.getValue().getSTOType() == STOtypes.STR){
-            System.out.println(e.getKey() + ":\n\t.ascii " + "\""+e.getValue().getID()+"\\000" + "\"");
-        }
-      }
-    }
-    for (int i = 0; i < compiler.local_strings.size(); i++) {
-      System.out.println("$LC"+i+":\n\t.ascii " + "\""+compiler.local_strings.get(i)+"\\000" + "\"");
-    }
-
-
     System.err.println("\n\n\nSymbol table (should have one entry of global declarations): " + compiler.symbolTable);
     System.err.println("Final mem: "+compiler.mem);
     for(Map.Entry<String, STO> e: compiler.symbolTable.pop().entrySet()){
