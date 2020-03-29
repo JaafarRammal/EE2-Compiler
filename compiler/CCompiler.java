@@ -266,7 +266,7 @@ class Array extends STO{
         switch(getType()){
           case CHAR:{
             //All char arrays stored in heap
-            System.out.println("li $v0, " + ((((int)values[i])<<24) >> 24));
+            System.out.println("li $v0, " + ((((int)values[values.length - i - 1])<<24) >> 24));
             System.out.println("sb $v0, " + -4*(offset+i) + "($sp)");
             break;
           }
@@ -1460,11 +1460,16 @@ public class CCompiler extends CBaseVisitor<String> {
         indexes = null;
       }
     }else{
-      if(!getIDSymbolTable(id).isGlobal()){
-        this.visit(ctx.right);
-        getIDSymbolTable(id).initialize("");
-      }else
-        getIDSymbolTable(id).initialize(ctx.right.getText());
+      System.out.println(getIDSymbolTable(id).getSTOType());
+      if(getIDSymbolTable(id).getSTOType() == STOtypes.PTR){
+
+      }else{
+        if(!getIDSymbolTable(id).isGlobal()){
+          this.visit(ctx.right);
+          getIDSymbolTable(id).initialize("");
+        }else
+          getIDSymbolTable(id).initialize(ctx.right.getText());
+      }
     }
     current_array_object = null; // we are done initializing the array
     return "";
@@ -1515,19 +1520,12 @@ public class CCompiler extends CBaseVisitor<String> {
       }
       index += indexes[indexes.length-1];
 
-      if(current_type == types.CHAR){ //for char arrays
+      if(ctx.expr.getText().charAt(0) == '\"'){ // for string inputs
         String str = ctx.expr.getText();
         String sstr = str.substring(1, str.length()-1); //removing the ""s or ''
-
-        if(current_string_object == null){
-          //adding null character
-          STO strObj = new STOString(1, -1, sstr, isGlobalScope(), types.INT);
-          current_string_object = strObj;
-        } 
-        else{
-          current_string_object.ID+=sstr;
+        for(char c: sstr.toCharArray()){
+          values[index++] =  Double.parseDouble(interpret("\'" + Character.toString(c)));
         }
-
       } 
       else{ // for int arrays
         // System.out.println(Arrays.toString(indexes) + " for value " + ctx.expr.getText() + " stored at " + index);
@@ -1645,6 +1643,14 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override public String visitEnumTypeSpec(CParser.EnumTypeSpecContext ctx) {
     visitChildren(ctx);
     return "int";
+  }
+
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // string initialization for char pointers
+  @Override public String visitStrLitPrimaryExpr(CParser.StrLitPrimaryExprContext ctx) {
+    
+    return "";
   }
 
   // end variable manipulation
