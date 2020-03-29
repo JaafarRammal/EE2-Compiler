@@ -248,8 +248,8 @@ class Array extends STO{
         switch(getType()){
           case CHAR:{
             //All char arrays stored in heap
-            // System.out.println("li $v0, " + ((((int)values[i])<<24) >> 24));
-            // System.out.println("sb $v0, " + -4*(offset+i) + "($sp)");
+            System.out.println("li $v0, " + ((((int)values[i])<<24) >> 24));
+            System.out.println("sb $v0, " + -4*(offset)+i + "($sp)");
             break;
           }
           case SHORT:{
