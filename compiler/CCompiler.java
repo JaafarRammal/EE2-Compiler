@@ -21,7 +21,6 @@ import java.lang.Float.*;
 import java.sql.Types;
 import java.lang.Double.*;
 import java.util.Arrays;
-import javafx.util.Pair;
 
 
 enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED, SIGNED, SHORT, VOID};
@@ -49,7 +48,6 @@ abstract class STO {
 
   // struct extra
   public Map<String, STO> members;
-  public Pair<String, STO> defMembers;
 
   // initializers for factory
   protected void initSTO(){
