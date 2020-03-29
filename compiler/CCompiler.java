@@ -21,10 +21,11 @@ import java.lang.Float.*;
 import java.sql.Types;
 import java.lang.Double.*;
 import java.util.Arrays;
+import javafx.util.Pair;
 
 
 enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED, SIGNED, SHORT, VOID};
-enum STOtypes {VAR, ARR, PTR, FUN, STR, DEF};
+enum STOtypes {VAR, ARR, PTR, FUN, STR, DEF, STRUCTDEF, STRUCT};
 
 abstract class STO {
 
@@ -45,6 +46,10 @@ abstract class STO {
 
   // pointers extra
   public int pointerDepth;
+
+  // struct extra
+  public Map<String, STO> members;
+  public Pair<String, STO> defMembers;
 
   // initializers for factory
   protected void initSTO(){
@@ -113,6 +118,11 @@ abstract class STO {
   // pointers functions
   public void setDepth(int d){this.pointerDepth = d;}
   public int getDepth(){return this.pointerDepth;}
+
+  // struct functions
+  public STO getMember(String ID){return members.get(ID);}
+  public void setMember(String ID, STO obj){members.put(ID, obj);}
+  public Map<String, STO> getMembers(){return members;}
 
   // parse enum to int size
   protected int typeSize(types type){
@@ -326,6 +336,32 @@ class Typedef extends STO{
   Typedef(String ID, boolean isGlobal, types type){initSTO(0, -1, ID, isGlobal, false,type, null, STOtypes.DEF); }
 }
 
+class Struct extends STO{
+  Struct(){initSTO();}
+  Struct(int offset, String ID, boolean isGlobal, STO templateStruct){
+    initSTO(0, offset, ID, isGlobal, false, null, null, STOtypes.STRUCT);
+    // initialize correctly using the tepmlateStruct
+  }
+  @Override public int getSize(){
+    setSize(0);
+    for(Map.Entry<String, STO> var: getMembers().entrySet()){
+      setSize(size + var.getValue().getSize());
+    }
+    return size;
+  }
+}
+
+class StructDef extends STO{
+  StructDef(){initSTO();}
+  StructDef(String ID){initSTO(0, -1, ID, true, false, null, null, STOtypes.STRUCTDEF);}
+  @Override public int getSize(){
+    setSize(0);
+    for(Map.Entry<String, STO> var: getMembers().entrySet()){
+      setSize(size + var.getValue().getSize());
+    }
+    return size;
+  }
+}
 
 public class CCompiler extends CBaseVisitor<String> {
 
@@ -360,6 +396,7 @@ public class CCompiler extends CBaseVisitor<String> {
   STO current_enum_object = null;
   STO current_typedef_object = null;
   STO current_string_object = null;
+  STO current_struct_object = null;
 
   types current_type = null;
   int pointer_depth = 0;
@@ -1592,8 +1629,32 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
 
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // structs
+  @Override public String visitSpecDeclaration(CParser.SpecDeclarationContext ctx) {
+    return visitChildren(ctx);
+  }
+  
+  @Override public String visitDecStructUnSpec(CParser.DecStructUnSpecContext ctx) {
+    return visitChildren(ctx);
+  }
 
+  @Override public String visitSingleStructUnSpec(CParser.SingleStructUnSpecContext ctx) {
+    return visitChildren(ctx);
+  }
 
+  @Override public String visitSingleStructDecList(CParser.SingleStructDecListContext ctx) {
+    return visitChildren(ctx);
+  }
+  
+  // left is type (visit) and right is ID but in typedefName context (just getText)
+  @Override public String visitSpecSpecQualList(CParser.SpecSpecQualListContext ctx) {
+    return visitChildren(ctx);
+  }
+
+  // end structs
+  ////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////
 
 
 
