@@ -1,5 +1,5 @@
 
-float EQUAL(float a, float b, int x){
-	float s = a==b-x;
+int EQUAL(float a, float b, float x){
+	int s = a==b-x;
 	return s;
 }

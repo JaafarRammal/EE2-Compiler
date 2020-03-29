@@ -4,7 +4,7 @@ int foo2();
 int globl = 45;
 
 int main(){
-    short y;
+    int y;
     y = foo(1,3*7+foo2(),4,7*4+1);
     return 7*y;
 }

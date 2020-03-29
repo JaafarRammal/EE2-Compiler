@@ -7,12 +7,10 @@ int main(){
 	float a_temp = a;
 	float result = 0;
 	float i = 20.8;
-	do{
-
+	while( (a_temp)>b && (b<a_temp) ){
 		result+=(a_temp*b);
 		a_temp--;
-
-	}while( (a_temp)>b && (b<a_temp) );
+	};
 
 
 	if(result == operations(a,b)){

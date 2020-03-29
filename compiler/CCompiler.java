@@ -953,9 +953,10 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitFunctionDefinition(CParser.FunctionDefinitionContext ctx){
     mem = 0;
     String functionName = this.visit(ctx.func_dec);
+    symbolTable.peek().remove(functionName);
     this.visit(ctx.spec);
     current_function_object = new Function(0, functionName, current_type, new ArrayList<types>());
-    setIDSymbolTable(functionName, current_function_object);
+    setIDSymbolTable(("1" + functionName), current_function_object);
     extendSymbolTable();
     this.visit(ctx.func_dec);
     current_return_context.add("_return_" + functionName);
@@ -974,7 +975,7 @@ public class CCompiler extends CBaseVisitor<String> {
     boolean seenInt = false;
     int arg = 0;
     // current_function_object.setParamCount(param_count);
-    setIDSymbolTable(functionName, current_function_object);
+    setIDSymbolTable(("1" + functionName), current_function_object);
     for(int i=0; i<param_count; i++){
       switch(current_function_object.getParameter(i)){
         case DOUBLE:
@@ -1031,7 +1032,7 @@ public class CCompiler extends CBaseVisitor<String> {
     System.out.println("move $sp, $fp\nlw $ra, 8($fp)\nlw $fp, 4($fp)\naddiu $sp, $sp, 12\njr $ra\nnop");
     current_return_context.pop();
     removeSymbolTable(); // using remove means we did great xD test with remove later, should work
-    setIDSymbolTable(functionName, current_function_object);
+    setIDSymbolTable(("1" + functionName), current_function_object);
     current_function_object = null;
     System.out.println("\n.data\n"); // data directive for globals
     return "";
@@ -1070,7 +1071,7 @@ public class CCompiler extends CBaseVisitor<String> {
     mem = 0;
     this.visit(ctx.paramL);
     current_function_object.setParamCount(param_count);
-    setIDSymbolTable(functionName, current_function_object);
+    setIDSymbolTable(("1" + functionName), current_function_object);
     return functionName;
   }
 
@@ -1084,7 +1085,7 @@ public class CCompiler extends CBaseVisitor<String> {
     mem = 0;
     if(ctx.idL != null) this.visit(ctx.idL);
     current_function_object.setParamCount(param_count);
-    setIDSymbolTable(functionName, current_function_object);
+    setIDSymbolTable(("1" + functionName), current_function_object);
     return functionName;
   }
 
@@ -1096,8 +1097,8 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitFuncInvocPostExpr(CParser.FuncInvocPostExprContext ctx){
     String functionName = this.visit(ctx.expr); // get function ID. From symbol table with type return later
-    current_func_invoc.add(getIDSymbolTable(functionName));
-    int argsCount = getIDSymbolTable(functionName).getParamCount(); // prepare to move the stack pointer accordingly
+    current_func_invoc.add(getIDSymbolTable(("1" + functionName)));
+    int argsCount = getIDSymbolTable(("1" + functionName)).getParamCount(); // prepare to move the stack pointer accordingly
     mem += Math.max(4, argsCount); // allocate at least 4 locations as subroutine is allowed to write over the 4 arguments
     // current_arguments_context.add(argsCount-1); // save the count state for parameters (for nested cases like f(g(1), h(2, 3)) where another function gets ready for parameters). -1 because index starts at 0
     current_arguments_context.add(0); // start at offset zero in the argument context
@@ -1108,7 +1109,7 @@ public class CCompiler extends CBaseVisitor<String> {
     boolean seenInt = false;
     int offset = 0;
     for(int i=0; i<4 && i<argsCount; i++){  // store parameters in $a0-$a3 or $f12-$f14
-      switch(getIDSymbolTable(functionName).getParameter(i)){
+      switch(getIDSymbolTable(("1" + functionName)).getParameter(i)){
         case DOUBLE:
           if(arg < 3){
             offset++;
@@ -1348,7 +1349,9 @@ public class CCompiler extends CBaseVisitor<String> {
         }
       }
     }else{
-      throwIllegalArgument(id, "IdPrimaryExpr (ID NOT FOUND)");
+      // throwIllegalArgument(id, "IdPrimaryExpr (ID NOT FOUND)");
+      System.err.println("ID not found " + id);
+      return id;
     }
 
     // check if pointer / array
