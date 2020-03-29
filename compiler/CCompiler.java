@@ -370,6 +370,9 @@ public class CCompiler extends CBaseVisitor<String> {
   int[] indexes = null;
   double[] values = null;
 
+  // external declarations
+  boolean extern = false;
+
   CCompiler(boolean d) {
     mem = 0;
     label_id = 0;
@@ -1149,7 +1152,7 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     System.out.println("jal " + functionName + "\nnop"); // jump and link
     System.out.println("addiu $sp, $sp, " + 4*(mem)); // restore stack
-    current_func_invoc.pop();
+    current_type = current_func_invoc.pop().getType();
     current_mem_context.pop();
     current_arguments_context.pop();
     mem -= Math.max(4, argsCount);
@@ -1427,13 +1430,14 @@ public class CCompiler extends CBaseVisitor<String> {
     else if(current_array_object != null){
       //int array
         values = new double[current_array_object.getElementsCount()];
-        getIDSymbolTable(id).initialize(values);
+        if(!extern) getIDSymbolTable(id).initialize(values);
         mem += current_array_object.getElementsCount(); // ints for now
     }else if(current_function_object == null){
-      getIDSymbolTable(id).initialize("0");
+      if(!extern) getIDSymbolTable(id).initialize("0");
     }
     current_array_object = null; // we are done initializing the array
     current_function_object = isGlobalScope() ? null : current_function_object; // we are done declaring the function
+    extern = false;
     return "";
   }
   
@@ -1502,15 +1506,10 @@ public class CCompiler extends CBaseVisitor<String> {
       case "-":
         switch(current_type){
           case DOUBLE:
-            mem++;
-            System.out.println("s.d $f0, " + -4*mem + "($sp)");
-            System.out.println("li $t1,-2147483648\nl.s $t2, " + -4*mem + "($sp)\nxor $t1, $t1, $t2"); // ( i think -4*(mem+1) )
-            System.out.println("sw $t1, " + -4*mem + "($sp)\nl.d $f0, " + -4*mem-- + "($sp)");
+            System.out.println("neg.d $f0, $f0");
             break;
           case FLOAT:
-            System.out.println("s.s $f0, " + -4*mem + "($sp)");
-            System.out.println("li $t1,-2147483648\nl.s $t2, " + -4*mem + "($sp)\nxor $t1, $t1, $t2");
-            System.out.println("sw $t1, " + -4*mem + "($sp)\nl.s $f0, " + -4*mem + "($sp)");
+            System.out.println("neg.s $f0, $f0");
             break;
           default:
             System.out.println("subu $v0, $zero, $v0"); // return v0/f0 becomes -v0/-f0
@@ -1520,7 +1519,18 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("not $v0, $v0"); // ~v0 = bitwiseNOT($v0)
         break;
       case "!":
-        System.out.println("seq $v0, $v0, $zero"); // !v0 = $v0 == 0 ? 1 : 0
+        switch(current_type){
+          case DOUBLE:
+            System.out.println("li $t1,1072693248\nmtc1.d $t1, $f4");
+            System.out.println("sw $t1, " + -4*mem + "($sp)\nl.d $f0, " + -4*mem-- + "($sp)");
+            break;
+          case FLOAT:
+            System.out.println("li $t1,1065353216\nmtc1.d $t1, $f4");
+            System.out.println("c.eq.s $f4, $f0\nl.d $f0, " + -4*mem-- + "($sp)");
+            break;
+          default:
+          System.out.println("seq $v0, $v0, $zero"); // !v0 = $v0 == 0 ? 1 : 0
+        }
         break;
       case "&":
         // we want the address of x, which is the offset of variable x added to frame pointer if it's a local variable
@@ -1559,6 +1569,7 @@ public class CCompiler extends CBaseVisitor<String> {
     // current_type = parseType(this.visit(ctx.spec));
     this.visit(ctx.spec);
     String id = this.visit(ctx.initList);
+    extern = false;
     return id;
   }
 
@@ -1744,6 +1755,9 @@ public class CCompiler extends CBaseVisitor<String> {
             break;
           case FLOAT:
             System.out.println("div.s $f0, $f0, $f2");
+            break;
+          case UNSIGNED:
+            System.out.println("divu $v0, $t0, $t1");
             break;
           default:
             System.out.println("div $v0, $t0, $t1");
@@ -2021,7 +2035,8 @@ public class CCompiler extends CBaseVisitor<String> {
             System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           default:
-            System.out.println("slt $v0, $t1, $t0"); // right < left
+            if(current_type == types.UNSIGNED) System.out.println("sltu $v0, $t1, $t0");
+            else System.out.println("slt $v0, $t1, $t0"); // right < left
         }
         break;
       case "<":
@@ -2035,7 +2050,8 @@ public class CCompiler extends CBaseVisitor<String> {
             System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           default:
-            System.out.println("slt $v0, $t0, $t1"); // right < left
+            if(current_type == types.UNSIGNED) System.out.println("sltu $v0, $t0, $t1");
+            else System.out.println("slt $v0, $t0, $t1"); // right < left
         }
         break;
       case ">=":
@@ -2049,7 +2065,8 @@ public class CCompiler extends CBaseVisitor<String> {
             System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           default:
-            System.out.println("slt $v0, $t0, $t1"); // left < right
+            if(current_type == types.UNSIGNED) System.out.println("slt $v0, $t0, $t1");
+            else System.out.println("slt $v0, $t0, $t1"); // left < right
             System.out.println("xori $v0, $v0, 1"); // !(left < right) = right <= left
         }
         break;
@@ -2064,7 +2081,8 @@ public class CCompiler extends CBaseVisitor<String> {
             System.out.println("cfc1 $v0, $25\nandi $v0, 1");
             break;
           default:
-            System.out.println("slt $v0, $t1, $t0"); // right < left
+            if(current_type == types.UNSIGNED) System.out.println("slt $v0, $t1, $t0");
+            else System.out.println("slt $v0, $t1, $t0"); // right < left
             System.out.println("xori $v0, $v0, 1"); // !(right<left) = right >= left
         }
         break;
@@ -2623,6 +2641,10 @@ public class CCompiler extends CBaseVisitor<String> {
     if(keyword.equals("typedef")){
       STO typedefObj = new Typedef("", isGlobalScope(), current_type);   //ID and type will be overwritten later on
       current_typedef_object = typedefObj;
+    }
+    
+    if(keyword.equals("extern")){
+      extern = true;
     }
 
     return "";
