@@ -3,7 +3,7 @@ float* pointer = &y;
 
 float f(){
  float x = 15.88;
-	unsigned z = 4;
+	float z = 4;
 	for(z<18;z++;){
 		if(z>=x){
 			break;

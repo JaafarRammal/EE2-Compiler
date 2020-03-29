@@ -7,7 +7,7 @@ int main()
 	float c=3.45;
 	float d=4.566;
     	
-	return (a+b*c/d);
+	return ((a+b*c/d) == f(a,b,c,d));
 }
 
 float f(float a,float b, float c, float d)

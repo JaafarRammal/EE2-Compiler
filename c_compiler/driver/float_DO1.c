@@ -1,12 +1,10 @@
 
 float operations(float a, float b){
 	float result = 0;
-	do{
-
+	while( (a)>b && (b<a) ){
 		result+=(a*b);
 		a--;
-
-	}while( (a)>b && (b<a) );
+	};
 
 return result;
 }

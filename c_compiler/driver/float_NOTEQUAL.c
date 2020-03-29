@@ -1,5 +1,5 @@
 
-float NOTEQUAL(float a, float b, int x){
-	float s = a!=b-x;
+int NOTEQUAL(float a, float b, float x){
+	int s = a!=b-x;
 	return s;
 }

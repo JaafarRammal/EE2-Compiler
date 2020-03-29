@@ -17,34 +17,34 @@ int main(){
 	
 	while(j++<10){
 		while(h++<11){
-		
+			a++;
 		}
-
+		b++;
 	}
 
 	while(--k>2){
-
+		c++;
 	}
 
 	while(++z<10){
-
+		d++;
 	}
 
 	while(a-->2){
-
+		j++;
 	}
 
 	while(b++<23){
-
+		a++;
 	}
 
 	while(--c>2){
-
+		b++;
 	}
 
 	while(++d<23){
-
+		c++;
 	}
 
-	return i+j+k+z+h+a+b+c+d;
+	return a+b+c+d;
 }

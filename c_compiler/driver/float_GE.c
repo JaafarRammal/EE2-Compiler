@@ -1,5 +1,5 @@
 
-float operations(float a, float b){
-	float result = (b>=a);
+int operations(float a, float b){
+	int result = (b>=a);
 	return result;
 }

@@ -5,7 +5,7 @@ float foo2();
 
 int main(){
 
-return foo();
+return foo()==5;
 
 }
 
