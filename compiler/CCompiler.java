@@ -771,7 +771,6 @@ public class CCompiler extends CBaseVisitor<String> {
             return types.INT;
           } else{
             STO typedefObj = getIDSymbolTable(type);
-            System.out.println(type);
             types typedef_val = typedefObj.type;
             return typedef_val;
           }
@@ -1182,7 +1181,6 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
     String ID = ctx.id.getText();
-    System.out.println(getIDSymbolTable("1" + ID));
     if((current_function_object == null) == isGlobalScope()){
       STO varObj;
       if(pointer_depth == 0){
