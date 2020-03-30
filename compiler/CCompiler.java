@@ -425,6 +425,17 @@ class StructDef extends STO{
 
 public class CCompiler extends CBaseVisitor<String> {
 
+  // debugging tools
+  public static final String ANSI_RESET = "\u001B[0m";
+  public static final String ANSI_BLACK = "\u001B[30m";
+  public static final String ANSI_RED = "\u001B[31m";
+  public static final String ANSI_GREEN = "\u001B[32m";
+  public static final String ANSI_YELLOW = "\u001B[33m";
+  public static final String ANSI_BLUE = "\u001B[34m";
+  public static final String ANSI_PURPLE = "\u001B[35m";
+  public static final String ANSI_CYAN = "\u001B[36m";
+  public static final String ANSI_WHITE = "\u001B[37m";
+
   int mem; 
   int label_id; // for unique identification of each label (branch)
   boolean debug = false;
@@ -1164,7 +1175,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
     String ID = ctx.id.getText();
-
+    System.out.println(getIDSymbolTable("1" + ID));
     if((current_function_object == null) == isGlobalScope()){
       STO varObj;
       if(pointer_depth == 0){
@@ -1487,8 +1498,11 @@ public class CCompiler extends CBaseVisitor<String> {
         }
       }
     }else{
-      // throwIllegalArgument(id, "IdPrimaryExpr (ID NOT FOUND)");
-      if(!halt) System.err.println("ID not found " + id);
+      // could be a function
+      if(getIDSymbolTable("1" + id) == null)
+        // if(!halt) throwIllegalArgument(id, "IdPrimaryExpr (ID NOT FOUND)"); // or tell the users "yo you didn't define that function"
+        if(!halt) System.err.println(ANSI_RED + "ERROR: reference to '" + id + "' was never defined" + ANSI_RESET);
+      return id;
     }
 
     // check if pointer / array
