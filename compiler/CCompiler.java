@@ -644,11 +644,22 @@ public class CCompiler extends CBaseVisitor<String> {
 
     // Mem is stack offset
     // check for pointer to shift operands accordingly if required
+    // deduce stronger tye if one is a literal
+    // no type casting, both will have the same type if variables OR one is a constant that needs correct loading
+    halt = true;
+    String id1 = this.visit(ctx.getChild(0));
+    String id2 = this.visit(ctx.getChild(2));
+    halt = false;
+    if(getIDSymbolTable(id1) != null) current_type = getIDSymbolTable(id1).getType();
+    else current_type = getIDSymbolTable(id2).getType();
     pointer_mul = 0;
     this.visit(ctx.getChild(0));
     switch(current_type){
       case FLOAT:
         System.out.println("s.s $f0, " + -4*(mem++) + "($sp)");
+        break;
+      case CHAR:
+        System.out.println("sb $v0, " + -4*(mem++) + "($sp)");
         break;
       case DOUBLE:
         mem++;
@@ -665,6 +676,9 @@ public class CCompiler extends CBaseVisitor<String> {
       case FLOAT:
         System.out.println("s.s $f0, " + -4*(mem++) + "($sp)");
         break;
+      case CHAR:
+        System.out.println("sb $v0, " + -4*(mem++) + "($sp)");
+        break;
       case DOUBLE:
         mem++;
         System.out.println("s.d $f0, " + -4*(mem++) + "($sp)");
@@ -679,6 +693,9 @@ public class CCompiler extends CBaseVisitor<String> {
       case FLOAT:
         System.out.println("l.s $f2, " + -4*(--mem) + "($sp)");
         break;
+      case CHAR:
+        System.out.println("lb $t1, " + -4*(--mem) + "($sp)"); 
+        break;
       case DOUBLE:
         System.out.println("l.d $f2, " + -4*(--mem) + "($sp)");
         mem--;
@@ -692,6 +709,9 @@ public class CCompiler extends CBaseVisitor<String> {
     switch(current_type){
       case FLOAT:
         System.out.println("l.s $f0, " + -4*(--mem) + "($sp)");
+        break;
+      case CHAR:
+        System.out.println("lb $t1, " + -4*(--mem) + "($sp)"); 
         break;
       case DOUBLE:
         System.out.println("l.d $f0, " + -4*(--mem) + "($sp)");
@@ -1395,6 +1415,10 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("s.s $f0, " + 4*offset + "($sp)");
         break;
       }
+      case CHAR:{
+        System.out.println("sb $v0, " + 4*offset + "($sp)");
+        break;
+      }
       default:
         System.out.println("sw $v0, " + 4*offset + "($sp)");
     }
@@ -1417,6 +1441,10 @@ public class CCompiler extends CBaseVisitor<String> {
       }
       case FLOAT:{
         System.out.println("s.s $f0, " + 4*offset + "($sp)");
+        break;
+      }
+      case CHAR:{
+        System.out.println("sb $v0, " + 4*offset + "($sp)");
         break;
       }
       default:
@@ -1451,7 +1479,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
     String intConst_val = ctx.val.getText();
 
-    if(!isGlobalScope()){
+    if(!isGlobalScope() && !halt){
       //If character literal (starts and ends with ')
       if((intConst_val.charAt(0) == '\'') & (intConst_val.charAt(intConst_val.length()-1) == '\'')){
         intConst_val = intConst_val.substring(1, intConst_val.length() - 1); //cutting out the ' '
@@ -2259,12 +2287,12 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitOpAssgnExpr(CParser.OpAssgnExprContext ctx) {
-    // currently storing into int variable
-    // will be modified later for arrays
-
     halt = true;
-    this.visit(ctx.left); // very ugly, will generate garbage assembly unused. This is because we need to update the current_type
+    String id1 = this.visit(ctx.left);
+    String id2 = this.visit(ctx.right);
     halt = false;
+    if(getIDSymbolTable(id1) != null) current_type = getIDSymbolTable(id1).getType();
+    else current_type = getIDSymbolTable(id2).getType();
 
     this.visit(ctx.right);
     String store = "sw ";
