@@ -1790,6 +1790,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override public String visitDecStructUnSpec(CParser.DecStructUnSpecContext ctx) {
     String id = ctx.id.getText();
     
+
     //detect that it's a struct
     if(ctx.obj.getText().equals("struct")){
       if(current_struct_object != null){
