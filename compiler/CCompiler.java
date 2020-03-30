@@ -261,12 +261,12 @@ class Array extends STO{
       }
     }else{
       // store the reversed way because GCC wants it like that on the stack
+      if(getType() == types.CHAR) setOffset(offset + values.length/4 + (values.length%4==0?0:1));
       for(int i=0; i<values.length; i++){
         switch(getType()){
           case CHAR:{
-            //All char arrays stored in heap
             System.out.println("li $v0, " + ((((int)values[values.length - i - 1])<<24) >> 24));
-            System.out.println("sb $v0, " + -4*(offset+i) + "($sp)");
+            System.out.println("sb $v0, " + (-4*offset+i) + "($sp)");
             break;
           }
           case SHORT:{
@@ -284,7 +284,7 @@ class Array extends STO{
             System.out.println("li $t1, " + CCompiler.doubleBits(values[values.length - i - 1])[1]);
             System.out.println("li $t2, " + CCompiler.doubleBits(values[values.length - i - 1])[0]);
             System.out.println("mtc1.d $t1, $f0");
-            System.out.println("s.d $f0, " + -4*(offset+i+1) + "($sp)");
+            System.out.println("s.d $f0, " + -4*(offset+2*i+1) + "($sp)");
             break;
           }
           default:{
@@ -294,7 +294,16 @@ class Array extends STO{
         } 
       }
       // now finalize the reverse by pointing to the "last element" (which is the first element of the array)
-      setOffset(offset + values.length - 1);
+      switch(getType()){
+        case CHAR:
+          break;
+        case DOUBLE:
+          setOffset(offset + 2*values.length - 1);
+          break;
+        default:
+          setOffset(offset + values.length - 1);
+      }
+      
     }
   }
 
@@ -1501,7 +1510,16 @@ public class CCompiler extends CBaseVisitor<String> {
       //int array
         values = new double[current_array_object.getElementsCount()];
         if(!extern) getIDSymbolTable(id).initialize(values);
-        mem += current_array_object.getElementsCount(); // ints for now
+        switch(getIDSymbolTable(id).getType()){
+          case CHAR:
+            mem += (current_array_object.getElementsCount()/4 + (current_array_object.getElementsCount()%4 == 0 ? 0 : 1));
+            break;
+          case DOUBLE:
+            mem += 2*current_array_object.getElementsCount();
+            break;
+          default:
+            mem += current_array_object.getElementsCount();
+        }
     }else if(current_function_object == null){
       if(!extern) getIDSymbolTable(id).initialize("0");
     }
@@ -2616,9 +2634,18 @@ public class CCompiler extends CBaseVisitor<String> {
         else System.out.println("lw $v0, " + -4*offset + "($fp)");
         System.out.println("addu $t0, $v0, $zero"); // put the value of the pointer (which is the address of interest) in t0
       }
-      System.out.println("li $t1, 4");
+      switch(current_type){
+        case DOUBLE:
+          System.out.println("li $t1, 8");
+          break;
+        case CHAR:
+          System.out.println("li $t1, 1");
+          break;
+        default:
+          System.out.println("li $t1, 4");
+      }
       System.out.println("nop\nmult $t1, $t2");
-      System.out.println("mflo $t2"); // index = 4 * index GCC policy
+      System.out.println("mflo $t2"); // index = 4 * index GCC policy (or 8 for doubles, 1 for chars)
       System.out.println("addu $t2, $t2, $t0"); // index = (address + index);
       // load in $v0 or $f0
       switch(getIDSymbolTable(id).getType()){
@@ -2628,6 +2655,14 @@ public class CCompiler extends CBaseVisitor<String> {
         }
         case SHORT:{
           System.out.println("lh $v0, 0($t2)");
+          break;
+        }
+        case FLOAT:{
+          System.out.println("l.s $f0, 0($t2)");
+          break;
+        }
+        case DOUBLE:{
+          System.out.println("l.d $f0, 0($t2)");
           break;
         }
         default:
