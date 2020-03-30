@@ -1786,7 +1786,6 @@ public class CCompiler extends CBaseVisitor<String> {
   // Getting variable type
   @Override public String visitInitSpecDeclaration(CParser.InitSpecDeclarationContext ctx) { 
     String typeval = this.visit(ctx.spec);
-    System.out.println("TYPEVAL: "+typeval);
     current_type = parseType(typeval);
     String id = this.visit(ctx.initList);
 
@@ -1847,9 +1846,6 @@ public class CCompiler extends CBaseVisitor<String> {
   // structs
 
   @Override public String visitStructTypeSpec(CParser.StructTypeSpecContext ctx){
-    // System.out.println("hi from struct type spec");
-
-    // create 
     String id = visit(ctx.type);
     STO structObj = new Struct();
     current_struct_object = structObj;
@@ -1898,7 +1894,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   //struct y;
   @Override public String visitSingleStructUnSpec(CParser.SingleStructUnSpecContext ctx) {
-    String id = ctx.id.getText();
+      String id = ctx.id.getText();
       //create struct variable, save ID 
       STO strObj = new StructDef(id);
       setIDSymbolTable(id, strObj);
