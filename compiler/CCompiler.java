@@ -527,7 +527,7 @@ public class CCompiler extends CBaseVisitor<String> {
   STO current_typedef_object = null;
   STO current_string_object = null;
   STO current_structdef_object = null;
-  STO current_struct1_object = null;
+  STO current_struct_object = null;
 
   types current_type = null;
   int pointer_depth = 0;
@@ -1785,12 +1785,13 @@ public class CCompiler extends CBaseVisitor<String> {
   // Getting variable type
   @Override public String visitInitSpecDeclaration(CParser.InitSpecDeclarationContext ctx) { 
     String typeval = this.visit(ctx.spec);
+    System.out.println("TYPEVAL: "+typeval);
     current_type = parseType(typeval);
     String id = this.visit(ctx.initList);
 
-    if(current_struct1_object!=null){
+    if(current_struct_object!=null){
       STO templateStruct = getIDSymbolTable(typeval);
-      STO obj = new Struct(id, mem, isGlobalScope(), templateStruct);
+      STO obj = new Struct(mem, id, isGlobalScope(), templateStruct);
       setIDSymbolTable(id, obj);
     }
 
@@ -1845,12 +1846,11 @@ public class CCompiler extends CBaseVisitor<String> {
   // structs
 
   @Override public String visitStructTypeSpec(CParser.StructTypeSpecContext ctx){
-    System.out.println("hi from struct type spec");
 
     // create 
     String id = visit(ctx.type);
     STO structObj = new Struct();
-    current_struct1_object = structObj;
+    current_struct_object = structObj;
 
     return id;
   }
