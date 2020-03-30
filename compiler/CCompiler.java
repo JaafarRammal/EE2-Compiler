@@ -373,9 +373,14 @@ class Pointer extends STO{
         System.out.println("\t.byte 0");
         System.out.println(getID() + ":\n\t.word $LC" + getID());
       }else{
-        Integer intValue = (int) Math.round(Double.parseDouble(value));
-        System.out.println(".global " + getID());
-        System.out.println(getID() + ":\n\t.word " + intValue);
+        if(value.charAt(0) == '&'){
+          System.out.println(".global " + getID());
+          System.out.println(getID() + ":\n\t.word " + value.substring(1, value.length()));
+        }else{
+          Integer intValue = (int) Math.round(Double.parseDouble(value));
+          System.out.println(".global " + getID());
+          System.out.println(getID() + ":\n\t.word " + intValue);
+        }
       }
     }
   }
@@ -548,6 +553,43 @@ public class CCompiler extends CBaseVisitor<String> {
   String lc_out = "";
 
   CCompiler(boolean d) {
+
+    // System.setOut(new java.io.PrintStream(new java.io.OutputStream() {
+    // @Override public void write(int b) {}
+    // }) {
+    //   @Override public void flush() {super.flush();}
+    //   @Override public void close() {super.close();}
+    //   @Override public void write(int b) {}
+    //   @Override public void write(byte[] b) {}
+    //   @Override public void write(byte[] buf, int off, int len) {super.write(buf, off, len);}
+    //   @Override public void print(boolean b) {if(!halt) super.print(b);}
+    //   @Override public void print(char c) {if(!halt) super.print(c);}
+    //   @Override public void print(int i) {if(!halt) super.print(i);}
+    //   @Override public void print(long l) {if(!halt) super.print(l);}
+    //   @Override public void print(float f) {if(!halt) super.print(f);}
+    //   @Override public void print(double d) {if(!halt) super.print(d);}
+    //   @Override public void print(char[] s) {if(!halt) super.print(s);}
+    //   @Override public void print(String s) {if(!halt) super.print(s);}
+    //   @Override public void print(Object obj) {if(!halt) super.print(obj);}
+    //   @Override public void println() {if(!halt) super.println();}
+    //   @Override public void println(boolean x) {if(!halt) super.println(x);}
+    //   @Override public void println(char x) {if(!halt) super.println(x);}
+    //   @Override public void println(int x) {if(!halt) super.println(x);}
+    //   @Override public void println(long x) {if(!halt) super.println(x);}
+    //   @Override public void println(float x) {if(!halt) super.println(x);}
+    //   @Override public void println(double x) {if(!halt) super.println(x);}
+    //   @Override public void println(char[] x) {if(true) super.println(x);}
+    //   @Override public void println(String x) {if(!halt) super.println(x);}
+    //   @Override public void println(Object x) {if(!halt) super.println(x);}
+    //   @Override public java.io.PrintStream printf(String format, Object... args) { return this; }
+    //   @Override public java.io.PrintStream printf(java.util.Locale l, String format, Object... args) { return this; }
+    //   @Override public java.io.PrintStream format(String format, Object... args) { return this; }
+    //   @Override public java.io.PrintStream format(java.util.Locale l, String format, Object... args) { return this; }
+    //   @Override public java.io.PrintStream append(CharSequence csq) { return this; }
+    //   @Override public java.io.PrintStream append(CharSequence csq, int start, int end) { return this; }
+    //   @Override public java.io.PrintStream append(char c) { return this; }
+    // });
+
     mem = 0;
     label_id = 0;
     debug = d;
@@ -650,11 +692,19 @@ public class CCompiler extends CBaseVisitor<String> {
     String id1 = this.visit(ctx.getChild(0));
     String id2 = this.visit(ctx.getChild(2));
     halt = false;
-    if(getIDSymbolTable(id1) != null) current_type = getIDSymbolTable(id1).getType();
-    else current_type = getIDSymbolTable(id2).getType();
+    types t = current_type;
+    if(getIDSymbolTable(id1) != null) t = getIDSymbolTable(id1).getType();
+    else if(getIDSymbolTable("1" + id1) != null) t = getIDSymbolTable("1" + id1).getType();
+    else if(getIDSymbolTable(id2) != null) t = getIDSymbolTable(id2).getType();
+    else if(getIDSymbolTable("1" + id2) != null) t = getIDSymbolTable("1" + id2).getType();
+
     pointer_mul = 0;
     this.visit(ctx.getChild(0));
-    switch(current_type){
+    if(t!=current_type){ // it's a pointer
+      if(pointer_jumps == 0) t = current_type;
+      else current_type = t;
+    }
+    switch(t){
       case FLOAT:
         System.out.println("s.s $f0, " + -4*(mem++) + "($sp)");
         break;
@@ -672,7 +722,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
     pointer_mul = 0;
     this.visit(ctx.getChild(2));
-    switch(current_type){
+    switch(t){
       case FLOAT:
         System.out.println("s.s $f0, " + -4*(mem++) + "($sp)");
         break;
@@ -689,7 +739,7 @@ public class CCompiler extends CBaseVisitor<String> {
     int rightPointer = pointer_mul;
 
     // get right from stack (t1 or f2)
-    switch(current_type){
+    switch(t){
       case FLOAT:
         System.out.println("l.s $f2, " + -4*(--mem) + "($sp)");
         break;
@@ -706,12 +756,12 @@ public class CCompiler extends CBaseVisitor<String> {
     if(leftPointer != 0)System.out.println("sll $t1, $t1, " + leftPointer); // if left is a pointer, align right value
     
     // get right from stack (t0 or f0)
-    switch(current_type){
+    switch(t){
       case FLOAT:
         System.out.println("l.s $f0, " + -4*(--mem) + "($sp)");
         break;
       case CHAR:
-        System.out.println("lb $t1, " + -4*(--mem) + "($sp)"); 
+        System.out.println("lb $t0, " + -4*(--mem) + "($sp)"); 
         break;
       case DOUBLE:
         System.out.println("l.d $f0, " + -4*(--mem) + "($sp)");
@@ -721,6 +771,7 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("lw $t0, " + -4*(--mem) + "($sp)");  // get right from stack
     }
     if(rightPointer != 0)System.out.println("sll $t1, $t1, " + rightPointer); // if right is a pointer, align left value
+    current_type = t;
     return "";
   }
 
@@ -1748,6 +1799,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitCastUnaryExpr(CParser.CastUnaryExprContext ctx){
     String id = this.visit(ctx.right);
     String unaryOp = this.visit(ctx.left);
+    if(halt) return id;
     switch(unaryOp){
       case "+":
         break;
@@ -2289,12 +2341,13 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpAssgnExpr(CParser.OpAssgnExprContext ctx) {
     halt = true;
     String id1 = this.visit(ctx.left);
-    String id2 = this.visit(ctx.right);
     halt = false;
-    if(getIDSymbolTable(id1) != null) current_type = getIDSymbolTable(id1).getType();
-    else current_type = getIDSymbolTable(id2).getType();
+    types t;
+    if(getIDSymbolTable(id1) != null) t = getIDSymbolTable(id1).getType();
+    else t = getIDSymbolTable("1" + id1).getType();
 
     this.visit(ctx.right);
+    current_type = t;
     String store = "sw ";
     String load = "lw ";
     // $v0 contains the value of whatever was on the right
