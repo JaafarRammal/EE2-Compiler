@@ -1680,23 +1680,24 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override public String visitStrLitPrimaryExpr(CParser.StrLitPrimaryExprContext ctx) {
     String str = ctx.val.getText();
     String sstr = str.substring(1, str.length()-1); //removing the ""s or ''
+    int v[] = new int[sstr.length()];
     int i;
-    int s = 0;
     for(i=0; i<sstr.length(); i++){
       char curr = sstr.charAt(sstr.length()-i-1);
       int charVal = (int)curr;
       if(i+1 != sstr.length() && sstr.charAt(sstr.length()-i-2) == '\\'){
         charVal = escapeSequenceValue("\\" + Character.toString(curr))[0];
         i++;
-        s++;
       }
-      System.out.println("li $v0, " + charVal);
-      System.out.println("sb $v0, " + (-4*mem+(i-s)) + "($sp)");
+      v[i] =  charVal;
     }
-    i--;
-    System.out.println("addiu $v0, $fp, " + (-4*mem+(i-s)) );
-    mem += (i-s)/4; // if 10 characters -> 2 extra words
-    mem += (i-s)%4 == 0 ? 0 : 1; // any other extra word used
+    mem = mem + v.length/4 + (v.length%4==0?0:1);
+    for(i=0; i<v.length; i++){
+      System.out.println("li $v0, " + ((((int)v[v.length - i - 1])<<24) >> 24));
+      System.out.println("sb $v0, " + (-4*mem+i) + "($sp)");
+    }
+    System.out.println("addiu $v0, $fp, " + (-4*mem++) );
+    
     return "";
   }
 
