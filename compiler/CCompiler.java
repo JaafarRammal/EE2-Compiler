@@ -121,6 +121,7 @@ abstract class STO {
   public STO getMember(String ID){return members.get(ID);}
   public void setMember(String ID, STO obj){
     members.put(ID, obj);
+    getSize(); //updates size
   }
   public Map<String, STO> getMembers(){return members;}
 
@@ -396,14 +397,14 @@ class Struct extends STO{
 
 class StructDef extends STO{
   StructDef(){initSTO();}
-  StructDef(String ID){initSTO(0, -1, ID, true, false, null, null, STOtypes.STRUCTDEF);}
+  StructDef(String ID){initSTO(0, -1, ID, true, false, null, null, STOtypes.STRUCTDEF);getSize();}
   @Override public int getSize(){
     setSize(0);
     //1. find largest variable size
     int max_size = 0;
     for(Map.Entry<String, STO> var: getMembers().entrySet()){
-      if(var.getValue().getSize()>max_size){
-        max_size = var.getValue().getSize();
+      if(typeSize(var.getValue().getType())>max_size){
+        max_size = typeSize(var.getValue().getType());
       }
     }
     //2. set as row size
@@ -413,11 +414,11 @@ class StructDef extends STO{
     int num_rows = 1;
     for(Map.Entry<String, STO> var: getMembers().entrySet()){
       //setSize(size + var.getValue().getSize());
-      if(row_space < var.getValue().getSize()){
+      if(row_space < typeSize(var.getValue().getType())){
         num_rows++;
         row_space = max_size; //reset to new row
       } else{
-        row_space -= var.getValue().getSize();
+        row_space -= typeSize(var.getValue().getType());
       }
     }
     setSize(num_rows*max_size);
@@ -720,7 +721,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   // set ID object in symbol table
   public void setIDSymbolTable(String id, STO obj){
-    symbolTable.peek().put(id, obj);
+    if(!halt) symbolTable.peek().put(id, obj);
   }
 
   // check if global scope
