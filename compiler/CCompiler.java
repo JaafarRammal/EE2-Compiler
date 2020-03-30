@@ -526,7 +526,8 @@ public class CCompiler extends CBaseVisitor<String> {
   STO current_enum_object = null;
   STO current_typedef_object = null;
   STO current_string_object = null;
-  STO current_struct_object = null;
+  STO current_structdef_object = null;
+  STO current_struct1_object = null;
 
   types current_type = null;
   int pointer_depth = 0;
@@ -1783,8 +1784,16 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // Getting variable type
   @Override public String visitInitSpecDeclaration(CParser.InitSpecDeclarationContext ctx) { 
-    current_type = parseType(this.visit(ctx.spec));
+    String typeval = this.visit(ctx.spec);
+    current_type = parseType(typeval);
     String id = this.visit(ctx.initList);
+
+    if(current_struct1_object!=null){
+      STO templateStruct = getIDSymbolTable(typeval);
+      STO obj = new Struct(id, mem, isGlobalScope(), templateStruct);
+      setIDSymbolTable(id, obj);
+    }
+
     extern = false;
     return id;
   }
@@ -1834,42 +1843,57 @@ public class CCompiler extends CBaseVisitor<String> {
 
   ////////////////////////////////////////////////////////////////////////////////////
   // structs
+
+  @Override public String visitStructTypeSpec(CParser.StructTypeSpecContext ctx){
+    System.out.println("hi from struct type spec");
+
+    // create 
+    String id = visit(ctx.type);
+    STO structObj = new Struct();
+    current_struct1_object = structObj;
+
+    return id;
+  }
+
   @Override public String visitSpecDeclaration(CParser.SpecDeclarationContext ctx) {
-    // struct x a;
-    return visitChildren(ctx);
+    return "";
   }
   
   //struct a{int x; char b};
   @Override public String visitDecStructUnSpec(CParser.DecStructUnSpecContext ctx) {
     String id = ctx.id.getText();
-    
+  
     //detect that it's a struct
     if(ctx.obj.getText().equals("struct")){
-      if(current_struct_object != null){
-        current_struct_context.add(current_struct_object);    
+      if(current_structdef_object != null){
+        current_struct_context.add(current_structdef_object);    
       } 
       //create struct variable, save ID 
       STO strObj = new StructDef(id);
-      current_struct_object = strObj;    
+      current_structdef_object = strObj;    
 
       halt = true;
       //visit rhs, adding variables to members
       this.visit(ctx.decL);
       halt = false;
       //save struct in symbol table
-      setIDSymbolTable("2" + id, current_struct_object); // because we can define struct x{}; and declare struct x x;
+      setIDSymbolTable(id, current_structdef_object);
 
       //pop off stack when done, reload previous struct variable
       if(!current_struct_context.empty()){
-        current_struct_object = current_struct_context.pop();
+        current_structdef_object = current_struct_context.pop();
       }
       else{
-        current_struct_object = null;
+        //remove all global variables
+        for(Map.Entry<String, STO> var: current_structdef_object.getMembers().entrySet()){
+          System.out.println("var: "+ var.getValue().getID());             
+        }
+        current_structdef_object = null;
       }
     }
 
 
-    return "";
+    return id;
   }
 
   //struct y;
@@ -1881,7 +1905,7 @@ public class CCompiler extends CBaseVisitor<String> {
     visitChildren(ctx);
     if(current_array_object!=null){
       STO varObj = current_array_object;
-      current_struct_object.setMember(varObj.ID,varObj);
+      current_structdef_object.setMember(varObj.ID,varObj);
       //remove object from symbol table
     }
     return "";
@@ -1896,7 +1920,7 @@ public class CCompiler extends CBaseVisitor<String> {
       //add member to struct
       String id = ctx.specL.getText();
       STO varObj = new Variable(1, -1, id, isGlobalScope(), current_type);
-      current_struct_object.setMember(id,varObj);
+      current_structdef_object.setMember(id,varObj);
       //remove object from symbol table
     }
     catch(NullPointerException e){
@@ -1908,7 +1932,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override public String visitEmptyStructDec(CParser.EmptyStructDecContext ctx){
     visitChildren(ctx);
     STO varObj = current_variable_object;
-    current_struct_object.setMember(varObj.ID,varObj);
+    current_structdef_object.setMember(varObj.ID,varObj);
     //remove object from symbol table
     return "";
   }
@@ -2759,9 +2783,9 @@ public class CCompiler extends CBaseVisitor<String> {
     int array_size = Integer.parseInt(interpret(ctx.expr.getText()));
     current_array_object.updateArraySize();
     setIDSymbolTable(id, current_array_object);
-    if(current_struct_object != null){
+    if(current_structdef_object != null){
       System.out.println("id: "+id+"array: "+current_array_object.size);
-      current_struct_object.setMember(id,current_array_object);
+      current_structdef_object.setMember(id,current_array_object);
     }
     return id;
   }
