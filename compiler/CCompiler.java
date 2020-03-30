@@ -755,8 +755,9 @@ public class CCompiler extends CBaseVisitor<String> {
       case "void":
         return types.VOID;
       default:
-        STO typedefObj = getIDSymbolTable(type);
-        types typedef_val = typedefObj.type;
+          STO typedefObj = getIDSymbolTable(type);
+          System.out.println(type);
+          types typedef_val = typedefObj.type;
 
         return typedef_val;
     }
@@ -1780,9 +1781,10 @@ public class CCompiler extends CBaseVisitor<String> {
       STO strObj = new StructDef(id);
       current_struct_object = strObj;    
 
+      halt = true;
       //visit rhs, adding variables to members
       this.visit(ctx.decL);
-
+      halt = false;
       //save struct in symbol table
       setIDSymbolTable(id, current_struct_object);
 
@@ -1793,9 +1795,7 @@ public class CCompiler extends CBaseVisitor<String> {
       else{
         //remove all global variables
         for(Map.Entry<String, STO> var: current_struct_object.getMembers().entrySet()){
-          System.out.println("var: "+ var.getValue().getID());   
-          //remove member from symbol table
-          
+          System.out.println("var: "+ var.getValue().getID());             
         }
         current_struct_object = null;
       }
