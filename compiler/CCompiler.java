@@ -532,6 +532,7 @@ public class CCompiler extends CBaseVisitor<String> {
   types current_type = null;
   int pointer_depth = 0;
   int pointer_mul = 0;
+  int pointer_jumps = 0;
 
   // array initialization
   int index_position = -1;
@@ -1492,6 +1493,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
 
   public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
+    pointer_jumps = 0;
     String id = ctx.id.getText();
     STO var = getIDSymbolTable(id);
     if(var != null && !halt){
@@ -1756,21 +1758,36 @@ public class CCompiler extends CBaseVisitor<String> {
         if(getIDSymbolTable(id).isGlobal()) System.out.println("lui $v0, %hi(" + id +")\naddiu $v0, $v0, %lo(" + id + ")");
         else System.out.println("addiu $v0, $fp, " + -4*getIDSymbolTable(id).getOffset());
         break;
-      case "*":
+      case "*": // need to read how many stars we are propagating
         // store destination in $v1
-        System.out.println("Broke here");
-        System.out.println("addu $v1, $v0, $zero");
-        switch(getIDSymbolTable(id).getType()){
-          case CHAR:
-            System.out.println("lb $v0, 0($v0)");
-            break;
-          case SHORT:
-            System.out.println("lh $v0, 0($v0)");
-            break;
-          default:
-            System.out.println("lw $v0, 0($v0)");
+        if(pointer_jumps == 0){
+          pointer_jumps = getIDSymbolTable(id).getDepth();
         }
-        return "*";
+        System.out.println("addu $v1, $v0, $zero");
+        if(pointer_jumps > 1){
+          System.out.println("lw $v0, 0($v0)"); // pointing to another pointer, not a variable
+        }else{
+          // once we dereference a pointer fully, no more need to shift for operations, it's a variable
+          pointer_mul = 0;
+          switch(getIDSymbolTable(id).getType()){
+            case DOUBLE:
+              System.out.println("l.d $f0, 0($v0)");
+              break;
+            case FLOAT:
+              System.out.println("l.s $f0, 0($v0)");
+              break;
+            case CHAR:
+              System.out.println("lb $v0, 0($v0)");
+              break;
+            case SHORT:
+              System.out.println("lh $v0, 0($v0)");
+              break;
+            default:
+              System.out.println("lw $v0, 0($v0)");
+          }
+        }
+        pointer_jumps --;
+        return id;
       default:
         throwIllegalArgument(unaryOp, "CastUnaryExpr");
     }
