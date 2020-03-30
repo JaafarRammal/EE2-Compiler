@@ -767,11 +767,14 @@ public class CCompiler extends CBaseVisitor<String> {
       case "void":
         return types.VOID;
       default:
-          STO typedefObj = getIDSymbolTable(type);
-          System.out.println(type);
-          types typedef_val = typedefObj.type;
-
-        return typedef_val;
+          if(type.charAt(0)=='*'){
+            return types.INT;
+          } else{
+            STO typedefObj = getIDSymbolTable(type);
+            System.out.println(type);
+            types typedef_val = typedefObj.type;
+            return typedef_val;
+          }
     }
   }
 
