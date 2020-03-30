@@ -1859,6 +1859,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override public String visitSpecDeclaration(CParser.SpecDeclarationContext ctx) {
     visitChildren(ctx);
+
     return "";
   }
   
@@ -1887,10 +1888,6 @@ public class CCompiler extends CBaseVisitor<String> {
         current_structdef_object = current_struct_context.pop();
       }
       else{
-        //remove all global variables
-        for(Map.Entry<String, STO> var: current_structdef_object.getMembers().entrySet()){
-          System.err.println("var: "+ var.getValue().getID());             
-        }
         current_structdef_object = null;
       }
     }
@@ -1901,7 +1898,12 @@ public class CCompiler extends CBaseVisitor<String> {
 
   //struct y;
   @Override public String visitSingleStructUnSpec(CParser.SingleStructUnSpecContext ctx) {
-    return visitChildren(ctx);
+    String id = ctx.id.getText();
+      //create struct variable, save ID 
+      STO strObj = new StructDef(id);
+      setIDSymbolTable(id, strObj);
+
+    return id;
   }
 
   @Override public String visitSingleStructDecList(CParser.SingleStructDecListContext ctx) {
