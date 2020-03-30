@@ -4693,7 +4693,7 @@ public class CParser extends Parser {
 		}
 	}
 	public static class DecStructUnSpecContext extends StructOrUnionSpecifierContext {
-		public StructOrUnionContext ojb;
+		public StructOrUnionContext obj;
 		public Token id;
 		public StructDeclarationListContext decL;
 		public TerminalNode LeftBrace() { return getToken(CParser.LeftBrace, 0); }
@@ -4756,7 +4756,7 @@ public class CParser extends Parser {
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(558);
-				((DecStructUnSpecContext)_localctx).ojb = structOrUnion();
+				((DecStructUnSpecContext)_localctx).obj = structOrUnion();
 				setState(560);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
@@ -4799,24 +4799,32 @@ public class CParser extends Parser {
 	}
 
 	public static class StructOrUnionContext extends ParserRuleContext {
-		public Token id;
-		public TerminalNode Struct() { return getToken(CParser.Struct, 0); }
-		public TerminalNode Union() { return getToken(CParser.Union, 0); }
 		public StructOrUnionContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_structOrUnion; }
+	 
+		public StructOrUnionContext() { }
+		public void copyFrom(StructOrUnionContext ctx) {
+			super.copyFrom(ctx);
+		}
+	}
+	public static class StructStringLiteralContext extends StructOrUnionContext {
+		public Token id;
+		public TerminalNode Struct() { return getToken(CParser.Struct, 0); }
+		public TerminalNode Union() { return getToken(CParser.Union, 0); }
+		public StructStringLiteralContext(StructOrUnionContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof CListener ) ((CListener)listener).enterStructOrUnion(this);
+			if ( listener instanceof CListener ) ((CListener)listener).enterStructStringLiteral(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof CListener ) ((CListener)listener).exitStructOrUnion(this);
+			if ( listener instanceof CListener ) ((CListener)listener).exitStructStringLiteral(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof CVisitor ) return ((CVisitor<? extends T>)visitor).visitStructOrUnion(this);
+			if ( visitor instanceof CVisitor ) return ((CVisitor<? extends T>)visitor).visitStructStringLiteral(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -4826,13 +4834,14 @@ public class CParser extends Parser {
 		enterRule(_localctx, 66, RULE_structOrUnion);
 		int _la;
 		try {
+			_localctx = new StructStringLiteralContext(_localctx);
 			enterOuterAlt(_localctx, 1);
 			{
 			setState(571);
-			((StructOrUnionContext)_localctx).id = _input.LT(1);
+			((StructStringLiteralContext)_localctx).id = _input.LT(1);
 			_la = _input.LA(1);
 			if ( !(_la==Struct || _la==Union) ) {
-				((StructOrUnionContext)_localctx).id = (Token)_errHandler.recoverInline(this);
+				((StructStringLiteralContext)_localctx).id = (Token)_errHandler.recoverInline(this);
 			}
 			else {
 				if ( _input.LA(1)==Token.EOF ) matchedEOF = true;

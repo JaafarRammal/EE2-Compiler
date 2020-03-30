@@ -381,12 +381,12 @@ class Struct extends STO{
   Struct(){initSTO();}
   Struct(int offset, String ID, boolean isGlobal, STO templateStruct){
     initSTO(0, offset, ID, isGlobal, false, null, null, STOtypes.STRUCT);
-    // initialize correctly using the tepmlateStruct
+    // initialize correctly using the templateStruct
   }
   @Override public int getSize(){
     setSize(0);
     for(Map.Entry<String, STO> var: getMembers().entrySet()){
-      setSize(size + var.getValue().getSize());
+      setSize(size + var.getValue().getSize());     
     }
     return size;
   }
@@ -397,9 +397,28 @@ class StructDef extends STO{
   StructDef(String ID){initSTO(0, -1, ID, true, false, null, null, STOtypes.STRUCTDEF);}
   @Override public int getSize(){
     setSize(0);
+    //1. find largest variable size
+    int max_size = 0;
     for(Map.Entry<String, STO> var: getMembers().entrySet()){
-      setSize(size + var.getValue().getSize());
+      if(var.getValue().getSize()>max_size){
+        max_size = var.getValue().getSize();
+      }
     }
+    //2. set as row size
+    int row_space = max_size;
+    int total_size;
+    //3. loop through entries. Fit it onto the row, leave when finished
+    int num_rows = 1;
+    for(Map.Entry<String, STO> var: getMembers().entrySet()){
+      //setSize(size + var.getValue().getSize());
+      if(row_space < var.getValue().getSize()){
+        num_rows++;
+        row_space = max_size; //reset to new row
+      } else{
+        row_space -= var.getValue().getSize();
+      }
+    }
+    setSize(num_rows*max_size);
     return size;
   }
 }
@@ -422,7 +441,9 @@ public class CCompiler extends CBaseVisitor<String> {
   Stack<String> current_return_context = new Stack<String>();   // Return: functions              (return_context)
   Stack<Integer> current_arguments_context = new Stack<Integer>(); // Informs us of memory location of switch. Used for nested switches
   Stack<Integer> current_mem_context = new Stack<Integer>();   // Mem context (retrieve stack offset context)
+  Stack<STO> current_struct_context = new Stack<STO>(); // Nested struct declaration tracking
   Stack<STO> current_func_invoc = new Stack<STO>(); // Nested function calls arguments type tracking
+
 
   Stack<Map<String, STO>> symbolTable = new Stack<Map<String, STO>>();
 
@@ -962,7 +983,9 @@ public class CCompiler extends CBaseVisitor<String> {
       }
     }
   }
-  
+
+
+
   // END OF HELPERS AND COMMON FUNCTIONS
   ////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////////
@@ -1711,10 +1734,35 @@ public class CCompiler extends CBaseVisitor<String> {
     return visitChildren(ctx);
   }
   
+  //struct a{int x; char b};
   @Override public String visitDecStructUnSpec(CParser.DecStructUnSpecContext ctx) {
-    return visitChildren(ctx);
+    String id = ctx.id.getText();
+    
+    //detect that it's a struct
+    if(ctx.obj.getText().equals("struct")){
+      if(current_struct_object == null){
+        current_struct_context.add(current_struct_object);    
+      }
+
+      //create struct variable, save ID 
+      STO strObj = new StructDef(id);
+      current_struct_object = strObj;    
+
+      //visit rhs, adding variables to members
+      this.visit(ctx.decL);
+
+      //save struct in symbol table
+      setIDSymbolTable(id, current_struct_object);
+
+      //pop off stack when done, reload previous struct variable
+      current_struct_object = current_struct_context.pop();
+    }
+
+
+    return "";
   }
 
+  //struct y;
   @Override public String visitSingleStructUnSpec(CParser.SingleStructUnSpecContext ctx) {
     return visitChildren(ctx);
   }
@@ -1725,7 +1773,30 @@ public class CCompiler extends CBaseVisitor<String> {
   
   // left is type (visit) and right is ID but in typedefName context (just getText)
   @Override public String visitSpecSpecQualList(CParser.SpecSpecQualListContext ctx) {
-    return visitChildren(ctx);
+    String type = ctx.type.getText();
+    try{
+      //add member to struct
+      String id = ctx.specL.getText();
+      STO varObj = new Variable(1, -1, id, isGlobalScope(), parseType(type));
+      current_struct_object.members.put(id,varObj);
+    }
+    catch(NullPointerException e){
+      visitChildren(ctx);
+    }
+
+    // //if array
+    // if(id.charAt(END)=='['){
+    //   current_array_object = new Array(0, -1, id, isGlobalScope(), type, new ArrayList<Integer>());
+  
+    //   current_array_object.addDimension(Integer.parseInt(interpret(ctx.expr.getText())));
+  
+    //   int array_size = Integer.parseInt(interpret(ctx.expr.getText()));
+  
+    //   current_array_object.updateArraySize();
+    //   setIDSymbolTable(id, current_array_object);
+    // }
+
+    return "";
   }
 
   // end structs

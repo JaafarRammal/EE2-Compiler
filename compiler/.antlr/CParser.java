@@ -1,4 +1,4 @@
-// Generated from /Users/jaafarrammal/Desktop/EE2-Compiler/compiler/C.g4 by ANTLR 4.7.1
+// Generated from /Users/raphaelbijaoui/OneDrive - Imperial College London/Imperial/EIEY2/Language Processors/EE2-Compiler/compiler/C.g4 by ANTLR 4.7.1
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
 import org.antlr.v4.runtime.*;
@@ -3446,7 +3446,7 @@ public class CParser extends Parser {
 		}
 	}
 	public static class DecStructUnSpecContext extends StructOrUnionSpecifierContext {
-		public StructOrUnionContext ojb;
+		public StructOrUnionContext obj;
 		public Token id;
 		public StructDeclarationListContext decL;
 		public StructOrUnionContext structOrUnion() {
@@ -3481,7 +3481,7 @@ public class CParser extends Parser {
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(558);
-				((DecStructUnSpecContext)_localctx).ojb = structOrUnion();
+				((DecStructUnSpecContext)_localctx).obj = structOrUnion();
 				setState(560);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
@@ -3524,11 +3524,19 @@ public class CParser extends Parser {
 	}
 
 	public static class StructOrUnionContext extends ParserRuleContext {
-		public Token id;
 		public StructOrUnionContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_structOrUnion; }
+	 
+		public StructOrUnionContext() { }
+		public void copyFrom(StructOrUnionContext ctx) {
+			super.copyFrom(ctx);
+		}
+	}
+	public static class StructStringLiteralContext extends StructOrUnionContext {
+		public Token id;
+		public StructStringLiteralContext(StructOrUnionContext ctx) { copyFrom(ctx); }
 	}
 
 	public final StructOrUnionContext structOrUnion() throws RecognitionException {
@@ -3536,13 +3544,14 @@ public class CParser extends Parser {
 		enterRule(_localctx, 66, RULE_structOrUnion);
 		int _la;
 		try {
+			_localctx = new StructStringLiteralContext(_localctx);
 			enterOuterAlt(_localctx, 1);
 			{
 			setState(571);
-			((StructOrUnionContext)_localctx).id = _input.LT(1);
+			((StructStringLiteralContext)_localctx).id = _input.LT(1);
 			_la = _input.LA(1);
 			if ( !(_la==Struct || _la==Union) ) {
-				((StructOrUnionContext)_localctx).id = (Token)_errHandler.recoverInline(this);
+				((StructStringLiteralContext)_localctx).id = (Token)_errHandler.recoverInline(this);
 			}
 			else {
 				if ( _input.LA(1)==Token.EOF ) matchedEOF = true;
