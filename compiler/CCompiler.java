@@ -346,7 +346,6 @@ class Pointer extends STO{
       if(value.equals("false")) value = "0";
       if(value.charAt(0) == '\"'){
         System.out.println("$LC" + getID() + ":");
-        System.out.println("\t.byte 0");
         String sstr = value.substring(1, value.length()-1); //removing the " "
         int i;
         for(i=0; i<sstr.length(); i++){
@@ -358,6 +357,7 @@ class Pointer extends STO{
           }
           System.out.println("\t.byte " + charVal);
         }
+        System.out.println("\t.byte 0");
         System.out.println(getID() + ":\n\t.word $LC" + getID());
       }else{
         Integer intValue = (int) Math.round(Double.parseDouble(value));
@@ -451,6 +451,10 @@ public class CCompiler extends CBaseVisitor<String> {
 
   // external declarations
   boolean extern = false;
+
+  // pointer strings
+  int lc_index = 0;
+  String lc_out = "";
 
   CCompiler(boolean d) {
     mem = 0;
@@ -1099,11 +1103,20 @@ public class CCompiler extends CBaseVisitor<String> {
           break;
         default:
           seenInt = true;
+          String op = "w";
+          switch(current_function_object.getParameter(i)){
+            case CHAR:
+              op = "b";
+              break;
+            case SHORT:
+              op = "h";
+              break;
+          }
           if(arg < 4){
-            System.out.println("sw $a" + arg++ + ", " + -4*(mem++) + "($sp)");
+            System.out.println("s" + op +  " $a" + arg++ + ", " + -4*(mem++) + "($sp)");
           }else{
-            System.out.println("lw $t1, " + 4*mem + "($t0)");
-            System.out.println("sw $t1, " + -4*(mem++) + "($sp)");
+            System.out.println("l" + op +  " $t1, " + 4*mem + "($t0)");
+            System.out.println("s" + op +  " $t1, " + -4*(mem++) + "($sp)");
           }
       }
     }
@@ -1117,6 +1130,8 @@ public class CCompiler extends CBaseVisitor<String> {
     setIDSymbolTable(("1" + functionName), current_function_object);
     current_function_object = null;
     System.out.println("\n.data\n"); // data directive for globals
+    System.out.println(lc_out);
+    lc_out = "";
     return "";
   }
 
@@ -1225,7 +1240,16 @@ public class CCompiler extends CBaseVisitor<String> {
         default:
           seenInt = true;
           if(arg < 4){
-            System.out.println("lw $a" + arg++ + ", " + 4*(offset++) + "($sp)");
+            switch(getIDSymbolTable(("1" + functionName)).getParameter(i)){
+              case CHAR:
+                System.out.println("lb $a" + arg++ + ", " + 4*(offset++) + "($sp)");
+                break;
+              case SHORT:
+                System.out.println("lh $a" + arg++ + ", " + 4*(offset++) + "($sp)");
+                break;
+              default:
+                System.out.println("lw $a" + arg++ + ", " + 4*(offset++) + "($sp)");
+            }
           }
       }
     }
@@ -1254,6 +1278,7 @@ public class CCompiler extends CBaseVisitor<String> {
     param_count += 1;
     current_type = parseType(this.visit(ctx.spec));
     this.visit(ctx.dec);
+    if(pointer_depth != 0) current_type = types.INT;
     current_function_object.addParameter(current_type);
     return "";
   }
@@ -1285,6 +1310,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override
   public String visitMultArgExprList(CParser.MultArgExprListContext ctx) { 
+    this.visit(ctx.args);
     Integer currentArgumentCount = current_arguments_context.pop();
     Integer offset = current_mem_context.pop();
     current_type = current_func_invoc.peek().getParameter(current_func_invoc.peek().getSize() - currentArgumentCount - 1);
@@ -1303,7 +1329,6 @@ public class CCompiler extends CBaseVisitor<String> {
     }
     current_mem_context.add(offset+1);
     current_arguments_context.add(currentArgumentCount+1);
-    this.visit(ctx.args);
     return "";
   }
 
@@ -1380,52 +1405,60 @@ public class CCompiler extends CBaseVisitor<String> {
         if(var.getSTOType() == STOtypes.ARR){
           System.out.println("addiu $v0, $fp, " + -4*getIDSymbolTable(id).getOffset()); // address of array. Ex: {int a[3]; return a;} returns address of array
         }else{
-          switch(var.getType()){
-            case CHAR:{
-              System.out.println("lb $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
-              break;
+          if(var.getSTOType() == STOtypes.PTR){
+            System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)"); // value of pointer is always in a word despite the type
+          }else{
+            switch(var.getType()){
+              case CHAR:{
+                System.out.println("lb $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+                break;
+              }
+              case SHORT:{
+                System.out.println("lh $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+                break;
+              }
+              case FLOAT:{
+                System.out.println("l.s $f0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+                break;
+              }
+              case DOUBLE:{
+                System.out.println("l.d $f0, " + -4*(getIDSymbolTable(id).getOffset()+1) + "($fp)"); // should load te pair into $f0, $f1
+                break;
+              }
+              default:
+                System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
+                break;
             }
-            case SHORT:{
-              System.out.println("lh $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
-              break;
-            }
-            case FLOAT:{
-              System.out.println("l.s $f0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
-              break;
-            }
-            case DOUBLE:{
-              System.out.println("l.d $f0, " + -4*(getIDSymbolTable(id).getOffset()+1) + "($fp)"); // should load te pair into $f0, $f1
-              break;
-            }
-            default:
-              System.out.println("lw $v0, " + -4*getIDSymbolTable(id).getOffset() + "($fp)");
-              break;
           }
         }
       }else{
         if(var.getSTOType() == STOtypes.ARR){
           System.out.println("lui $v0, %hi(" + id +")\naddiu $v0, $v0, %lo(" + id + ")");
         }else{
-          switch(var.getType()){
-            case CHAR:{
-                System.out.println("lui $v0,%hi(" + id + ")\nlb $v0,%lo(" + id + ")($v0)");
+          if(var.getSTOType() == STOtypes.PTR){
+            System.out.println("lui $v0,%hi(" + id + ")\nlw $v0,%lo(" + id + ")($v0)");
+          } else{
+            switch(var.getType()){
+              case CHAR:{
+                  System.out.println("lui $v0,%hi(" + id + ")\nlb $v0,%lo(" + id + ")($v0)");
+                  break;
+              }
+              case SHORT:{
+                  System.out.println("lui $v0,%hi(" + id + ")\nlh $v0,%lo(" + id + ")($v0)");
+                  break;
+              }
+              case FLOAT:{
+                  System.out.println("lui $v0,%hi(" + id + ")\nl.s $f0,%lo(" + id + ")($v0)");
+                  break;
+              }
+              case DOUBLE:{
+                  System.out.println("lui $v0,%hi(" + id + ")\nl.d $f0,%lo(" + id + "+4)($v0)");
+                  break;
+              }
+              default:{
+                System.out.println("lui $v0,%hi(" + id + ")\nlw $v0,%lo(" + id + ")($v0)");
                 break;
-            }
-            case SHORT:{
-                System.out.println("lui $v0,%hi(" + id + ")\nlh $v0,%lo(" + id + ")($v0)");
-                break;
-            }
-            case FLOAT:{
-                System.out.println("lui $v0,%hi(" + id + ")\nl.s $f0,%lo(" + id + ")($v0)");
-                break;
-            }
-            case DOUBLE:{
-                System.out.println("lui $v0,%hi(" + id + ")\nl.d $f0,%lo(" + id + "+4)($v0)");
-                break;
-            }
-            default:{
-              System.out.println("lui $v0,%hi(" + id + ")\nlw $v0,%lo(" + id + ")($v0)");
-              break;
+              }
             }
           }
         }
@@ -1433,7 +1466,6 @@ public class CCompiler extends CBaseVisitor<String> {
     }else{
       // throwIllegalArgument(id, "IdPrimaryExpr (ID NOT FOUND)");
       if(!halt) System.err.println("ID not found " + id);
-      return id;
     }
 
     // check if pointer / array
@@ -1444,7 +1476,8 @@ public class CCompiler extends CBaseVisitor<String> {
       if(var.getType() == types.DOUBLE) pointer_mul = 3; // multiply by 8 for doubles (2 memory locations)
     }
 
-    current_type = var.getType();
+    if(var.getSTOType() == STOtypes.PTR) current_type = types.INT;
+    else current_type = var.getType();
 
     return id;  // return function name to caller (invoke in case of function at parent level)
   }
@@ -1680,24 +1713,21 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override public String visitStrLitPrimaryExpr(CParser.StrLitPrimaryExprContext ctx) {
     String str = ctx.val.getText();
     String sstr = str.substring(1, str.length()-1); //removing the ""s or ''
-    int v[] = new int[sstr.length()];
+
+
+    lc_out += "\n$LC" + lc_index + ":";
     int i;
     for(i=0; i<sstr.length(); i++){
-      char curr = sstr.charAt(sstr.length()-i-1);
+      char curr = sstr.charAt(i);
       int charVal = (int)curr;
-      if(i+1 != sstr.length() && sstr.charAt(sstr.length()-i-2) == '\\'){
-        charVal = escapeSequenceValue("\\" + Character.toString(curr))[0];
+      if(curr == '\\'){
+        charVal = CCompiler.escapeSequenceValue(curr+ Character.toString(sstr.charAt(i+1)))[0];
         i++;
       }
-      v[i] =  charVal;
+      lc_out += "\n\t.byte " + charVal;
     }
-    mem = mem + v.length/4 + (v.length%4==0?0:1);
-    for(i=0; i<v.length; i++){
-      System.out.println("li $v0, " + ((((int)v[v.length - i - 1])<<24) >> 24));
-      System.out.println("sb $v0, " + (-4*mem+i) + "($sp)");
-    }
-    System.out.println("addiu $v0, $fp, " + (-4*mem++) );
-    
+    lc_out += "\n\t.byte 0";
+    System.out.println("lui $v0,%hi($LC" + lc_index + ")\naddiu $v0,$v0,%lo($LC" + lc_index++ + ")");
     return "";
   }
 
@@ -1925,7 +1955,7 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println(op + ".s $f0, $f0, $f2");
         break;
       default:
-        System.out.println(op + " $v0, $t0, $t1");
+        System.out.println(op + "u $v0, $t0, $t1");
     }
     return "";
   }
@@ -2239,8 +2269,6 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitOpEqualExpr(CParser.OpEqualExprContext ctx){
     threeOp(ctx);
     System.out.println("xor $v0, $t0, $t1"); // A^B = 0 only if A=B, non-zero otherwise
-    System.out.println("li $t2, 0");
-    System.out.println("li $t3, 1");
     switch(ctx.op.getText()){
       case "==":
         switch(current_type){
@@ -2669,7 +2697,7 @@ public class CCompiler extends CBaseVisitor<String> {
         default:
           System.out.println("lw $v0, 0($t2)");
           break;
-      } 
+      }
       // indexes = null; // clean indexing for next array
       index_position = -1;
       // put destination in $v1
