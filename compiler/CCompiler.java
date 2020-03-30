@@ -47,7 +47,7 @@ abstract class STO {
   public int pointerDepth;
 
   // struct extra
-  public Map<String, STO> members;
+  public Map<String, STO> members = new HashMap<String,STO>();
 
   // initializers for factory
   protected void initSTO(){
@@ -119,7 +119,9 @@ abstract class STO {
 
   // struct functions
   public STO getMember(String ID){return members.get(ID);}
-  public void setMember(String ID, STO obj){members.put(ID, obj);}
+  public void setMember(String ID, STO obj){
+    members.put(ID, obj);
+  }
   public Map<String, STO> getMembers(){return members;}
 
   // parse enum to int size
@@ -1741,10 +1743,9 @@ public class CCompiler extends CBaseVisitor<String> {
     
     //detect that it's a struct
     if(ctx.obj.getText().equals("struct")){
-      if(current_struct_object == null){
+      if(current_struct_object != null){
         current_struct_context.add(current_struct_object);    
-      }
-
+      } 
       //create struct variable, save ID 
       STO strObj = new StructDef(id);
       current_struct_object = strObj;    
@@ -1756,7 +1757,18 @@ public class CCompiler extends CBaseVisitor<String> {
       setIDSymbolTable(id, current_struct_object);
 
       //pop off stack when done, reload previous struct variable
-      current_struct_object = current_struct_context.pop();
+      if(!current_struct_context.empty()){
+        current_struct_object = current_struct_context.pop();
+      }
+      else{
+        //remove all global variables
+        for(Map.Entry<String, STO> var: current_struct_object.getMembers().entrySet()){
+          System.out.println("var: "+ var.getValue().getID());   
+          //remove member from symbol table
+          
+        }
+        current_struct_object = null;
+      }
     }
 
 
@@ -1769,34 +1781,38 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   @Override public String visitSingleStructDecList(CParser.SingleStructDecListContext ctx) {
-    return visitChildren(ctx);
+    visitChildren(ctx);
+    if(current_array_object!=null){
+      STO varObj = current_array_object;
+      current_struct_object.setMember(varObj.ID,varObj);
+      //remove object from symbol table
+    }
+    return "";
   }
   
   // left is type (visit) and right is ID but in typedefName context (just getText)
   @Override public String visitSpecSpecQualList(CParser.SpecSpecQualListContext ctx) {
     String type = ctx.type.getText();
+    current_type = parseType(type);
+
     try{
       //add member to struct
       String id = ctx.specL.getText();
-      STO varObj = new Variable(1, -1, id, isGlobalScope(), parseType(type));
-      current_struct_object.members.put(id,varObj);
+      STO varObj = new Variable(1, -1, id, isGlobalScope(), current_type);
+      current_struct_object.setMember(id,varObj);
+      //remove object from symbol table
     }
     catch(NullPointerException e){
-      visitChildren(ctx);
     }
 
-    // //if array
-    // if(id.charAt(END)=='['){
-    //   current_array_object = new Array(0, -1, id, isGlobalScope(), type, new ArrayList<Integer>());
-  
-    //   current_array_object.addDimension(Integer.parseInt(interpret(ctx.expr.getText())));
-  
-    //   int array_size = Integer.parseInt(interpret(ctx.expr.getText()));
-  
-    //   current_array_object.updateArraySize();
-    //   setIDSymbolTable(id, current_array_object);
-    // }
+    return "";
+  }
 
+  @Override public String visitEmptyStructDec(CParser.EmptyStructDecContext ctx){
+    visitChildren(ctx);
+    STO varObj = current_variable_object;
+    current_struct_object.setMember(varObj.ID,varObj);
+    //remove object from symbol table
     return "";
   }
 
@@ -2639,7 +2655,6 @@ public class CCompiler extends CBaseVisitor<String> {
     }else{
       id = this.visit(ctx.dec);
     }
-
     if(current_array_object == null){
       current_array_object = new Array(0, mem, id, isGlobalScope(), current_type, new ArrayList<Integer>());
     }
@@ -2647,9 +2662,12 @@ public class CCompiler extends CBaseVisitor<String> {
     current_array_object.addDimension(Integer.parseInt(interpret(ctx.expr.getText())));
 
     int array_size = Integer.parseInt(interpret(ctx.expr.getText()));
-
     current_array_object.updateArraySize();
     setIDSymbolTable(id, current_array_object);
+    if(current_struct_object != null){
+      System.out.println("id: "+id+"array: "+current_array_object.size);
+      current_struct_object.setMember(id,current_array_object);
+    }
     return id;
   }
 
