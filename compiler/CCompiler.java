@@ -1758,6 +1758,7 @@ public class CCompiler extends CBaseVisitor<String> {
         break;
       case "*":
         // store destination in $v1
+        System.out.println("Broke here");
         System.out.println("addu $v1, $v0, $zero");
         switch(getIDSymbolTable(id).getType()){
           case CHAR:
@@ -1846,6 +1847,7 @@ public class CCompiler extends CBaseVisitor<String> {
   // structs
 
   @Override public String visitStructTypeSpec(CParser.StructTypeSpecContext ctx){
+    // System.out.println("hi from struct type spec");
 
     // create 
     String id = visit(ctx.type);
@@ -1856,6 +1858,7 @@ public class CCompiler extends CBaseVisitor<String> {
   }
 
   @Override public String visitSpecDeclaration(CParser.SpecDeclarationContext ctx) {
+    visitChildren(ctx);
     return "";
   }
   
@@ -1886,7 +1889,7 @@ public class CCompiler extends CBaseVisitor<String> {
       else{
         //remove all global variables
         for(Map.Entry<String, STO> var: current_structdef_object.getMembers().entrySet()){
-          System.out.println("var: "+ var.getValue().getID());             
+          System.err.println("var: "+ var.getValue().getID());             
         }
         current_structdef_object = null;
       }
