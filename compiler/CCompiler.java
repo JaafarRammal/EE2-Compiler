@@ -48,6 +48,8 @@ abstract class STO {
 
   // struct extra
   public Map<String, STO> members = new HashMap<String,STO>();
+  protected ArrayList<Integer> sizes = new ArrayList<Integer>(); // just to make things easier, could have used ids list
+  protected ArrayList<String> ids = new ArrayList<String>(); // keep IDs in order for initialization
 
   // initializers for factory
   protected void initSTO(){
@@ -121,9 +123,17 @@ abstract class STO {
   public STO getMember(String ID){return members.get(ID);}
   public void setMember(String ID, STO obj){
     members.put(ID, obj);
+    sizes.add(typeSize(obj.getType()));
+    ids.add(ID);
     getSize(); //updates size
   }
   public Map<String, STO> getMembers(){return members;}
+  protected void setMembers(Map<String, STO> m){
+    members = m;
+    getSize();
+  }
+  public ArrayList<Integer> getSizes(){return sizes;}
+  public ArrayList<String> getIDs(){return ids;}
 
   // parse enum to int size
   protected int typeSize(types type){
@@ -384,13 +394,58 @@ class Struct extends STO{
   Struct(){initSTO();}
   Struct(int offset, String ID, boolean isGlobal, STO templateStruct){
     initSTO(0, offset, ID, isGlobal, false, null, null, STOtypes.STRUCT);
-    // initialize correctly using the templateStruct
+    //A. copy members and sizes
+    members = templateStruct.getMembers();
+    sizes = templateStruct.getSizes();
+    ids = templateStruct.getIDs();
+
+    //B. set the offsets of every member correctly. Use the IDs order to retrieve from the map
+    // reverse offset
+    setOffset(getOffset() - getSize());
+    // max row
+    int max_size = 0;
+    for(int s: sizes){
+      if(s>max_size){
+        max_size = s;
+      }
+    }
+    // start fitting one by one
+    int local_offset = 0;
+    for(String id: ids){
+      STO obj = getMember(id);
+      int s = typeSize(obj.getType());
+      if(s + local_offset > max_size){
+        local_offset = local_offset/max_size*max_size;
+      }
+      obj.setOffset(getOffset() + local_offset);
+      setMember(id, obj);
+      obj.print();
+    }
+
   }
   @Override public int getSize(){
     setSize(0);
-    for(Map.Entry<String, STO> var: getMembers().entrySet()){
-      setSize(size + var.getValue().getSize());     
+    //1. find largest variable size
+    int max_size = 0;
+    for(int s: sizes){
+      if(s>max_size){
+        max_size = s;
+      }
     }
+    //2. set as row size
+    int row_space = max_size;
+    int total_size;
+    //3. loop through entries. Fit it onto the row, leave when finished
+    int num_rows = 1;
+    for(int s: sizes){
+      // setSize(size + var.getValue().getSize());
+      if(row_space < s){
+        num_rows++;
+        row_space = max_size; //reset to new row
+      }
+      row_space -= s;
+    }
+    setSize(num_rows*max_size);
     return size;
   }
 }
@@ -402,9 +457,9 @@ class StructDef extends STO{
     setSize(0);
     //1. find largest variable size
     int max_size = 0;
-    for(Map.Entry<String, STO> var: getMembers().entrySet()){
-      if(typeSize(var.getValue().getType())>max_size){
-        max_size = typeSize(var.getValue().getType());
+    for(int s: sizes){
+      if(s>max_size){
+        max_size = s;
       }
     }
     //2. set as row size
@@ -412,14 +467,13 @@ class StructDef extends STO{
     int total_size;
     //3. loop through entries. Fit it onto the row, leave when finished
     int num_rows = 1;
-    for(Map.Entry<String, STO> var: getMembers().entrySet()){
-      //setSize(size + var.getValue().getSize());
-      if(row_space < typeSize(var.getValue().getType())){
+    for(int s: sizes){
+      // setSize(size + var.getValue().getSize());
+      if(row_space < s){
         num_rows++;
         row_space = max_size; //reset to new row
-      } else{
-        row_space -= typeSize(var.getValue().getType());
       }
+      row_space -= s;
     }
     setSize(num_rows*max_size);
     return size;
@@ -1781,6 +1835,7 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // structs
   @Override public String visitSpecDeclaration(CParser.SpecDeclarationContext ctx) {
+    // struct x a;
     return visitChildren(ctx);
   }
   
@@ -1802,17 +1857,13 @@ public class CCompiler extends CBaseVisitor<String> {
       this.visit(ctx.decL);
       halt = false;
       //save struct in symbol table
-      setIDSymbolTable(id, current_struct_object);
+      setIDSymbolTable("2" + id, current_struct_object); // because we can define struct x{}; and declare struct x x;
 
       //pop off stack when done, reload previous struct variable
       if(!current_struct_context.empty()){
         current_struct_object = current_struct_context.pop();
       }
       else{
-        //remove all global variables
-        for(Map.Entry<String, STO> var: current_struct_object.getMembers().entrySet()){
-          System.out.println("var: "+ var.getValue().getID());             
-        }
         current_struct_object = null;
       }
     }
