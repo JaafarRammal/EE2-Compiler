@@ -1074,15 +1074,17 @@ public interface CListener extends ParseTreeListener {
 	 */
 	void exitSingleStructUnSpec(CParser.SingleStructUnSpecContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link CParser#structOrUnion}.
+	 * Enter a parse tree produced by the {@code structStringLiteral}
+	 * labeled alternative in {@link CParser#structOrUnion}.
 	 * @param ctx the parse tree
 	 */
-	void enterStructOrUnion(CParser.StructOrUnionContext ctx);
+	void enterStructStringLiteral(CParser.StructStringLiteralContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link CParser#structOrUnion}.
+	 * Exit a parse tree produced by the {@code structStringLiteral}
+	 * labeled alternative in {@link CParser#structOrUnion}.
 	 * @param ctx the parse tree
 	 */
-	void exitStructOrUnion(CParser.StructOrUnionContext ctx);
+	void exitStructStringLiteral(CParser.StructStringLiteralContext ctx);
 	/**
 	 * Enter a parse tree produced by the {@code multStructDecList}
 	 * labeled alternative in {@link CParser#structDeclarationList}.

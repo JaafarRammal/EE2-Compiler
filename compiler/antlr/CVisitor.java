@@ -634,11 +634,12 @@ public interface CVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitSingleStructUnSpec(CParser.SingleStructUnSpecContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link CParser#structOrUnion}.
+	 * Visit a parse tree produced by the {@code structStringLiteral}
+	 * labeled alternative in {@link CParser#structOrUnion}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitStructOrUnion(CParser.StructOrUnionContext ctx);
+	T visitStructStringLiteral(CParser.StructStringLiteralContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code multStructDecList}
 	 * labeled alternative in {@link CParser#structDeclarationList}.

@@ -1096,13 +1096,13 @@ public class CBaseListener implements CListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterStructOrUnion(CParser.StructOrUnionContext ctx) { }
+	@Override public void enterStructStringLiteral(CParser.StructStringLiteralContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitStructOrUnion(CParser.StructOrUnionContext ctx) { }
+	@Override public void exitStructStringLiteral(CParser.StructStringLiteralContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

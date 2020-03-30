@@ -218,13 +218,13 @@ typeSpecifier
     ;
 
 structOrUnionSpecifier
-    :   ojb=structOrUnion id=Identifier? '{' decL=structDeclarationList '}' #decStructUnSpec
+    :   obj=structOrUnion id=Identifier? '{' decL=structDeclarationList '}' #decStructUnSpec
     |   obj=structOrUnion id=Identifier                                     #singleStructUnSpec
     ;
 
 structOrUnion
-    :   id=('struct'
-    |   'union')
+    :   id=('struct'           
+    |   'union')  #structStringLiteral
     ;
 
 structDeclarationList

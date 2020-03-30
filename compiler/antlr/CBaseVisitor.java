@@ -647,7 +647,7 @@ public class CBaseVisitor<T> extends AbstractParseTreeVisitor<T> implements CVis
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitStructOrUnion(CParser.StructOrUnionContext ctx) { return visitChildren(ctx); }
+	@Override public T visitStructStringLiteral(CParser.StructStringLiteralContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
