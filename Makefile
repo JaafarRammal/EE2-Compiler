@@ -2,9 +2,11 @@
 
 #place translator bytecode & compiler bash script in same folder
 bin/c_compiler:
+	export CLASSPATH=".:./antlr-4.8-complete.jar:$CLASSPATH"
+	sudo cp ./antlr-4.8-complete.jar /usr/local/lib
+	make java
 	rm -rf ./bin
 	mkdir bin
-	export CLASSPATH=".:./antlr-4.8-complete.jar:$CLASSPATH"
 	# make parser
 	# make simulator
 	cp ./c_compiler.sh ./bin

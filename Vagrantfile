@@ -49,10 +49,6 @@ Vagrant.configure(2) do |config|
       # JAVA dependencies
       sudo apt-get -y install openjdk-8-jdk-headless
       sudo apt-get -y install openjdk-8-jre-headless
-      sudo cd /usr/local/lib
-      sudo wget https://www.antlr.org/download/antlr-4.8-complete.jar
-      #sudo export CLASSPATH=".:/usr/local/lib/antlr-4.8-complete.jar:$CLASSPATH"
-      #sudo alias antlr4='java -jar /usr/local/lib/antlr-4.8-complete.jar'
-      #sudo alias grun='java org.antlr.v4.gui.TestRig'   
+      sudo apt-get -y install python 
 SHELL
 end
