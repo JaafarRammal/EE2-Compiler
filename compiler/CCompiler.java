@@ -123,8 +123,6 @@ abstract class STO {
   public STO getMember(String ID){return members.get(ID);}
   public void setMember(String ID, STO obj){
     members.put(ID, obj);
-    sizes.add(typeSize(obj.getType()));
-    ids.add(ID);
     getSize(); //updates size
   }
   public Map<String, STO> getMembers(){return members;}
@@ -416,15 +414,15 @@ class Struct extends STO{
     }
     // start fitting one by one
     int local_offset = 0;
-    for(String id: ids){
-      STO obj = getMember(id);
+    for(int i=0; i<ids.size(); i++){
+      STO obj = getMember(ids.get(i));
       int s = typeSize(obj.getType());
       if(s + local_offset > max_size){
-        local_offset = local_offset/max_size*max_size;
+        local_offset = local_offset/max_size*max_size + max_size;
       }
       obj.setOffset(getOffset() + local_offset);
-      setMember(id, obj);
-      obj.print();
+      local_offset += s;
+      setMember(ids.get(i), obj);
     }
 
   }
@@ -458,6 +456,12 @@ class Struct extends STO{
 class StructDef extends STO{
   StructDef(){initSTO();}
   StructDef(String ID){initSTO(0, -1, ID, true, false, null, null, STOtypes.STRUCTDEF);getSize();}
+  @Override public void setMember(String id, STO obj){
+    members.put(id, obj);
+    sizes.add(typeSize(obj.getType()));
+    ids.add(id.toString());
+    getSize(); //updates size
+  }
   @Override public int getSize(){
     setSize(0);
     //1. find largest variable size
@@ -1308,6 +1312,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
     String ID = ctx.id.getText();
+    if(halt) return ID;
     if((current_function_object == null) == isGlobalScope()){
       STO varObj;
       if(pointer_depth == 0){
@@ -1731,7 +1736,7 @@ public class CCompiler extends CBaseVisitor<String> {
           default:
             mem += current_array_object.getElementsCount();
         }
-    }else if(current_function_object == null){
+    }else if(current_function_object == null && current_struct1_object == null){
       if(!extern) getIDSymbolTable(id).initialize("0");
     }
     current_array_object = null; // we are done initializing the array
@@ -1884,12 +1889,14 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override public String visitInitSpecDeclaration(CParser.InitSpecDeclarationContext ctx) { 
     String typeval = this.visit(ctx.spec);
     current_type = parseType(typeval);
-    String id = this.visit(ctx.initList);
-
-    if(current_struct1_object!=null){
+    if(getIDSymbolTable(typeval) != null && getIDSymbolTable(typeval).getSTOType() == STOtypes.STRUCTDEF) current_struct1_object = new Struct();
+    this.visit(ctx.initList);
+    String id = ctx.initList.getText();
+    if(getIDSymbolTable(typeval) != null && getIDSymbolTable(typeval).getSTOType() == STOtypes.STRUCTDEF){
       STO templateStruct = getIDSymbolTable(typeval);
-      STO obj = new Struct(mem, id, isGlobalScope(), templateStruct);
+      STO obj = new Struct(--mem, id, isGlobalScope(), templateStruct);
       setIDSymbolTable(id, obj);
+      mem += obj.getSize();
     }
 
     extern = false;
@@ -1942,22 +1949,16 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // structs
 
-  @Override public String visitStructTypeSpec(CParser.StructTypeSpecContext ctx){
-    // System.out.println("hi from struct type spec");
-
-    // create 
-    String id = visit(ctx.type);
-    STO structObj = new Struct();
-    current_struct1_object = structObj;
-
-    return id;
-  }
-
   @Override public String visitSpecDeclaration(CParser.SpecDeclarationContext ctx) {
     visitChildren(ctx);
     return "";
   }
   
+  // struct a;
+  @Override public String visitSingleStructUnSpec(CParser.SingleStructUnSpecContext ctx) {
+    return ctx.id.getText();
+  }
+
   //struct a{int x; char b};
   @Override public String visitDecStructUnSpec(CParser.DecStructUnSpecContext ctx) {
     String id = ctx.id.getText();
@@ -1973,6 +1974,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
       halt = true;
       //visit rhs, adding variables to members
+      System.out.println(ctx.decL.getText());
       this.visit(ctx.decL);
       halt = false;
       //save struct in symbol table
@@ -1983,31 +1985,15 @@ public class CCompiler extends CBaseVisitor<String> {
         current_structdef_object = current_struct_context.pop();
       }
       else{
-        //remove all global variables
-        for(Map.Entry<String, STO> var: current_structdef_object.getMembers().entrySet()){
-          System.err.println("var: "+ var.getValue().getID());             
-        }
         current_structdef_object = null;
       }
     }
-
-
     return id;
-  }
-
-  //struct y;
-  @Override public String visitSingleStructUnSpec(CParser.SingleStructUnSpecContext ctx) {
-    return visitChildren(ctx);
   }
 
   @Override public String visitSingleStructDecList(CParser.SingleStructDecListContext ctx) {
     visitChildren(ctx);
-    if(current_array_object!=null){
-      STO varObj = current_array_object;
-      current_structdef_object.setMember(varObj.ID,varObj);
-      //remove object from symbol table
-    }
-    return "";
+    return current_structdef_object.getID();
   }
   
   // left is type (visit) and right is ID but in typedefName context (just getText)
@@ -2020,9 +2006,9 @@ public class CCompiler extends CBaseVisitor<String> {
       String id = ctx.specL.getText();
       STO varObj = new Variable(1, -1, id, isGlobalScope(), current_type);
       current_structdef_object.setMember(id,varObj);
-      //remove object from symbol table
     }
     catch(NullPointerException e){
+      System.err.println("hmmm something wrong happened I'm not a perfect compiler");
     }
 
     return "";
@@ -2030,10 +2016,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override public String visitEmptyStructDec(CParser.EmptyStructDecContext ctx){
     visitChildren(ctx);
-    STO varObj = current_variable_object;
-    current_structdef_object.setMember(varObj.ID,varObj);
-    //remove object from symbol table
-    return "";
+    return current_structdef_object.getID();
   }
 
   // end structs
