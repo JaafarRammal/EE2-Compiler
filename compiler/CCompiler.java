@@ -427,6 +427,13 @@ class Struct extends STO{
       setMember(ids.get(i), obj);
     }
 
+    if(isGlobal()){
+      System.out.println(".global " + getID() + "\n" + getID() + ":\n\t.word 0");
+      for(int i=1; i<getSize()/4; i++){
+        System.out.println("\t.word 0");
+      }
+    }
+
   }
   @Override public int getSize(){
     setSize(0);
@@ -1869,24 +1876,45 @@ public class CCompiler extends CBaseVisitor<String> {
     STO obj = getIDSymbolTable(id).getMember(invo);  // TODO: could be a pointer or an array, copy the necessary conditions check
     current_type = obj.getType();
     if(halt) return id;
-    System.out.println("addiu $v1, $fp, " + obj.getOffset());
-    switch(obj.getType()){
-      case DOUBLE:
-        System.out.println("l.d $f0, " + obj.getOffset() + "($fp)");
-        break;
-      case FLOAT:
-        System.out.println("l.s $f0, " + obj.getOffset() + "($fp)");
-        break;
-      case CHAR:
-        System.out.println("lb $v0, " + obj.getOffset() + "($fp)");
-        break;
-      case SHORT:
-        System.out.println("lh $v0, " + obj.getOffset() + "($fp)");
-        break;
-      default:
-        System.out.println("lw $v0, " + obj.getOffset() + "($fp)");
+    if(!getIDSymbolTable(id).isGlobal()){
+      System.out.println("addiu $v1, $fp, " + obj.getOffset());
+      switch(obj.getType()){
+        case DOUBLE:
+          System.out.println("l.d $f0, " + obj.getOffset() + "($fp)");
+          break;
+        case FLOAT:
+          System.out.println("l.s $f0, " + obj.getOffset() + "($fp)");
+          break;
+        case CHAR:
+          System.out.println("lb $v0, " + obj.getOffset() + "($fp)");
+          break;
+        case SHORT:
+          System.out.println("lh $v0, " + obj.getOffset() + "($fp)");
+          break;
+        default:
+          System.out.println("lw $v0, " + obj.getOffset() + "($fp)");
+      }
+    }else{
+      int offset = obj.getOffset();
+      System.out.println("la $v1, " + id + "+" + offset);
+      switch(obj.getType()){
+        case DOUBLE:
+          System.out.println("l.d $f0, 0($v1)");
+          break;
+        case FLOAT:
+          System.out.println("l.s $f0, 0($v1)");
+          break;
+        case CHAR:
+          System.out.println("lb $v0, 0($v1)");
+          break;
+        case SHORT:
+          System.out.println("lh $v0, 0($v1)");
+          break;
+        default:
+          System.out.println("lw $v0, 0($v1)");;
+      }
     }
-    return id;
+      return id;
   }
 
   @Override public String visitSpecDeclaration(CParser.SpecDeclarationContext ctx) {
@@ -2275,8 +2303,8 @@ public class CCompiler extends CBaseVisitor<String> {
     // $v0 contains the value of whatever was on the right
     // push right on stack
     
-    //for equating structs using memcpy
-    if(getIDSymbolTable(a).getSTOType() == STOtypes.STRUCT){
+    //for equating structs using memcpy if current_type == null, it's probably a struct on the side
+    if(getIDSymbolTable(a) != null && current_type == null && getIDSymbolTable(a).getSTOType() == STOtypes.STRUCT){
       STO varObj1 = getIDSymbolTable(a);
       STO varObj2 = getIDSymbolTable(b);
 
