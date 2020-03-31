@@ -1808,11 +1808,11 @@ public class CCompiler extends CBaseVisitor<String> {
     String id = ctx.initList.getText();
     if(getIDSymbolTable(typeval) != null && getIDSymbolTable(typeval).getSTOType() == STOtypes.STRUCTDEF){
       STO templateStruct = getIDSymbolTable(typeval);
-      STO obj = new Struct(--mem, id, isGlobalScope(), templateStruct);
+      STO obj = new Struct(-(--mem), id, isGlobalScope(), templateStruct);
       setIDSymbolTable(id, obj);
-      mem += obj.getSize()/4;
+      System.out.println(mem);
+      mem += obj.getSize();
     }
-
     extern = false;
     return id;
   }
@@ -2279,7 +2279,7 @@ public class CCompiler extends CBaseVisitor<String> {
     // push right on stack
     
     //for equating structs using memcpy
-    if(current_type== null){
+    if(getIDSymbolTable(a).getSTOType() == STOtypes.STRUCT){
       STO varObj1 = getIDSymbolTable(a);
       STO varObj2 = getIDSymbolTable(b);
 
