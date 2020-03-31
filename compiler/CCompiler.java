@@ -1580,7 +1580,8 @@ public class CCompiler extends CBaseVisitor<String> {
     pointer_jumps = 0;
     String id = ctx.id.getText();
     STO var = getIDSymbolTable(id);
-    if(var != null && !halt && var.getSTOType() != STOtypes.STRUCT){
+    if(var != null && !halt){
+      if(var.getSTOType() == STOtypes.STRUCT) return id;
       if(!var.isGlobal()){
         if(var.getSTOType() == STOtypes.ARR){
           System.out.println("addiu $v0, $fp, " + -4*getIDSymbolTable(id).getOffset()); // address of array. Ex: {int a[3]; return a;} returns address of array
@@ -3075,11 +3076,14 @@ public class CCompiler extends CBaseVisitor<String> {
     String id = this.visit(ctx.expr);
 
     STO var = getIDSymbolTable(id);
-    types t = var.getType();
-    int size = typeSize(t);
-
-    String ret_size = Integer.toString(size);
-    System.out.println("li $v0, " + ret_size);
+    if(var.getSTOType() == STOtypes.STRUCT){
+      System.out.println("li $v0, " + var.getSize());
+    }else{
+      types t = var.getType();
+      int size = typeSize(t);
+      String ret_size = Integer.toString(size);
+      System.out.println("li $v0, " + ret_size);
+    }
 
     return "";
   }
