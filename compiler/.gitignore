@@ -1,4 +1,4 @@
-antlr/*
-.antlr/*
+antlr/*.class
+.antlr/*.class
 *.class
 *.DS_STORE

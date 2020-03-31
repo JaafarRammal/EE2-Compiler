@@ -1,5 +1,5 @@
 int g()
 {
-    char *x="\\";
+    char *x="\n";
     return x[0];
 }

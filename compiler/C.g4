@@ -185,12 +185,12 @@ initDeclarator
     ;
 
 storageClassSpecifier
-    :   type=('typedef'
+    :   type=('typedef'           
     |   'extern'
     |   'static'
     |   '_Thread_local'
     |   'auto'
-    |   'register')
+    |   'register')             #typeDefStorageClassSpec  
     ;
 
 typeSpecifier
@@ -218,13 +218,13 @@ typeSpecifier
     ;
 
 structOrUnionSpecifier
-    :   ojb=structOrUnion id=Identifier? '{' decL=structDeclarationList '}' #decStructUnSpec
+    :   obj=structOrUnion id=Identifier? '{' decL=structDeclarationList '}' #decStructUnSpec
     |   obj=structOrUnion id=Identifier                                     #singleStructUnSpec
     ;
 
 structOrUnion
-    :   id=('struct'
-    |   'union')
+    :   id=('struct'           
+    |   'union')  #structStringLiteral
     ;
 
 structDeclarationList
@@ -311,7 +311,7 @@ directDeclarator
     |   dec=directDeclarator '(' paramL=parameterTypeList ')'                                                   #paramlDirDec
     |   dec=directDeclarator '(' idL=identifierList? ')'                                                        #idlDirDec
     |   id=Identifier ':' seq=DigitSequence                                                                     #dsDirDec   // bit field
-    |   '(' type=typeSpecifier? ptr=pointer dec=directDeclarator ')'                                            #ptrDirDec  // function pointer like: (__cdecl *f)
+    // |   '(' type=typeSpecifier? ptr=pointer dec=directDeclarator ')'                                            #ptrDirDec  // function pointer like: (__cdecl *f)
     ;
 
 gccDeclaratorExtension

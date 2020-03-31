@@ -6,5 +6,5 @@ int main(){
 
 float* z = &y;
 
-return *z;
+return (*z==23);
 }

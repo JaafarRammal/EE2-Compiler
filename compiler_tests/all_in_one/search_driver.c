@@ -4,6 +4,6 @@ int main()
 {
     char *s="abcdef";
 
-    char *p=search((char*)s,'c');
+    char *p=search(s,'c');
     return !(p==s+2);
 }

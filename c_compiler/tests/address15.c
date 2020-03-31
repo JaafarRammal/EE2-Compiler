@@ -11,5 +11,5 @@ float** z = &j;
 *p = 67;
 
 
-return **z + *i + *j +*p;
+return ((**z + *i + *j +*p) == 237.1);
 }

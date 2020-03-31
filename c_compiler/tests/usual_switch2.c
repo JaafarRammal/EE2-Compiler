@@ -14,16 +14,16 @@ int main(){
 					return 23;
 			}
 			x=21;
-			return;
+			return -1;
 		case 2:
 			x=55;
-			return;
+			return -2;
 		case 4:
 			x=66;
-			return;
+			return -3;
 		case 8:
 			x=87;
-			return;
+			return -4;
 	}
 
 return x;

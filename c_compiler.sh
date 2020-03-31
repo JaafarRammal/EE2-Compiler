@@ -37,7 +37,7 @@ then
   BINARY_PATH="${base_path%.*}.bin"
 
   # Running C program into our Java C compiler
-  output=$(printf "$C_SOURCEFILE" | java compiler.CCompiler)
+  output=$(printf '%s\n' "$C_SOURCEFILE" | java compiler.CCompiler)
 
   # Reading output from Compiler ompiler line by line, including indentation 
   IFS=''
