@@ -49,6 +49,6 @@ Vagrant.configure(2) do |config|
       # JAVA dependencies
       sudo apt-get -y install openjdk-8-jdk-headless
       sudo apt-get -y install openjdk-8-jre-headless
-      sudo apt-get -y install python 
+      sudo apt-get -y install python
 SHELL
 end

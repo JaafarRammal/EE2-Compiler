@@ -1,0 +1,38 @@
+
+.data
+
+# f: function full
+	.set noreorder
+	.text
+	.align 2
+	.globl f
+f:
+move $t0, $sp
+# f: function entry
+addiu $sp, $sp, -12
+sw $fp, 4($sp)
+sw $ra, 8($sp)
+move $fp, $sp
+
+s.s $f12, 0($sp)
+s.s $f14, -4($sp)
+# f: function body
+l.s $f0, 0($fp)
+s.s $f0, -8($sp)
+l.s $f0, -4($fp)
+s.s $f0, -12($sp)
+l.s $f2, -12($sp)
+l.s $f0, -8($sp)
+add.s $f0, $f0, $f2
+j _return_f
+nop
+# f: function return
+_return_f:
+move $sp, $fp
+lw $ra, 8($fp)
+lw $fp, 4($fp)
+addiu $sp, $sp, 12
+jr $ra
+nop
+
+.data

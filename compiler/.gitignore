@@ -1,4 +1,1 @@
 *.DS_STORE
-antlr/*.class
-.antlr/*.class
-*.class
