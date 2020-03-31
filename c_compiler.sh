@@ -7,6 +7,9 @@
 #catch python code after line "Equivalent python is: "
 #store text into argument $4 (check print)
 
+export CLASSPATH=".:/usr/local/lib/antlr-4.8-complete.jar:$CLASSPATH"
+alias antlr4='java -jar /usr/local/lib/antlr-4.8-complete.jar'
+alias grun='java org.antlr.v4.gui.TestRig'
 
 if [ $1 == "--translate" ]
 then
