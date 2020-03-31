@@ -23,7 +23,7 @@ import java.lang.Double.*;
 import java.util.Arrays;
 
 
-enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED, SIGNED, SHORT, VOID};
+enum types {INT, CHAR, DOUBLE, FLOAT, UNSIGNED, SIGNED, SHORT, VOID, STRUCTVAR};
 enum STOtypes {VAR, ARR, PTR, FUN, STR, DEF, STRUCTDEF, STRUCT};
 
 abstract class STO {
@@ -457,7 +457,7 @@ class Struct extends STO{
 
 class StructDef extends STO{
   StructDef(){initSTO();}
-  StructDef(String ID){initSTO(0, -1, ID, true, false, null, null, STOtypes.STRUCTDEF);getSize();}
+  StructDef(String ID){initSTO(0, -1, ID, true, false, types.STRUCTVAR, null, STOtypes.STRUCTDEF);getSize();}
   @Override public void setMember(String id, STO obj){
     members.put(id, obj);
     sizes.add(typeSize(obj.getType()));
@@ -1508,8 +1508,9 @@ public class CCompiler extends CBaseVisitor<String> {
     pointer_jumps = 0;
     String id = ctx.id.getText();
     STO var = getIDSymbolTable(id);
+    
     if(var != null && !halt){
-      if(var.getSTOType() == STOtypes.STRUCT) return id;
+      if(var.getSTOType() == STOtypes.STRUCT){current_type = var.getType(); return id;}
       if(!var.isGlobal()){
         if(var.getSTOType() == STOtypes.ARR){
           System.out.println("addiu $v0, $fp, " + -4*getIDSymbolTable(id).getOffset()); // address of array. Ex: {int a[3]; return a;} returns address of array
@@ -1666,7 +1667,7 @@ public class CCompiler extends CBaseVisitor<String> {
           default:
             mem += current_array_object.getElementsCount();
         }
-    }else if(current_function_object == null && current_struct1_object == null){
+    }else if(current_function_object == null && current_struct_object == null){
       if(!extern) getIDSymbolTable(id).initialize("0");
     }
     current_array_object = null; // we are done initializing the array
@@ -1802,10 +1803,13 @@ public class CCompiler extends CBaseVisitor<String> {
   // Getting variable type
   @Override public String visitInitSpecDeclaration(CParser.InitSpecDeclarationContext ctx) { 
     String typeval = this.visit(ctx.spec);
-    current_type = parseType(typeval);
-    if(getIDSymbolTable(typeval) != null && getIDSymbolTable(typeval).getSTOType() == STOtypes.STRUCTDEF) current_struct1_object = new Struct();
-    this.visit(ctx.initList);
     String id = ctx.initList.getText();
+
+    current_type = parseType(typeval);
+    System.out.println(current_type);
+
+    if(getIDSymbolTable(typeval) != null && getIDSymbolTable(typeval).getSTOType() == STOtypes.STRUCTDEF) current_struct_object = new Struct(mem, id, isGlobalScope(), getIDSymbolTable(typeval));
+    this.visit(ctx.initList);
     if(getIDSymbolTable(typeval) != null && getIDSymbolTable(typeval).getSTOType() == STOtypes.STRUCTDEF){
       STO templateStruct = getIDSymbolTable(typeval);
       STO obj = new Struct(--mem, id, isGlobalScope(), templateStruct);
@@ -1817,7 +1821,7 @@ public class CCompiler extends CBaseVisitor<String> {
     return id;
   }
 
-  @Override public String visitBaseTypeSpec(CParser.BaseTypeSpecContext ctx) { 
+  @Override public String visitBaseTypeSpec(CParser.BaseTypeSpecContext ctx) {
     current_type = parseType(ctx.type.getText());
     return ctx.type.getText();
   }
@@ -2269,7 +2273,7 @@ public class CCompiler extends CBaseVisitor<String> {
     // will be modified later for arrays
 
     halt = true;
-    this.visit(ctx.left); // very ugly, will generate garbage assembly unused. This is because we need to update the current_type
+    String t = this.visit(ctx.left); // very ugly, will generate garbage assembly unused. This is because we need to update the current_type
     halt = false;
 
     this.visit(ctx.right);
@@ -2277,6 +2281,8 @@ public class CCompiler extends CBaseVisitor<String> {
     String load = "lw ";
     // $v0 contains the value of whatever was on the right
     // push right on stack
+    System.out.println("\nVAL t: "+t);
+
     switch(current_type){
       case FLOAT:
         System.out.println("s.s $f0, " + -4*(mem++) + "($sp)");
@@ -2298,6 +2304,18 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("sh $v0, " + -4*(mem++) + "($sp)"); 
         store = "sh ";
         load = "lh ";  
+        break;
+      case STRUCTVAR:
+        //Must get size
+        //System.out.println("sh $v0, " + -4*(mem++) + "($sp)"); 
+        System.out.println("HEllOOOOOOOOOOO");
+        current_struct_object.print();
+        // addiu   $2,$fp,24 //mem offset of 
+        // addiu   $3,$fp,64
+        // li      $4,40                 # 0x28
+        // move    $6,$4
+        // move    $5,$3
+        // move    $4,$2
         break;
       default:
         System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
