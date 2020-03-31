@@ -7,5 +7,5 @@ int main(){
 	float** z = &x;
 	float*** h = &z;
 
-	return ***(h);
+	return (***(h)==8);
 }

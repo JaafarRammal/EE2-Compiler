@@ -123,8 +123,6 @@ abstract class STO {
   public STO getMember(String ID){return members.get(ID);}
   public void setMember(String ID, STO obj){
     members.put(ID, obj);
-    sizes.add(typeSize(obj.getType()));
-    ids.add(ID);
     getSize(); //updates size
   }
   public Map<String, STO> getMembers(){return members;}
@@ -373,9 +371,14 @@ class Pointer extends STO{
         System.out.println("\t.byte 0");
         System.out.println(getID() + ":\n\t.word $LC" + getID());
       }else{
-        Integer intValue = (int) Math.round(Double.parseDouble(value));
-        System.out.println(".global " + getID());
-        System.out.println(getID() + ":\n\t.word " + intValue);
+        if(value.charAt(0) == '&'){
+          System.out.println(".global " + getID());
+          System.out.println(getID() + ":\n\t.word " + value.substring(1, value.length()));
+        }else{
+          Integer intValue = (int) Math.round(Double.parseDouble(value));
+          System.out.println(".global " + getID());
+          System.out.println(getID() + ":\n\t.word " + intValue);
+        }
       }
     }
   }
@@ -401,7 +404,7 @@ class Struct extends STO{
 
     //B. set the offsets of every member correctly. Use the IDs order to retrieve from the map
     // reverse offset
-    setOffset(getOffset() - getSize());
+    setOffset(getOffset() - getSize() + Math.min(4, getSize()));
     // max row
     int max_size = 0;
     for(int s: sizes){
@@ -411,15 +414,17 @@ class Struct extends STO{
     }
     // start fitting one by one
     int local_offset = 0;
-    for(String id: ids){
-      STO obj = getMember(id);
+    int row = 1;
+    for(int i=0; i<ids.size(); i++){
+      STO obj = getMember(ids.get(i));
       int s = typeSize(obj.getType());
       if(s + local_offset > max_size){
-        local_offset = local_offset/max_size*max_size;
+        local_offset = max_size * row;
+        row ++;
       }
       obj.setOffset(getOffset() + local_offset);
-      setMember(id, obj);
-      obj.print();
+      local_offset += s;
+      setMember(ids.get(i), obj);
     }
 
   }
@@ -453,6 +458,12 @@ class Struct extends STO{
 class StructDef extends STO{
   StructDef(){initSTO();}
   StructDef(String ID){initSTO(0, -1, ID, true, false, null, null, STOtypes.STRUCTDEF);getSize();}
+  @Override public void setMember(String id, STO obj){
+    members.put(id, obj);
+    sizes.add(typeSize(obj.getType()));
+    ids.add(id.toString());
+    getSize(); //updates size
+  }
   @Override public int getSize(){
     setSize(0);
     //1. find largest variable size
@@ -532,6 +543,7 @@ public class CCompiler extends CBaseVisitor<String> {
   types current_type = null;
   int pointer_depth = 0;
   int pointer_mul = 0;
+  int pointer_jumps = 0;
 
   // array initialization
   int index_position = -1;
@@ -679,8 +691,8 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("l.s $f2, " + -4*(--mem) + "($sp)");
         break;
       case DOUBLE:
-        System.out.println("l.d $f2, " + -4*(--mem) + "($sp)");
-        mem--;
+        System.out.println("l.s $f3, " + -4*(mem--) + "($sp)");
+        System.out.println("l.s $f2, " + -4*(mem--) + "($sp)");
         break;
       default:
         System.out.println("lw $t1, " + -4*(--mem) + "($sp)");  // get right from stack
@@ -693,8 +705,8 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("l.s $f0, " + -4*(--mem) + "($sp)");
         break;
       case DOUBLE:
-        System.out.println("l.d $f0, " + -4*(--mem) + "($sp)");
-        mem--;
+        System.out.println("l.s $f3, " + -4*(mem--) + "($sp)");
+        System.out.println("l.s $f2, " + -4*(mem--) + "($sp)");
         break;
       default:
         System.out.println("lw $t0, " + -4*(--mem) + "($sp)");  // get right from stack
@@ -1236,6 +1248,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override
   public String visitIdDirDec(CParser.IdDirDecContext ctx){
     String ID = ctx.id.getText();
+    if(halt) return ID;
     if((current_function_object == null) == isGlobalScope()){
       STO varObj;
       if(pointer_depth == 0){
@@ -1450,7 +1463,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitIntConstPrimaryExpr(CParser.IntConstPrimaryExprContext ctx) {
     String intConst_val = ctx.val.getText();
 
-    if(!isGlobalScope()){
+    if(!isGlobalScope() && !halt){
       //If character literal (starts and ends with ')
       if((intConst_val.charAt(0) == '\'') & (intConst_val.charAt(intConst_val.length()-1) == '\'')){
         intConst_val = intConst_val.substring(1, intConst_val.length() - 1); //cutting out the ' '
@@ -1477,7 +1490,9 @@ public class CCompiler extends CBaseVisitor<String> {
             f0 = doubleBits(Double.parseDouble(intConst_val))[1];
             int f1 = doubleBits(Double.parseDouble(intConst_val))[0];
             System.out.println("li $t4, " + f0 + "\nsw $t4, " + -4*(mem++) + "($sp)");
-            System.out.println("li $t4, " + f1 + "\nsw $t4, " + -4*mem + "($sp)\nl.d $f0, " + -4*mem-- + "($sp)");
+            System.out.println("li $t4, " + f1 + "\nsw $t4, " + -4*mem + "($sp)");
+            System.out.println("l.s $f0, " + -4*mem-- + "($sp)");
+            System.out.println("l.s $f1, " + -4*mem + "($sp)");
             break;
           default:
             System.out.println("li $v0, " + intConst_val);
@@ -1489,12 +1504,12 @@ public class CCompiler extends CBaseVisitor<String> {
 
   ////////////////////////////////////////////////////////////////////////////////////
   // variable identifier
-  @Override
-
-  public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
+  @Override public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
+    pointer_jumps = 0;
     String id = ctx.id.getText();
     STO var = getIDSymbolTable(id);
     if(var != null && !halt){
+      if(var.getSTOType() == STOtypes.STRUCT) return id;
       if(!var.isGlobal()){
         if(var.getSTOType() == STOtypes.ARR){
           System.out.println("addiu $v0, $fp, " + -4*getIDSymbolTable(id).getOffset()); // address of array. Ex: {int a[3]; return a;} returns address of array
@@ -1516,7 +1531,8 @@ public class CCompiler extends CBaseVisitor<String> {
                 break;
               }
               case DOUBLE:{
-                System.out.println("l.d $f0, " + -4*(getIDSymbolTable(id).getOffset()+1) + "($fp)"); // should load te pair into $f0, $f1
+                System.out.println("l.s $f0, " + -4*(getIDSymbolTable(id).getOffset()+1) + "($fp)"); // should load te pair into $f0, $f1
+                System.out.println("l.s $f1, " + -4*(getIDSymbolTable(id).getOffset()) + "($fp)");
                 break;
               }
               default:
@@ -1650,7 +1666,7 @@ public class CCompiler extends CBaseVisitor<String> {
           default:
             mem += current_array_object.getElementsCount();
         }
-    }else if(current_function_object == null){
+    }else if(current_function_object == null && current_struct1_object == null){
       if(!extern) getIDSymbolTable(id).initialize("0");
     }
     current_array_object = null; // we are done initializing the array
@@ -1718,6 +1734,7 @@ public class CCompiler extends CBaseVisitor<String> {
   public String visitCastUnaryExpr(CParser.CastUnaryExprContext ctx){
     String id = this.visit(ctx.right);
     String unaryOp = this.visit(ctx.left);
+    if(halt) return id;
     switch(unaryOp){
       case "+":
         break;
@@ -1740,11 +1757,11 @@ public class CCompiler extends CBaseVisitor<String> {
         switch(current_type){
           case DOUBLE:
             System.out.println("li $t1,1072693248\nmtc1.d $t1, $f4");
-            System.out.println("sw $t1, " + -4*mem + "($sp)\nl.d $f0, " + -4*mem-- + "($sp)");
+            System.out.println("sw $t1, " + -4*mem + "($sp)\nl.s $f0, " + -4*mem-- + "($sp)\nl.s $f1, " + -4*mem + "($sp)");
             break;
           case FLOAT:
             System.out.println("li $t1,1065353216\nmtc1.d $t1, $f4");
-            System.out.println("c.eq.s $f4, $f0\nl.d $f0, " + -4*mem-- + "($sp)");
+            System.out.println("c.eq.s $f4, $f0\nl.s $f0, " + -4*mem-- + "($sp)");
             break;
           default:
           System.out.println("seq $v0, $v0, $zero"); // !v0 = $v0 == 0 ? 1 : 0
@@ -1758,7 +1775,6 @@ public class CCompiler extends CBaseVisitor<String> {
         break;
       case "*":
         // store destination in $v1
-        System.out.println("Broke here");
         System.out.println("addu $v1, $v0, $zero");
         switch(getIDSymbolTable(id).getType()){
           case CHAR:
@@ -1787,12 +1803,14 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override public String visitInitSpecDeclaration(CParser.InitSpecDeclarationContext ctx) { 
     String typeval = this.visit(ctx.spec);
     current_type = parseType(typeval);
-    String id = this.visit(ctx.initList);
-
-    if(current_struct_object!=null){
+    if(getIDSymbolTable(typeval) != null && getIDSymbolTable(typeval).getSTOType() == STOtypes.STRUCTDEF) current_struct1_object = new Struct();
+    this.visit(ctx.initList);
+    String id = ctx.initList.getText();
+    if(getIDSymbolTable(typeval) != null && getIDSymbolTable(typeval).getSTOType() == STOtypes.STRUCTDEF){
       STO templateStruct = getIDSymbolTable(typeval);
-      STO obj = new Struct(mem, id, isGlobalScope(), templateStruct);
+      STO obj = new Struct(--mem, id, isGlobalScope(), templateStruct);
       setIDSymbolTable(id, obj);
+      mem += obj.getSize()/4;
     }
 
     extern = false;
@@ -1845,11 +1863,32 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // structs
 
-  @Override public String visitStructTypeSpec(CParser.StructTypeSpecContext ctx){
-    String id = visit(ctx.type);
-    STO structObj = new Struct();
-    current_struct_object = structObj;
-
+  @Override public String visitFuncCallPostExpr(CParser.FuncCallPostExprContext ctx) {
+    String id = ctx.expr.getText();
+    String invo = ctx.id.getText();
+    // load value into $v0 / $f0
+    // load address into $v1
+    STO obj = getIDSymbolTable(id).getMember(invo);  // TODO: could be a pointer or an array, copy the necessary conditions check
+    current_type = obj.getType();
+    if(halt) return id;
+    System.out.println("addiu $v1, $fp, " + obj.getOffset());
+    switch(obj.getType()){
+      case DOUBLE:
+        System.out.println("l.s $f0, " + obj.getOffset() + "($fp)");
+        System.out.println("l.s $f1, " + (obj.getOffset()+4) + "($fp)");
+        break;
+      case FLOAT:
+        System.out.println("l.s $f0, " + obj.getOffset() + "($fp)");
+        break;
+      case CHAR:
+        System.out.println("lb $v0, " + obj.getOffset() + "($fp)");
+        break;
+      case SHORT:
+        System.out.println("lh $v0, " + obj.getOffset() + "($fp)");
+        break;
+      default:
+        System.out.println("lw $v0, " + obj.getOffset() + "($fp)");
+    }
     return id;
   }
 
@@ -1859,6 +1898,11 @@ public class CCompiler extends CBaseVisitor<String> {
     return "";
   }
   
+  // struct a;
+  @Override public String visitSingleStructUnSpec(CParser.SingleStructUnSpecContext ctx) {
+    return ctx.id.getText();
+  }
+
   //struct a{int x; char b};
   @Override public String visitDecStructUnSpec(CParser.DecStructUnSpecContext ctx) {
     String id = ctx.id.getText();
@@ -1887,29 +1931,12 @@ public class CCompiler extends CBaseVisitor<String> {
         current_structdef_object = null;
       }
     }
-
-
-    return id;
-  }
-
-  //struct y;
-  @Override public String visitSingleStructUnSpec(CParser.SingleStructUnSpecContext ctx) {
-      String id = ctx.id.getText();
-      //create struct variable, save ID 
-      STO strObj = new StructDef(id);
-      setIDSymbolTable(id, strObj);
-
     return id;
   }
 
   @Override public String visitSingleStructDecList(CParser.SingleStructDecListContext ctx) {
     visitChildren(ctx);
-    if(current_array_object!=null){
-      STO varObj = current_array_object;
-      current_structdef_object.setMember(varObj.ID,varObj);
-      //remove object from symbol table
-    }
-    return "";
+    return current_structdef_object.getID();
   }
   
   // left is type (visit) and right is ID but in typedefName context (just getText)
@@ -1922,9 +1949,9 @@ public class CCompiler extends CBaseVisitor<String> {
       String id = ctx.specL.getText();
       STO varObj = new Variable(1, -1, id, isGlobalScope(), current_type);
       current_structdef_object.setMember(id,varObj);
-      //remove object from symbol table
     }
     catch(NullPointerException e){
+      System.err.println("hmmm something wrong happened I'm not a perfect compiler");
     }
 
     return "";
@@ -1932,10 +1959,7 @@ public class CCompiler extends CBaseVisitor<String> {
 
   @Override public String visitEmptyStructDec(CParser.EmptyStructDecContext ctx){
     visitChildren(ctx);
-    STO varObj = current_variable_object;
-    current_structdef_object.setMember(varObj.ID,varObj);
-    //remove object from symbol table
-    return "";
+    return current_structdef_object.getID();
   }
 
   // end structs
@@ -2260,8 +2284,8 @@ public class CCompiler extends CBaseVisitor<String> {
         load = "l.s "; 
         break;
       case DOUBLE:
-        mem++;
-        System.out.println("s.d $f0, " + -4*(mem++) + "($sp)"); 
+        System.out.println("s.s $f1, " + -4*(mem++) + "($sp)");
+        System.out.println("s.s $f0, " + -4*(mem++) + "($sp)"); 
         store = "s.d "; 
         load = "l.d ";
         break;
@@ -2279,9 +2303,9 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
     }
     indexes = null;
-    String id = this.visit(ctx.left); // an array or a pointer dereference will return the destination instead in $v1
+    String id = this.visit(ctx.left); // a struct or an array or a pointer dereference will return the destination instead in $v1
     int destination = 0;
-    if(getIDSymbolTable(id) != null){
+    if(getIDSymbolTable(id) != null && getIDSymbolTable(id).getSTOType() != STOtypes.STRUCT){
       if(getIDSymbolTable(id).isGlobal())
         System.out.println("lui $v1,%hi(" + id + ")\naddiu $v1, $v1, %lo(" + id + ")");
       else{
@@ -2310,8 +2334,8 @@ public class CCompiler extends CBaseVisitor<String> {
     
     System.out.println("mov" + extraOp + temp + ", " + reg); // store current value in $t2 (or temp)
     if(extraOp.equals("e ")) extraOp = " ";
-    System.out.println(load + reg + ", " + -4*(--mem) + "($sp)"); // pop right from stack. Ready to evaluate
-    if(current_type == types.DOUBLE) mem--;
+    if(current_type == types.DOUBLE) System.out.println("l.s $f0, " + -4*(mem--) + "($sp)\nl.s $f1, " + -4*(mem--) + "($sp)");
+    else System.out.println(load + reg + ", " + -4*(--mem) + "($sp)"); // pop right from stack. Ready to evaluate
     switch(ctx.op.getText()){
       case("="):
         break; // do nothing. Store into destination at the end
@@ -2349,7 +2373,8 @@ public class CCompiler extends CBaseVisitor<String> {
       default:
         throwIllegalArgument(ctx.op.getText(), "OpAssgnExpr");
     }
-    System.out.println(store + reg + ", 0($v1)");
+    if(store.equals("s.d ")) System.out.println("s.s $f0, 0($v1)\ns.s $f1, 4($v1)");
+    else System.out.println(store + reg + ", 0($v1)");
 
     return id;
   }
@@ -2872,7 +2897,8 @@ public class CCompiler extends CBaseVisitor<String> {
           break;
         }
         case DOUBLE:{
-          System.out.println("l.d $f0, 0($t2)");
+          System.out.println("l.s $f0, 0($t2)");
+          System.out.println("l.s $f1, 4($t2)");
           break;
         }
         default:
@@ -2966,11 +2992,14 @@ public class CCompiler extends CBaseVisitor<String> {
     String id = this.visit(ctx.expr);
 
     STO var = getIDSymbolTable(id);
-    types t = var.getType();
-    int size = typeSize(t);
-
-    String ret_size = Integer.toString(size);
-    System.out.println("li $v0, " + ret_size);
+    if(var.getSTOType() == STOtypes.STRUCT){
+      System.out.println("li $v0, " + var.getSize());
+    }else{
+      types t = var.getType();
+      int size = typeSize(t);
+      String ret_size = Integer.toString(size);
+      System.out.println("li $v0, " + ret_size);
+    }
 
     return "";
   }
