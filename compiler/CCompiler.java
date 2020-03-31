@@ -1666,7 +1666,7 @@ public class CCompiler extends CBaseVisitor<String> {
           default:
             mem += current_array_object.getElementsCount();
         }
-    }else if(current_function_object == null && current_struct1_object == null){
+    }else if(current_function_object == null && current_struct_object == null){
       if(!extern) getIDSymbolTable(id).initialize("0");
     }
     current_array_object = null; // we are done initializing the array
@@ -1803,7 +1803,7 @@ public class CCompiler extends CBaseVisitor<String> {
   @Override public String visitInitSpecDeclaration(CParser.InitSpecDeclarationContext ctx) { 
     String typeval = this.visit(ctx.spec);
     current_type = parseType(typeval);
-    if(getIDSymbolTable(typeval) != null && getIDSymbolTable(typeval).getSTOType() == STOtypes.STRUCTDEF) current_struct1_object = new Struct();
+    if(getIDSymbolTable(typeval) != null && getIDSymbolTable(typeval).getSTOType() == STOtypes.STRUCTDEF) current_struct_object = new Struct();
     this.visit(ctx.initList);
     String id = ctx.initList.getText();
     if(getIDSymbolTable(typeval) != null && getIDSymbolTable(typeval).getSTOType() == STOtypes.STRUCTDEF){
@@ -2269,14 +2269,41 @@ public class CCompiler extends CBaseVisitor<String> {
     // will be modified later for arrays
 
     halt = true;
-    this.visit(ctx.left); // very ugly, will generate garbage assembly unused. This is because we need to update the current_type
+    String a = this.visit(ctx.left); // very ugly, will generate garbage assembly unused. This is because we need to update the current_type
     halt = false;
 
-    this.visit(ctx.right);
+    String b = this.visit(ctx.right);
     String store = "sw ";
     String load = "lw ";
     // $v0 contains the value of whatever was on the right
     // push right on stack
+    
+    //for equating structs using memcpy
+    if(current_type== null){
+      STO varObj1 = getIDSymbolTable(a);
+      STO varObj2 = getIDSymbolTable(b);
+
+      System.out.println("addiu   $v0,$fp,"+ 4*(varObj1.getOffset())); 
+      System.out.println("addiu   $v1,$fp,"+ 4*(varObj2.getOffset())); 
+
+      //storing $a0-$a2
+      int temp_mem = mem;
+      System.out.println("sw $a0, " + -4*(mem++) + "($sp)\nsw $a1, " + -4*(mem++) + "($sp)\nsw $a2, " + -4*(mem++) + "($sp)");
+
+      //preparing procedure call in $a0 - $a2
+      System.out.println("li $a0,"+varObj1.getSize()); //setting up arguments for procedure call
+      System.out.println("move    $a2,$a0");
+      System.out.println("move    $a1,$v1");
+      System.out.println("move    $a0,$v0");
+      System.out.println("jal    memcpy");
+      System.out.println("nop");
+
+      //reload values to preserve $a0-$a2
+      System.out.println("lw $a0, " + -4*(temp_mem++) + "($sp)\nlw $a1, " + -4*(temp_mem++) + "($sp)\nlw $a2, " + -4*(temp_mem++) + "($sp)");
+
+      return a; //id of the first variable
+    } else{
+
     switch(current_type){
       case FLOAT:
         System.out.println("s.s $f0, " + -4*(mem++) + "($sp)");
@@ -2377,6 +2404,7 @@ public class CCompiler extends CBaseVisitor<String> {
     else System.out.println(store + reg + ", 0($v1)");
 
     return id;
+    }
   }
 
   // end assignment operator
