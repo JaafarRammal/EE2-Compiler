@@ -4,6 +4,7 @@
 bin/c_compiler:
 	rm -rf ./bin
 	mkdir bin
+	export CLASSPATH=".:./antlr-4.8-complete.jar:$CLASSPATH"
 	# make parser
 	# make simulator
 	cp ./c_compiler.sh ./bin
