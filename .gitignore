@@ -5,3 +5,5 @@ tmp/*
 test/*
 c_compiler/*
 c_translator/*
+ubuntu-xenial-16.04-cloudimg-console.log
+.vagrant/*
