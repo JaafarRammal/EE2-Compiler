@@ -2,7 +2,6 @@
 
 #place translator bytecode & compiler bash script in same folder
 bin/c_compiler:
-	make java
 	rm -rf ./bin
 	mkdir bin
 	# make parser

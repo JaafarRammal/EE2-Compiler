@@ -2,3 +2,6 @@ bin/*
 working/*
 *.DS_STORE
 tmp/*
+test/*
+c_compiler/*
+c_translator/*
