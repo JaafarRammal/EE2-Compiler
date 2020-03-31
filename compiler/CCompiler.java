@@ -404,7 +404,7 @@ class Struct extends STO{
 
     //B. set the offsets of every member correctly. Use the IDs order to retrieve from the map
     // reverse offset
-    setOffset(getOffset() - getSize());
+    setOffset(getOffset() - getSize() + Math.min(4, getSize()));
     // max row
     int max_size = 0;
     for(int s: sizes){
@@ -414,11 +414,13 @@ class Struct extends STO{
     }
     // start fitting one by one
     int local_offset = 0;
+    int row = 1;
     for(int i=0; i<ids.size(); i++){
       STO obj = getMember(ids.get(i));
       int s = typeSize(obj.getType());
       if(s + local_offset > max_size){
-        local_offset = local_offset/max_size*max_size + max_size;
+        local_offset = max_size * row;
+        row ++;
       }
       obj.setOffset(getOffset() + local_offset);
       local_offset += s;
@@ -1574,13 +1576,11 @@ public class CCompiler extends CBaseVisitor<String> {
 
   ////////////////////////////////////////////////////////////////////////////////////
   // variable identifier
-  @Override
-
-  public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
+  @Override public String visitIdPrimaryExpr(CParser.IdPrimaryExprContext ctx) {
     pointer_jumps = 0;
     String id = ctx.id.getText();
     STO var = getIDSymbolTable(id);
-    if(var != null && !halt){
+    if(var != null && !halt && var.getSTOType() != STOtypes.STRUCT){
       if(!var.isGlobal()){
         if(var.getSTOType() == STOtypes.ARR){
           System.out.println("addiu $v0, $fp, " + -4*getIDSymbolTable(id).getOffset()); // address of array. Ex: {int a[3]; return a;} returns address of array
@@ -1896,7 +1896,7 @@ public class CCompiler extends CBaseVisitor<String> {
       STO templateStruct = getIDSymbolTable(typeval);
       STO obj = new Struct(--mem, id, isGlobalScope(), templateStruct);
       setIDSymbolTable(id, obj);
-      mem += obj.getSize();
+      mem += obj.getSize()/4;
     }
 
     extern = false;
@@ -1949,6 +1949,34 @@ public class CCompiler extends CBaseVisitor<String> {
   ////////////////////////////////////////////////////////////////////////////////////
   // structs
 
+  @Override public String visitFuncCallPostExpr(CParser.FuncCallPostExprContext ctx) {
+    String id = ctx.expr.getText();
+    String invo = ctx.id.getText();
+    // load value into $v0 / $f0
+    // load address into $v1
+    STO obj = getIDSymbolTable(id).getMember(invo);  // TODO: could be a pointer or an array, copy the necessary conditions check
+    current_type = obj.getType();
+    if(halt) return id;
+    System.out.println("addiu $v1, $fp, " + obj.getOffset());
+    switch(obj.getType()){
+      case DOUBLE:
+        System.out.println("l.d $f0, " + obj.getOffset() + "($fp)");
+        break;
+      case FLOAT:
+        System.out.println("l.s $f0, " + obj.getOffset() + "($fp)");
+        break;
+      case CHAR:
+        System.out.println("lb $v0, " + obj.getOffset() + "($fp)");
+        break;
+      case SHORT:
+        System.out.println("lh $v0, " + obj.getOffset() + "($fp)");
+        break;
+      default:
+        System.out.println("lw $v0, " + obj.getOffset() + "($fp)");
+    }
+    return id;
+  }
+
   @Override public String visitSpecDeclaration(CParser.SpecDeclarationContext ctx) {
     visitChildren(ctx);
     return "";
@@ -1974,7 +2002,6 @@ public class CCompiler extends CBaseVisitor<String> {
 
       halt = true;
       //visit rhs, adding variables to members
-      System.out.println(ctx.decL.getText());
       this.visit(ctx.decL);
       halt = false;
       //save struct in symbol table
@@ -2328,7 +2355,7 @@ public class CCompiler extends CBaseVisitor<String> {
     types t;
     if(getIDSymbolTable(id1) != null) t = getIDSymbolTable(id1).getType();
     else t = getIDSymbolTable("1" + id1).getType();
-
+    if(t == null) t = current_type;
     this.visit(ctx.right);
     current_type = t;
     String store = "sw ";
@@ -2361,9 +2388,9 @@ public class CCompiler extends CBaseVisitor<String> {
         System.out.println("sw $v0, " + -4*(mem++) + "($sp)");
     }
     indexes = null;
-    String id = this.visit(ctx.left); // an array or a pointer dereference will return the destination instead in $v1
+    String id = this.visit(ctx.left); // a struct or an array or a pointer dereference will return the destination instead in $v1
     int destination = 0;
-    if(getIDSymbolTable(id) != null){
+    if(getIDSymbolTable(id) != null && getIDSymbolTable(id).getSTOType() != STOtypes.STRUCT){
       if(getIDSymbolTable(id).isGlobal())
         System.out.println("lui $v1,%hi(" + id + ")\naddiu $v1, $v1, %lo(" + id + ")");
       else{
