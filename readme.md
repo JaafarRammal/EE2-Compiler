@@ -6,7 +6,14 @@ We decided to use Java and ANTLR to build our compiler. The translator uses a Li
 
 ## Using the Compiler
 
-### Compiler build
+### Vagrant
+In your terminal, go to the directory ```EE2-Compiler```
+Setup using ```vagrant up``` then connect with ```vagrant ssh```
+Main directory in ```cd /vagrant```
+Leave the vagrant with ```exit``` or ```ctrl+d```
+Destroy the vagrant using ```vagrant destory```
+
+### Compiler/Translator build
 ```
 make bin/c_compiler
 ```
@@ -60,6 +67,10 @@ export CLASSPATH=".:/usr/local/lib/antlr-4.8-complete.jar:$CLASSPATH"
 alias antlr4='java -jar /usr/local/lib/antlr-4.8-complete.jar'
 alias grun='java org.antlr.v4.gui.TestRig' 
 ```
+
+### Using Java
+Cleanup with ```make clean```
+Build project with ```make java```
 
 ### Using ANTLR trees
 
