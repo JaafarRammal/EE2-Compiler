@@ -4,6 +4,18 @@ For our second year Language Processors module, we were tasked to build a C-comp
 
 We decided to use Java and ANTLR to build our compiler. The translator uses a Listener and traverses the parse-tree once. The compiler uses a visitor, and completes the whole compilation in one pass. Yet, for some nodes, we visit the children twice as the contexts are dependent on each another (such as the types within a two-operands operation)
 
+Please note we had to export .class files in order to get them working on vagrant VM as we couldn't get to control directory and defaults in the VM during the boot. The compiler was to be tested on one of those, which is why the last few commits were about exporting java classes and setting up java in the VM without directory EXPORT control.
+
+## Project managmement
+
+The project milestones and efforts can be viewed in details in the issues of the project. [Issue 15](https://github.com/JaafarRammal/EE2-Compiler/issues/15) refers to more details about the different efforts and startegies. Overall, we have completed ~90% of the goals setup. Many of the expecations were altered by the sudden Coronavirus outbreak (hopefully gone by the time you are reading this)
+
+### Authors
+
+Jaafar Rammal ([github](https://github.com/JaafarRammal))
+Raphael Bijaoui ([github](https://github.com/RaphaelBijaoui))
+
+
 ## Using the Compiler
 
 ### Vagrant
@@ -85,12 +97,3 @@ Some example trees are [here](sample_trees). You can generate a tree by running 
 make tree/compiler
 make tree/translator
 ```
-
-## Project managmement
-
-The project milestones and efforts can be viewed in details in the issues of the project. [Issue 15](https://github.com/JaafarRammal/EE2-Compiler/issues/15) refers to more details about the different efforts and startegies. Overall, we have completed ~90% of the goals setup. Many of the expecations were altered by the sudden Coronavirus outbreak (hopefully gone by the time you are reading this)
-
-### Authors
-
-Jaafar Rammal ([github](https://github.com/JaafarRammal))
-Raphael Bijaoui ([github](https://github.com/RaphaelBijaoui))
