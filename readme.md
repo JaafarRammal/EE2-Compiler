@@ -6,6 +6,8 @@ We decided to use Java and ANTLR to build our compiler. The translator uses a Li
 
 Please note we had to export .class files in order to get them working on vagrant VM as we couldn't get to control directory and defaults in the VM during the boot. The compiler was to be tested on one of those, which is why the last few commits were about exporting java classes and setting up java in the VM without directory EXPORT control.
 
+Our compiler scored 92% overall (rank 1st out of 36 compilers)
+
 ## Project managmement
 
 The project milestones and efforts can be viewed in details in the issues of the project. [Issue 15](https://github.com/JaafarRammal/EE2-Compiler/issues/15) refers to more details about the different efforts and startegies. Overall, we have completed ~90% of the goals setup. Many of the expecations were altered by the sudden Coronavirus outbreak (hopefully gone by the time you are reading this)
